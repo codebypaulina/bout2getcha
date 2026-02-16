@@ -1,33 +1,49 @@
-import { useRouter } from "next/router";
 import useSWR from "swr";
+import { useRouter } from "next/router";
 import styled from "styled-components";
 import Link from "next/link";
+import CloseIcon from "/public/icons/close.svg";
 import SettingsIcon from "/public/icons/settings.svg";
-import BackIcon from "/public/icons/back.svg";
-import AddIcon from "/public/icons/add.svg";
+import PreviousIcon from "/public/icons/previous.svg";
+import NextIcon from "/public/icons/next.svg";
+import AddIcon from "/public/icons/addNEU.svg";
 
 export default function CategoryDetailsPage() {
   const router = useRouter();
-  const { id, from } = router.query; // ID der entspr. category aus URL extrahiert // "from" auslesen, um an FormEditCategory weiterzugeben (für back navigation nach delete von category)
+  const { id, from } = router.query; // from, um an FormEditCategory weiterzugeben (für back navigation nach category-delete)
 
+  // *** [ fetch ]
   const { data: category, error: errorCategory } = useSWR(
     id ? `/api/categories/${id}` : null
   );
   const { data: transactions, error: errorTransactions } =
     useSWR("/api/transactions");
 
+  // *** [ guards ]
   if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
-  if (!category || !transactions) return <h3>Loading...</h3>;
+  if (!category || !transactions) return <h3>Loading ...</h3>;
 
+  // *** [ relevante transactions filtern ]
   const filteredTransactions = transactions.filter(
     (transaction) => transaction.category?._id === id
   );
 
   return (
     <ContentContainer>
-      <h1>Category Details</h1>
+      <ContentHeader>
+        <h1>Category Details</h1>
 
-      <CategoryContainer>
+        <CloseButton
+          type="button"
+          aria-label="Close category details"
+          title="Close"
+          onClick={() => router.back()}
+        >
+          <CloseIcon />
+        </CloseButton>
+      </ContentHeader>
+
+      <DetailsRow>
         <ColorTag
           color={
             category.type === "Income"
@@ -40,6 +56,9 @@ export default function CategoryDetailsPage() {
         <h2>{category.name}</h2>
 
         <SettingsButton
+          type="button"
+          aria-label="Edit category details"
+          title="Edit"
           onClick={() =>
             router.push(
               `/categories/${id}/edit${
@@ -52,11 +71,21 @@ export default function CategoryDetailsPage() {
         >
           <SettingsIcon />
         </SettingsButton>
-      </CategoryContainer>
+      </DetailsRow>
 
-      <BackButton onClick={() => router.back()}>
-        <BackIcon />
-      </BackButton>
+      <NavigationContainer>
+        <NavigationButton
+          type="button"
+          aria-label="Previous category"
+          title="Previous"
+        >
+          <PreviousIcon className="prev" />
+        </NavigationButton>
+
+        <NavigationButton type="button" aria-label="Next category" title="Next">
+          <NextIcon className="next" />
+        </NavigationButton>
+      </NavigationContainer>
 
       {filteredTransactions.length === 0 ? (
         <p className="no-transaction">No transactions in this category yet.</p>
@@ -65,7 +94,7 @@ export default function CategoryDetailsPage() {
           {filteredTransactions.map((transaction) => (
             <li key={transaction._id}>
               <StyledLink href={`/transactions/${transaction._id}`}>
-                <p>
+                <p className="date">
                   {new Date(transaction.date).toLocaleDateString("de-DE", {
                     day: "2-digit",
                     month: "2-digit",
@@ -73,7 +102,7 @@ export default function CategoryDetailsPage() {
                   })}
                 </p>
 
-                <p>{transaction.description}</p>
+                <p className="description">{transaction.description}</p>
 
                 <p className="amount">
                   {transaction.amount.toLocaleString("de-DE", {
@@ -88,7 +117,12 @@ export default function CategoryDetailsPage() {
         </ul>
       )}
 
-      <AddButton onClick={() => router.push(`/adding?category=${id}`)}>
+      <AddButton
+        type="button"
+        aria-label="Add transaction"
+        title="Add"
+        onClick={() => router.push(`/adding?category=${id}`)}
+      >
         <AddIcon />
       </AddButton>
     </ContentContainer>
@@ -97,16 +131,11 @@ export default function CategoryDetailsPage() {
 
 const ContentContainer = styled.div`
   padding: 2rem; // Abstand Bildschirmrand
-  margin: 0 auto; // container mittig
+  margin: 0 auto; // horizontal zentriert
   max-width: 450px;
 
-  h1,
   .no-transaction {
     text-align: center;
-  }
-
-  h1 {
-    margin-bottom: 1rem;
   }
 
   ul {
@@ -114,10 +143,47 @@ const ContentContainer = styled.div`
   }
 `;
 
-const CategoryContainer = styled.div`
+const ContentHeader = styled.div`
+  display: flex; // h1 + CloseButton nebeneinander
+  margin-bottom: 1rem; // Abstand DetailsRow
+
+  h1 {
+    font-size: 1.5rem;
+    flex: 1; // nimmt restlichen Platz in header
+    text-align: center;
+  }
+`;
+
+const CloseButton = styled.button`
+  background: transparent;
+  border: none;
+  cursor: pointer;
+
+  svg {
+    width: 22px;
+    height: 23px;
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
+  }
+  svg path[class*="circle"] {
+    fill: var(--button-background-color);
+  }
+  svg path[class*="X"] {
+    fill: var(--button-text-color);
+  }
+
+  &:hover {
+    transform: scale(1.07);
+
+    svg path[class*="X"] {
+      fill: var(--primary-text-color);
+    }
+  }
+`;
+
+const DetailsRow = styled.div`
   display: flex;
-  justify-content: center; // ColorTags + {category.name} zentriert
-  align-items: center; // ColorTags + {category.name} mittig in der Zeile
+  justify-content: center; // ColorTags + {category.name} horizontal zentriert
+  align-items: center; // ColorTags vertikal zentriert
   gap: 0.5rem;
 `;
 
@@ -130,84 +196,130 @@ const ColorTag = styled.span`
 `;
 
 const SettingsButton = styled.button`
-  border: none;
-  width: 25px;
-  height: 25px;
-  cursor: pointer;
   background: transparent;
+  border: none;
+  cursor: pointer;
 
-  display: flex; // SettingsIcon zentriert & mittig
-  justify-content: center;
-  align-items: center;
+  display: flex; // icon vertikal zentriert
+  margin-left: 0.5rem; // Abstand {category.name}
 
   svg {
-    width: 20px;
-    height: 20px;
-    color: var(--secondary-text-color);
+    width: 23px;
+    height: 23px;
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
+  }
+  svg path[class*="gear"] {
+    fill: var(--button-background-color);
+  }
+  svg path[class*="gear-ring"] {
+    fill: var(--button-text-color);
   }
 
   &:hover {
     transform: scale(1.07);
+
+    svg path[class*="gear-ring"] {
+      fill: var(--primary-text-color);
+    }
   }
 `;
 
-const BackButton = styled.button`
-  border: none;
-  border-radius: 10px;
-  width: 26px;
-  height: 19px;
-  cursor: pointer;
-  background-color: var(--secondary-text-color);
-  margin-bottom: 1rem; // Abstand zur list / no-transaction
+const NavigationContainer = styled.div`
+  display: flex; // buttons nebeneinander
+  justify-content: space-between; // prev links, next rechts
+  margin-bottom: 1rem; // Abstand list / no-transaction
+`;
 
-  display: flex; // BackIcon zentriert & mittig
-  justify-content: center;
-  align-items: center;
+const NavigationButton = styled.button`
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  background-color: var(--button-background-color);
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
   svg {
-    width: 14px;
-    height: 14px;
-    color: "var(--background-color)";
+    height: 10px;
+    width: 10px;
+    stroke: var(--button-text-color);
+  }
+  svg.prev {
+    margin-right: 2px;
+  }
+  svg.next {
+    margin-left: 2px;
   }
 
   &:hover {
     transform: scale(1.07);
+
+    svg {
+      stroke: var(--primary-text-color);
+    }
   }
 `;
 
 const AddButton = styled.button`
-  border: none;
-  width: 36px;
-  height: 36px;
-  cursor: pointer;
   background: transparent;
+  border: none;
+  cursor: pointer;
 
   display: block; // wegen Zentrierung
-  margin: 1rem auto 0; // Abstand zur list / no-transaction + zentriert
+  margin: 1rem auto 0; // Abstand list / no-transaction + zentriert
 
   svg {
-    width: 26px;
-    height: 26px;
-    color: var(--secondary-text-color);
+    width: 23px;
+    height: 22px;
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
+  }
+  svg path[class*="circle"] {
+    fill: var(--button-background-color);
+  }
+  svg rect[class*="plus"] {
+    fill: var(--button-text-color);
   }
 
   &:hover {
     transform: scale(1.07);
+
+    svg rect[class*="plus"] {
+      fill: var(--primary-text-color);
+    }
   }
 `;
 
 const StyledLink = styled(Link)`
   text-decoration: none;
-  display: grid; //      date | description | amount
-  grid-template-columns: 70px 1fr auto;
-  gap: 1rem;
+  display: flex;
+  gap: 1rem; // Abstand items
   padding-bottom: 0.2rem; // Abstand zw. Zeilen
 
-  .amount {
-    white-space: nowrap; // kein Umbruch
+  p {
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  p.date {
+    overflow: hidden;
+    min-width: 33px;
+  }
+
+  p.description {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 60px;
+  }
+
+  p.amount {
+    margin-left: auto; // rechts
+    font-weight: bold;
   }
 
   &:hover {
-    font-weight: bold;
+    p {
+      transform: scale(1.03);
+      color: var(--primary-text-color);
+    }
   }
 `;
