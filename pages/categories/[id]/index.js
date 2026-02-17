@@ -1,17 +1,76 @@
 import useSWR from "swr";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import styled from "styled-components";
 import Link from "next/link";
 import CloseIcon from "/public/icons/close.svg";
 import SettingsIcon from "/public/icons/settings.svg";
-import PreviousIcon from "/public/icons/previous.svg";
+import PrevIcon from "/public/icons/previous.svg";
 import NextIcon from "/public/icons/next.svg";
 import AddIcon from "/public/icons/addNEU.svg";
 
 export default function CategoryDetailsPage() {
   const router = useRouter();
-  const { id, from } = router.query; // from, um an FormEditCategory weiterzugeben (für back navigation nach category-delete)
+  const { id, from, navKey } = router.query;
 
+  // *** [ < > nav ] ***********************************************************************
+  // *** [ state ]: snapshot ID-Reihenfolge category-list
+  const [navIds, setNavIds] = useState(null);
+
+  // *** [ session storage ]: snapshot abrufen
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (!navKey) return;
+
+    const storedIds = sessionStorage.getItem(navKey);
+    if (!storedIds) return;
+
+    try {
+      const parsedIds = JSON.parse(storedIds);
+      if (Array.isArray(parsedIds)) setNavIds(parsedIds);
+    } catch {}
+  }, [router.isReady, navKey]);
+
+  // *** [ nav IDs ]: prev / next **********************************************************
+  const index = navIds ? navIds.indexOf(id) : -1; // aktuelle ID im array
+  const prevId = index > 0 ? navIds[index - 1] : null; // vorherige (sonst < disabled)
+  const nextId =
+    index >= 0 && navIds && index < navIds.length - 1
+      ? navIds[index + 1]
+      : null; // nächste (sonst > disabled)
+
+  console.log({ navKey, id, navIds, index, prevId, nextId });
+
+  // *** [ nav routes ] ********************************************************************
+  const fromQuery = from ? `?from=${encodeURIComponent(from)}` : ""; // back nav (HomePage / CategoriesPage)
+  const navKeyQuery = navKey
+    ? `${fromQuery ? "&" : "?"}navKey=${encodeURIComponent(navKey)}`
+    : ""; // < > nav
+
+  // *** [ nav actions ] *******************************************************************
+  function closeCatDetails() {
+    if (from) {
+      router.replace(from); // HomePage / CategoriesPage
+    } else {
+      router.replace("/categories"); // fallback
+    }
+  }
+
+  function editCatDetails() {
+    router.push(`/categories/${id}/edit${fromQuery}`); // für FormEditCategory nach category-delete
+  }
+
+  function goToPrevCat() {
+    if (!prevId) return;
+    router.push(`/categories/${prevId}${fromQuery}${navKeyQuery}`);
+  }
+
+  function goToNextCat() {
+    if (!nextId) return;
+    router.push(`/categories/${nextId}${fromQuery}${navKeyQuery}`);
+  }
+
+  // ***************************************************************************************
   // *** [ fetch ]
   const { data: category, error: errorCategory } = useSWR(
     id ? `/api/categories/${id}` : null
@@ -23,7 +82,8 @@ export default function CategoryDetailsPage() {
   if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
   if (!category || !transactions) return <h3>Loading ...</h3>;
 
-  // *** [ relevante transactions filtern ]
+  // ***************************************************************************************
+  // *** [ transactions ] filtern: nur von aktueller category
   const filteredTransactions = transactions.filter(
     (transaction) => transaction.category?._id === id
   );
@@ -37,7 +97,7 @@ export default function CategoryDetailsPage() {
           type="button"
           aria-label="Close category details"
           title="Close"
-          onClick={() => router.back()}
+          onClick={closeCatDetails}
         >
           <CloseIcon />
         </CloseButton>
@@ -59,33 +119,33 @@ export default function CategoryDetailsPage() {
           type="button"
           aria-label="Edit category details"
           title="Edit"
-          onClick={() =>
-            router.push(
-              `/categories/${id}/edit${
-                from ? `?from=${encodeURIComponent(from)}` : ""
-              }`
-              //  ${from ? `?from=${encodeURIComponent(from)}` : ""} übernimmt Herkunft (= from) in FormEditCategory, um nach delete dorthin zurück
-              // (ansonsten weiß in FormEditCategory nicht, ob davor auf pages/index.js oder pages/categories/index.js gewesen)
-            )
-          }
+          onClick={editCatDetails}
         >
           <SettingsIcon />
         </SettingsButton>
       </DetailsRow>
 
-      <NavigationContainer>
-        <NavigationButton
+      <NavRow>
+        <NavButton
           type="button"
           aria-label="Previous category"
           title="Previous"
+          disabled={!prevId}
+          onClick={goToPrevCat}
         >
-          <PreviousIcon className="prev" />
-        </NavigationButton>
+          <PrevIcon className="prev" />
+        </NavButton>
 
-        <NavigationButton type="button" aria-label="Next category" title="Next">
+        <NavButton
+          type="button"
+          aria-label="Next category"
+          title="Next"
+          disabled={!nextId}
+          onClick={goToNextCat}
+        >
           <NextIcon className="next" />
-        </NavigationButton>
-      </NavigationContainer>
+        </NavButton>
+      </NavRow>
 
       {filteredTransactions.length === 0 ? (
         <p className="no-transaction">No transactions in this category yet.</p>
@@ -224,13 +284,13 @@ const SettingsButton = styled.button`
   }
 `;
 
-const NavigationContainer = styled.div`
+const NavRow = styled.div`
   display: flex; // buttons nebeneinander
   justify-content: space-between; // prev links, next rechts
   margin-bottom: 1rem; // Abstand list / no-transaction
 `;
 
-const NavigationButton = styled.button`
+const NavButton = styled.button`
   border: none;
   border-radius: 50%;
   width: 22px;
@@ -244,10 +304,10 @@ const NavigationButton = styled.button`
     width: 10px;
     stroke: var(--button-text-color);
   }
-  svg.prev {
+  .prev {
     margin-right: 2px;
   }
-  svg.next {
+  .next {
     margin-left: 2px;
   }
 
@@ -257,6 +317,11 @@ const NavigationButton = styled.button`
     svg {
       stroke: var(--primary-text-color);
     }
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
   }
 `;
 

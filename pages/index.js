@@ -92,7 +92,17 @@ export default function HomePage() {
     (category) => !hiddenCategories.includes(category._id)
   );
 
-  // *** [ 2. chart ] **********************************************************************
+  // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
+  // *** [snapshot]
+  const navKey = "catNav:/"; // sessionStorage-key
+  const navIds = sortedCategories.map((category) => category._id); // ID-array
+
+  // *** [snapshot]: in sessionStorage speichern (für < > nav in CategoryDetailsPage)
+  function storeCatNavSnapshot() {
+    sessionStorage.setItem(navKey, JSON.stringify(navIds));
+  }
+
+  // *** [ 3. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = visibleCategories.map((category) => ({
     id: category._id,
@@ -181,7 +191,8 @@ export default function HomePage() {
               $isHidden={hiddenCategories.includes(category._id)}
             >
               <StyledLink
-                href={`/categories/${category._id}?from=/`} // Eintrittspunkt CategoryDetailsPage  ;  "?from/": HomePage als Herkunft merken, um nach delete von category wieder hierhin zurück (anstatt zur jetzt gelöschten CategoryDetailsPage)
+                href={`/categories/${category._id}?from=/&navKey=${encodeURIComponent(navKey)}`} // "?from/": Herkunft = HomePage (nach category-delete) // "&navKey=...": ID-Reihenfolge (< > nav)
+                onClick={storeCatNavSnapshot}
                 $isHidden={hiddenCategories.includes(category._id)}
               >
                 <ColorTag

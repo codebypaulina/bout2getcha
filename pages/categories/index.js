@@ -88,7 +88,17 @@ export default function CategoriesPage() {
       return a.name.localeCompare(b.name, "de-DE"); // Betrag gleich: A-Z
     });
 
-  // *** [ 2. chart ] **********************************************************************
+  // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
+  // *** [snapshot]
+  const navKey = `catNav:/categories:${typeFilter}`; // sessionStorage-key
+  const navIds = sortedActiveCategories.map((category) => category._id); // ID-array
+
+  // *** [snapshot]: in sessionStorage speichern (für < > nav in CategoryDetailsPage)
+  function storeCatNavSnapshot() {
+    sessionStorage.setItem(navKey, JSON.stringify(navIds));
+  }
+
+  // *** [ 3. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = sortedActiveCategories
     .filter((category) => category.totalAmount > 0)
@@ -184,7 +194,8 @@ export default function CategoriesPage() {
           {sortedActiveCategories.map((category) => (
             <ListItem key={category._id} $empty={category.totalAmount <= 0}>
               <StyledLink
-                href={`/categories/${category._id}?from=/categories`} // Eintrittspunkt CategoryDetailsPage  ;  "?from/categories": CategoriesPage als Herkunft merken, um nach delete von category wieder hierhin zurück (anstatt zur jetzt gelöschten CategoryDetailsPage)
+                href={`/categories/${category._id}?from=/categories&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft = CategoriesPage (nach category-delete) // "&navKey=...": ID-Reihenfolge (< > nav)
+                onClick={storeCatNavSnapshot}
               >
                 <ColorTag $categoryColor={category.color} />
 
