@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import styled from "styled-components";
 import Link from "next/link";
@@ -60,15 +60,26 @@ export default function CategoryDetailsPage() {
     router.push(`/categories/${id}/edit${fromQuery}`); // für FormEditCategory nach category-delete
   }
 
-  function goToPrevCat() {
+  const goToPrevCat = useCallback(() => {
     if (!prevId) return;
     router.push(`/categories/${prevId}${fromQuery}${navKeyQuery}`);
-  }
+  }, [prevId, fromQuery, navKeyQuery, router]);
 
-  function goToNextCat() {
+  const goToNextCat = useCallback(() => {
     if (!nextId) return;
     router.push(`/categories/${nextId}${fromQuery}${navKeyQuery}`);
-  }
+  }, [nextId, fromQuery, navKeyQuery, router]);
+
+  // *** [ keyboard nav ] ******************************************************************
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === "ArrowLeft") goToPrevCat();
+      if (event.key === "ArrowRight") goToNextCat();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [goToPrevCat, goToNextCat]);
 
   // ***************************************************************************************
   // *** [ fetch ]
@@ -83,10 +94,10 @@ export default function CategoryDetailsPage() {
   if (!category || !transactions) return <h3>Loading ...</h3>;
 
   // ***************************************************************************************
-  // *** [ transactions ] filtern: nur von aktueller category
-  const filteredTransactions = transactions.filter(
-    (transaction) => transaction.category?._id === id
-  );
+  // *** [ transactions ]: filtern + sortieren
+  const filteredTransactions = transactions
+    .filter((transaction) => transaction.category?._id === id) // nur aktuelle category
+    .sort((a, b) => new Date(a.date) - new Date(b.date)); // Datum aufsteigend
 
   return (
     <ContentContainer>
