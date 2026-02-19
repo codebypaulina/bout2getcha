@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import styled from "styled-components";
 import CloseIcon from "@/public/icons/close.svg";
 
-export default function FormAddTransaction({ onCancel }) {
-  // onCancel von AddingPage für X-button
+export default function FormAddTransaction({ onCancel, onSuccess }) {
   const router = useRouter();
   const { category: queryCategoryId } = router.query;
 
@@ -24,7 +23,9 @@ export default function FormAddTransaction({ onCancel }) {
   // *** [ sync states ]
   // *** [1. aktuelle category]: aus url (ID preselected aus CategoryDetailsPage)
   useEffect(() => {
-    if (router.isReady) setCurrentCategoryId(queryCategoryId || "");
+    if (!router.isReady) return;
+    if (!queryCategoryId) return;
+    setCurrentCategoryId(queryCategoryId);
   }, [router.isReady, queryCategoryId]);
 
   // *** [2. type-filter & memory]: aus aktueller category (für preselection)
@@ -81,12 +82,6 @@ export default function FormAddTransaction({ onCancel }) {
     setCurrentCategoryId(lastSelectedCategoryIdByType[toggledType] || ""); // memory für type / "Select"
   }
 
-  // *** [ X-button ]
-  // wenn onCancel (AddingPage), dann dorthin zurück, sonst zu CategoryDetailsPage
-  function handleCancel() {
-    return onCancel ? onCancel() : router.back();
-  }
-
   // *** [ save-button ]
   async function handleSubmit(event) {
     event.preventDefault();
@@ -105,7 +100,7 @@ export default function FormAddTransaction({ onCancel }) {
 
       if (response.ok) {
         console.log("ADDING SUCCESSFUL! (transaction)");
-        router.back();
+        onSuccess(); // von AddingPage (selection view / CategoryDetailsPage)
       } else {
         throw new Error(
           `Failed to add new transaction (status: ${response.status})`
@@ -126,7 +121,7 @@ export default function FormAddTransaction({ onCancel }) {
             type="button"
             aria-label="Close form"
             title="Close"
-            onClick={handleCancel}
+            onClick={onCancel} // von AddingPage (selection view / CategoryDetailsPage)
           >
             <CloseIcon />
           </CloseButton>

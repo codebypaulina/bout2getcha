@@ -14,11 +14,6 @@ export default function FormAddCategory({ onCancel }) {
     setCategoryType((prev) => (prev === "Expense" ? "Income" : "Expense"));
   }
 
-  // *** [ X-button ]
-  function handleCancel() {
-    onCancel(); // zurück zu AddingPage (selection view)
-  }
-
   // *** [ save-button ]
   async function handleSubmit(event) {
     event.preventDefault();
@@ -57,7 +52,7 @@ export default function FormAddCategory({ onCancel }) {
             type="button"
             aria-label="Close form"
             title="Close"
-            onClick={handleCancel}
+            onClick={onCancel} // von AddingPage (selection view)
           >
             <CloseIcon />
           </CloseButton>
