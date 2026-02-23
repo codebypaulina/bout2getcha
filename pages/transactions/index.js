@@ -319,7 +319,7 @@ export default function TransactionsPage() {
             <Overlay onClick={toggleDateFilterPopup} />
 
             <DateFilterPopup>
-              <label htmlFor="from">From:</label>
+              <label htmlFor="from">From</label>
               <input
                 type="date"
                 id="from"
@@ -328,7 +328,7 @@ export default function TransactionsPage() {
                 onChange={handleDateChange}
               />
 
-              <label htmlFor="to">To:</label>
+              <label htmlFor="to">To</label>
               <input
                 type="date"
                 id="to"
@@ -382,27 +382,23 @@ export default function TransactionsPage() {
 
 const Overlay = styled.div`
   position: fixed; // bei scroll im viewport
-  top: 0; // Start oberer Rand
-  left: 0; // Start linker Rand
-  z-index: 9; // über Seite, unter Popup
-
+  inset: 0; // füllt gesamten viewport
   background: rgba(0, 0, 0, 0.6); // abgedunkelt
-  width: 100%; // über komplette Breite
-  height: 100%; // über komplette Höhe
+  z-index: 9; // über Seite, unter Popup
 `;
 
 const DateFilterPopup = styled.div`
   position: fixed; // bei scroll im viewport
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%); // zentriert
   z-index: 10; // Popup über Overlay
 
-  background-color: var(--button-background-color);
-  width: 172px;
-  padding: 1.2rem 1.7rem 1.7rem 1.7rem; // Innenabstand
+  width: 173px;
+  background-color: var(--background-color);
+  padding: 1.3rem 1.5rem 1.5rem 1.5rem;
   border-radius: 1.5rem; // abgerundete Ecken
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
   display: flex;
   flex-direction: column; // content untereinander
@@ -427,20 +423,22 @@ const DateFilterPopup = styled.div`
   }
 
   button {
+    margin-top: 1.5rem; // Abstand input
     align-self: center;
+
     border: none;
-    border-radius: 17px;
-    width: 55px;
+    border-radius: 20px;
+    width: 60px;
     height: 30px;
     cursor: pointer;
     font-weight: bold;
-    background-color: var(--secondary-text-color);
+    background-color: var(--button-background-color);
+    color: var(--button-text-color);
     box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-    margin-top: 1.5rem; // Abstand input
 
     &:hover {
       transform: scale(1.07);
-      // transform-origin: center;
+      color: var(--primary-text-color);
     }
   }
 `;

@@ -83,7 +83,7 @@ const Modal = styled.div`
   width: min(92vw, 350px); // responsiv + max
   background-color: #ac2525;
   color: var(--button-text-color);
-  padding: 1rem 1.5rem 1.5rem 1.5rem;
+  padding: 1.3rem 1.5rem 1.5rem 1.5rem;
   border-radius: 1.5rem; // abgerundete Ecken
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
@@ -105,7 +105,7 @@ const Modal = styled.div`
 
   button.delete {
     display: block; // für margin
-    margin: 1.2rem auto 0 auto; // Abstand message-section + horizontal zentriert
+    margin: 1.5rem auto 0 auto; // Abstand message-section + horizontal zentriert
 
     border: none;
     border-radius: 20px;
@@ -126,7 +126,7 @@ const Modal = styled.div`
 
 const Header = styled.div`
   display: flex; // h2 + CloseButton nebeneinander
-  margin-bottom: 0.5rem; // Abstand message-section
+  margin-bottom: 1rem; // Abstand message-section
 
   h2 {
     font-size: 1.3rem;
