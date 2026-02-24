@@ -7,7 +7,7 @@ const transactionSchema = new Schema(
     type: {
       type: String,
       enum: ["Income", "Expense"], // stellt sicher, dass nur "Income" oder "Expense" sein kann
-      required: true,
+      // required: true,
     },
     category: {
       type: Schema.Types.ObjectId, // category = ObjectId, das auf ein Dokument im Category-Modell verweist

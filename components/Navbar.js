@@ -1,7 +1,6 @@
-import styled from "styled-components";
-import Link from "next/link";
 import { useRouter } from "next/router";
-
+import Link from "next/link";
+import styled from "styled-components";
 import HomeIcon from "../public/icons/home.svg";
 import TransactionsIcon from "../public/icons/transactions.svg";
 import AddIcon from "../public/icons/add.svg";
@@ -13,102 +12,99 @@ export default function Navbar() {
 
   return (
     <Wrapper>
-      <NavbarMenu>
+      <ul>
         <NavbarItem $isActive={router.pathname === "/"}>
-          <Link href="/">
-            <IconWrapper $isActive={router.pathname === "/"}>
-              <HomeIcon width={100} height={100} />
-            </IconWrapper>
-          </Link>
+          <StyledLink
+            href="/"
+            aria-label="Home"
+            aria-current={router.pathname === "/" ? "page" : undefined}
+          >
+            <HomeIcon />
+          </StyledLink>
         </NavbarItem>
 
         <NavbarItem $isActive={router.pathname === "/transactions"}>
-          <Link href="/transactions">
-            <IconWrapper $isActive={router.pathname === "/transactions"}>
-              <TransactionsIcon width={100} height={100} />
-            </IconWrapper>
-          </Link>
+          <StyledLink
+            href="/transactions"
+            aria-label="Transactions"
+            aria-current={
+              router.pathname === "/transactions" ? "page" : undefined
+            }
+          >
+            <TransactionsIcon />
+          </StyledLink>
         </NavbarItem>
 
         <NavbarItem $isActive={router.pathname === "/adding"}>
-          <Link href="/adding">
-            <IconWrapper $isActive={router.pathname === "/adding"}>
-              <AddIcon width={100} height={100} />
-            </IconWrapper>
-          </Link>
+          <StyledLink
+            href="/adding"
+            aria-label="Add transaction or category"
+            aria-current={router.pathname === "/adding" ? "page" : undefined}
+          >
+            <AddIcon />
+          </StyledLink>
         </NavbarItem>
 
         <NavbarItem $isActive={router.pathname === "/categories"}>
-          <Link href="/categories">
-            <IconWrapper $isActive={router.pathname === "/categories"}>
-              <CategoriesIcon width={100} height={100} />
-            </IconWrapper>
-          </Link>
+          <StyledLink
+            href="/categories"
+            aria-label="Categories"
+            aria-current={
+              router.pathname === "/categories" ? "page" : undefined
+            }
+          >
+            <CategoriesIcon />
+          </StyledLink>
         </NavbarItem>
 
         <NavbarItem $isActive={router.pathname === "/profile"}>
-          <Link href="">
-            <IconWrapper $isActive={router.pathname === "/profile"}>
-              <ProfileIcon width={100} height={100} />
-            </IconWrapper>
-          </Link>
+          <StyledLink
+            href=""
+            aria-label="Profile"
+            aria-current={router.pathname === "/profile" ? "page" : undefined}
+          >
+            <ProfileIcon />
+          </StyledLink>
         </NavbarItem>
-      </NavbarMenu>
+      </ul>
     </Wrapper>
   );
 }
 
 const Wrapper = styled.nav`
-  display: flex;
-  justify-content: space-between;
-  background-color: var(--button-background-color);
-  padding: 10px 0;
   position: fixed;
   bottom: 0;
   width: 100%;
-`;
 
-const NavbarMenu = styled.ul`
-  list-style: none;
-  display: flex;
-  flex: 1;
-  justify-content: space-between;
-  margin: 0;
-  padding: 0;
+  ul {
+    list-style: none;
+    display: flex; // items nebeneinander
+  }
 `;
 
 const NavbarItem = styled.li`
-  flex: ${(props) => (props.$expanded ? 2 : 1)};
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  padding: 10px;
-  transition: transform 0.2s ease-in-out, background-color 0.3s;
-
-  background-color: ${(props) =>
-    props.$isActive
+  padding: 1rem;
+  flex: 1; // ausgefüllt, keine Lücken
+  background-color: ${({ $isActive }) =>
+    $isActive
       ? "var(--button-active-color)"
       : "var(--button-background-color)"};
 
-  &:hover {
+  svg {
+    width: 25px;
+    height: 25px;
+    fill: ${({ $isActive }) =>
+      $isActive
+        ? "var(--button-active-text-color)"
+        : "var(--button-text-color)"};
+  }
+
+  &:hover svg {
     transform: scale(1.1);
   }
 `;
 
-const IconWrapper = styled.div`
+const StyledLink = styled(Link)`
   display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  height: 100%;
-
-  svg {
-    fill: ${(props) =>
-      props.$isActive
-        ? "var(--button-active-text-color)"
-        : "var(--button-text-color)"};
-    width: 24px;
-    height: 24px;
-  }
+  justify-content: center; // svg horizontal zentriert
 `;

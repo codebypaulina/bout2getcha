@@ -22,8 +22,8 @@ export default function TransactionsPage() {
   // dateFilter nur active, wenn from/to nicht null
   const isDateFilterActive = dateFilter.from !== null || dateFilter.to !== null;
 
-  // *** [ session storage ] ***************************************************************
-  // *** [ 1. DATE-filter ] ****************************************************************
+  // *** [ SESSION STORAGE ] ***************************************************************
+  // *** [ 1. date-filter ] ****************************************************************
   // *** [abrufen]
   useEffect(() => {
     const storedDateFilter = sessionStorage.getItem("dateFilter"); // holt gespeicherten key aus storage
@@ -45,7 +45,7 @@ export default function TransactionsPage() {
     }
   }, [isDateFilterActive, dateFilter]); // läuft nur, wenn sich state ändert (= from/to nicht null)
 
-  // *** [ 2. CHART-state ] ****************************************************************
+  // *** [ 2. chart-state ] ****************************************************************
   // *** [abrufen]
   useEffect(() => {
     // holt gespeicherten key aus storage (state = true / null)
@@ -66,7 +66,7 @@ export default function TransactionsPage() {
     }
   }, [isChartOpen]); // läuft nur, wenn sich state ändert (= true)
 
-  // *** [ 3. TYPE-filter ] ****************************************************************
+  // *** [ 3. type-filter ] ****************************************************************
   // *** [abrufen]
   useEffect(() => {
     const storedTypeFilter = sessionStorage.getItem("transactions:typeFilter");
@@ -96,8 +96,8 @@ export default function TransactionsPage() {
   if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>;
   if (!transactions || !categories) return <h3>Loading ...</h3>;
 
-  // *** [ abgeleitete Daten ] *************************************************************
-  // *** [ 1. TRANSACTIONS ] sortieren & filtern *******************************************
+  // *** [ ABGELEITETE DATEN ] *************************************************************
+  // *** [ 1. transactions ] sortieren + filtern *******************************************
   // *** [sortieren]: nach Datum absteigend
   const sortedTransactions = [...transactions].sort(
     (a, b) => new Date(b.date) - new Date(a.date)
@@ -111,7 +111,7 @@ export default function TransactionsPage() {
   const defaultFrom = earliestDate ?? null;
   const defaultTo = today;
 
-  // *** [filtern]: type- & date-filter auf sortedTransactions
+  // *** [filtern]: type- + date-filter auf sortedTransactions
   const fromDate =
     (dateFilter.from ?? defaultFrom)
       ? new Date(dateFilter.from ?? defaultFrom)
@@ -122,7 +122,7 @@ export default function TransactionsPage() {
 
   const filteredTransactions = sortedTransactions.filter((transaction) => {
     // type-filter
-    const typeMatches = !typeFilter || transaction.type === typeFilter;
+    const typeMatches = !typeFilter || transaction.category.type === typeFilter;
 
     // date-filter
     const transactionDate = new Date(transaction.date);
@@ -133,43 +133,31 @@ export default function TransactionsPage() {
     return typeMatches && dateMatches;
   });
 
-  // *** [ 2. CATEGORIES ] total amount ****************************************************
-  // *** [object für Summe pro category]: key = categoryId (string) | value = aufsummierter Betrag (number)
-  const totalsByCategoryId = {};
-
-  // *** [transactions]: 1x durch alle aktuell sichtbaren transactions
-  // *** -> zu welcher category gehört transaction? -> amount zu passender category-Summe addieren
-  filteredTransactions.forEach((transaction) => {
-    const categoryId = transaction.category?._id?.toString(); // category-ID aus transaction
-
-    if (!categoryId) return; // falls keine category in transaction -> überspringen
-    if (!totalsByCategoryId[categoryId]) {
-      totalsByCategoryId[categoryId] = 0; // falls category noch nicht in totalsByCategoryId -> Summe = 0
-    }
-
-    totalsByCategoryId[categoryId] += transaction.amount; // amount von transaction zu Summe in totalsByCategoryId
-  });
-
-  // *** [categories]: 1x durch alle categories
-  // *** -> zu jeder category passende Summe aus totalsByCategoryId dazu
-  const categoriesWithAmounts = categories.map((category) => {
-    const categoryId = category._id.toString(); // category-ID aus category
-    return { ...category, totalAmount: totalsByCategoryId[categoryId] || 0 }; // Kopie ursprüngl. category-object + Summe
-  });
-
-  // *** [ 3. BALANCE-DATA & CHART-DATA ] **************************************************
-  // *** [totals]
-  let totalIncome = 0;
+  // *** [ 2. totals ] pro category + pro type *********************************************
+  const totalByCategoryId = {}; // pro category: für categoriesWithTotals (chart-data type-filter)
+  let totalIncome = 0; // pro type: für totalBalanceValue (balance-data + chart-data main view)
   let totalExpense = 0;
 
-  // *** 1x durch alle categories mit total amount
-  categoriesWithAmounts.forEach((category) => {
-    // total amount von category zu total income/expense addieren
-    if (category.type === "Income") totalIncome += category.totalAmount;
-    if (category.type === "Expense") totalExpense += category.totalAmount;
+  // *** [amount zu total]: 1x durch alle aktuell sichtbaren transactions
+  filteredTransactions.forEach((transaction) => {
+    const categoryId = transaction.category._id.toString();
+    const categoryType = transaction.category.type;
+
+    totalByCategoryId[categoryId] =
+      (totalByCategoryId[categoryId] || 0) + transaction.amount; // amount zu totalByCategoryId
+
+    if (categoryType === "Income") totalIncome += transaction.amount; // amount zu totalIncome
+    if (categoryType === "Expense") totalExpense += transaction.amount; // amount zu totalExpense
   });
 
-  // *** [balance-data] value aus totals
+  // *** [total zu category]: 1x durch alle categories
+  const categoriesWithTotals = categories.map((category) => {
+    const categoryId = category._id.toString();
+    return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 }; // category + totalByCategoryId
+  });
+
+  // *** [ 3. balance-data & chart-data ] **************************************************
+  // *** [balance]
   const totalBalanceValue =
     typeFilter === "Income"
       ? totalIncome
@@ -184,35 +172,38 @@ export default function TransactionsPage() {
         ? "Total Expense"
         : "Total Balance";
 
-  // *** [chart-data] values aus totals
-  // *** main view: total balance (expenses + remaining income) // type-filter: income-/expense-categories
-  const chartData = typeFilter
-    ? categoriesWithAmounts
-        .filter(
-          (category) => category.type === typeFilter && category.totalAmount > 0
-        )
-        .map((category) => ({
-          id: category._id,
-          label: category.name,
-          value: category.totalAmount,
-          color: category.color,
-        }))
-    : [
-        {
-          id: "Expenses",
-          label: "Expenses",
-          value: totalExpense,
-          color: "var(--expense-color)",
-        },
-        {
-          id: "Remaining Income",
-          label: "Remaining Income",
-          value: totalIncome - totalExpense,
-          color: "var(--income-color)",
-        },
-      ];
+  // *** [chart]
+  const chartData = (
+    typeFilter
+      ? categoriesWithTotals // segments: income-/expense-categories
+          .filter(
+            (category) =>
+              category.type === typeFilter && category.totalAmount > 0
+          )
+          .map((category) => ({
+            id: category._id,
+            label: category.name,
+            value: category.totalAmount,
+            color: category.color,
+          }))
+      : // segments main view: expenses + remaining income
+        [
+          {
+            id: "Expenses",
+            label: "Expenses",
+            value: totalExpense,
+            color: "var(--expense-color)",
+          },
+          {
+            id: "Remaining Income",
+            label: "Remaining Income",
+            value: totalIncome - totalExpense,
+            color: "var(--income-color)",
+          },
+        ]
+  ).sort((a, b) => a.value - b.value); // segments nach value absteigend gegen Uhrzeigersinn
 
-  // *** [tooltip %] aus chart-data
+  // *** [tooltip %]
   const chartTotalValue = chartData.reduce(
     (sum, segment) => sum + segment.value,
     0
@@ -328,7 +319,7 @@ export default function TransactionsPage() {
             <Overlay onClick={toggleDateFilterPopup} />
 
             <DateFilterPopup>
-              <label htmlFor="from">From:</label>
+              <label htmlFor="from">From</label>
               <input
                 type="date"
                 id="from"
@@ -337,7 +328,7 @@ export default function TransactionsPage() {
                 onChange={handleDateChange}
               />
 
-              <label htmlFor="to">To:</label>
+              <label htmlFor="to">To</label>
               <input
                 type="date"
                 id="to"
@@ -365,18 +356,12 @@ export default function TransactionsPage() {
 
                 <ColorTag
                   $typeFilter={typeFilter}
-                  $transactionType={transaction.type}
-                  $categoryColor={
-                    transaction.category ? transaction.category.color : "BLACK"
-                  }
+                  $categoryType={transaction.category.type}
+                  $categoryColor={transaction.category.color}
                 />
 
                 <p className="description">{transaction.description}</p>
-                <p className="category">
-                  {transaction.category
-                    ? transaction.category.name
-                    : "No Category"}
-                </p>
+                <p className="category">{transaction.category.name}</p>
                 <p className="amount">
                   {transaction.amount.toLocaleString("de-DE", {
                     minimumFractionDigits: 2,
@@ -397,27 +382,23 @@ export default function TransactionsPage() {
 
 const Overlay = styled.div`
   position: fixed; // bei scroll im viewport
-  top: 0; // Start oberer Rand
-  left: 0; // Start linker Rand
-  z-index: 9; // über Seite, unter Popup
-
+  inset: 0; // füllt gesamten viewport
   background: rgba(0, 0, 0, 0.6); // abgedunkelt
-  width: 100%; // über komplette Breite
-  height: 100%; // über komplette Höhe
+  z-index: 9; // über Seite, unter Popup
 `;
 
 const DateFilterPopup = styled.div`
   position: fixed; // bei scroll im viewport
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%); // zentriert
   z-index: 10; // Popup über Overlay
 
-  background-color: var(--button-background-color);
-  width: 172px;
-  padding: 1.2rem 1.7rem 1.7rem 1.7rem; // Innenabstand
+  width: 173px;
+  background-color: var(--background-color);
+  padding: 1.3rem 1.5rem 1.5rem 1.5rem;
   border-radius: 1.5rem; // abgerundete Ecken
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
   display: flex;
   flex-direction: column; // content untereinander
@@ -442,20 +423,22 @@ const DateFilterPopup = styled.div`
   }
 
   button {
+    margin-top: 1.5rem; // Abstand input
     align-self: center;
+
     border: none;
-    border-radius: 17px;
-    width: 55px;
+    border-radius: 20px;
+    width: 60px;
     height: 30px;
     cursor: pointer;
     font-weight: bold;
-    background-color: var(--secondary-text-color);
+    background-color: var(--button-background-color);
+    color: var(--button-text-color);
     box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-    margin-top: 1.5rem; // Abstand input
 
     &:hover {
       transform: scale(1.07);
-      // transform-origin: center;
+      color: var(--primary-text-color);
     }
   }
 `;
@@ -647,9 +630,9 @@ const ColorTag = styled.span`
   border-radius: 50%;
 
   background-color: ${(props) =>
-    props.$typeFilter // wenn type-filter aktiv
-      ? props.$categoryColor // dann category color
-      : props.$transactionType === "Income" // type color (main view)
+    props.$typeFilter
+      ? props.$categoryColor // bei type-filter: category color
+      : props.$categoryType === "Income" // bei main view: type color
         ? "var(--income-color)"
         : "var(--expense-color)"};
 `;

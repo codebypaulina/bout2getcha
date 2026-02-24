@@ -1,70 +1,65 @@
-"use client"; // ganz oben!
-import { useState, useEffect } from "react"; // useState für selection; useEffect für preselection per query
-import { useRouter } from "next/router"; // für preselection per query: um query-param "category" aus URL zu lesen (wenn von CategoryDetailsPage kommend)
-
+"use client";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
+import styled from "styled-components";
 import Navbar from "@/components/Navbar";
 import FormAddTransaction from "@/components/FormAddTransaction";
 import FormAddCategory from "@/components/FormAddCategory";
-import styled from "styled-components";
-
-/******************* [ preselection per query + cancel-button ] *****************************************************************************
-  A: AddingPage -> selection view -> button "transaction" -> FormAddTransaction -> button "Cancel" -> zurück zu selection view auf AddingPage
-  B: CategoryDetailsPage -> button "Add Transaction" -> FormAddTransaction -> button "Cancel" -> zurück zu CategoryDetailsPage                           
-/********************************************************************************************************************************************/
 
 export default function AddingPage() {
-  const [selection, setSelection] = useState(null); // rendering von FormAddTransaction ODER FormAddCategory basierend auf selection
+  const router = useRouter();
 
-  const router = useRouter(); // Zugriff auf router.query
-  const hasCategoryQuery = Boolean(router.query.category); // Zugriff auf query-param "category" aus URL (zB /adding?category=123 -> deep-link von CategoryDetailsPage)
-  /* boolean = false (undefined, null, leer) / true
-     hasCategoryQuery = true, wenn "category"-param existiert, ansonsten hasCategoryQuery = false */
-  const resetSelection = () => setSelection(null); // für onCancel = zurück zu selection view
+  const [selection, setSelection] = useState(null); // selection view / FormAddTransaction / FormAddCategory
+  const resetSelection = () => setSelection(null); // für closeForm (selection view)
 
-  // "transaction"-preselection per query, wenn von CategoryDetailsPage kommend:
+  // *** [ preselection: transaction ]: wenn category-query (von CategoryDetailsPage)
   useEffect(() => {
-    if (hasCategoryQuery && !selection) {
-      // wenn category-query existiert (hasCategoryQuery = true) && keine selection,
-      setSelection("transaction"); // dann direkt FormAddTransaction rendern statt selection view
+    if (!router.isReady) return;
+    if (!router.query.category) return;
+    setSelection("transaction"); // FormAddTransaction, statt selection view
+  }, [router.isReady, router.query.category]);
+
+  // *** [ close FormAddTransaction ]
+  function closeForm() {
+    if (router.query.category) {
+      router.back(); // wenn category-query, zurück zu CategoryDetailsPage
+    } else {
+      resetSelection(); // sonst zurück zu selection view
     }
-  }, [hasCategoryQuery, selection]);
+  }
 
-  /********************************************************************************************************************************************/
-
-  // FormAddTransaction:
-  // selection view -> button "transaction" -> FormAddTransaction
-  // onCancel: wenn hasCategoryQuery = true, dann onCancel = undefined (zurück zu CategoryDetailsPage); ansonsten resettet selection (zurück zu selection view)
+  // *** [ selection: transaction ]
   if (selection === "transaction") {
-    return (
-      <FormAddTransaction
-        onCancel={hasCategoryQuery ? undefined : resetSelection}
-      />
-    );
+    return <FormAddTransaction onCancel={closeForm} onSuccess={closeForm} />;
   }
 
-  // FormAddCategory:
-  // selection view -> button "category" -> FormAddCategory
-  // onCancel: resettet selection = null (= zurück zu selection view)
+  // *** [ selection: category ]
   if (selection === "category") {
-    return <FormAddCategory onCancel={resetSelection} />;
+    return <FormAddCategory onCancel={resetSelection} />; // zurück zu selection view
   }
 
-  // default: selection view
+  // *** [ selection view ]
   return (
     <>
-      <PageWrapper>
+      <ContentContainer>
         <h1>Add</h1>
 
-        <button onClick={() => setSelection("transaction")}>transaction</button>
+        <button type="button" onClick={() => setSelection("transaction")}>
+          Transaction
+        </button>
+
         <p>or</p>
-        <button onClick={() => setSelection("category")}>category</button>
-      </PageWrapper>
+
+        <button type="button" onClick={() => setSelection("category")}>
+          Category
+        </button>
+      </ContentContainer>
       <Navbar />
     </>
   );
 }
 
-const PageWrapper = styled.div`
+const ContentContainer = styled.div`
   height: calc(100vh - var(--navbar-height, 65px)); // wrapper wie viewport
   display: flex; // wegen Zentrierung
   flex-direction: column; // content untereinander
@@ -76,7 +71,7 @@ const PageWrapper = styled.div`
   }
 
   p {
-    font-size: 2rem;
+    font-size: 1.85rem;
     font-weight: bold;
     color: var(--primary-text-color);
     margin: 0.2rem 0 0.7rem 0;
@@ -85,15 +80,18 @@ const PageWrapper = styled.div`
   button {
     border: none;
     border-radius: 20px;
-    width: 115px;
-    height: 30px;
-    cursor: pointer;
-    background-color: var(--secondary-text-color);
+    width: 108px;
+    height: 40px;
+    background-color: var(--button-background-color);
+    color: var(--button-text-color);
+    font-size: 0.85rem;
     font-weight: bold;
-    font-size: 1rem;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
     &:hover {
       transform: scale(1.07);
+      color: var(--primary-text-color);
     }
   }
 `;

@@ -1,5 +1,6 @@
 import useSWR from "swr";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
@@ -13,52 +14,62 @@ const ResponsivePie = dynamic(
 );
 
 export default function CategoriesPage() {
+  const router = useRouter();
+  const { isReady, query, replace } = router;
+  const type = query.type; // von FormAddCategory für type-filter
+
+  // *** [ states ]
   const [typeFilter, setTypeFilter] = useState("Expense");
   const [isChartOpen, setIsChartOpen] = useState(false);
 
-  // *** [ session storage ] ***************************************************************
-  // *** [ 1. CHART-state ] ****************************************************************
+  // *** [ SESSION STORAGE ] ***************************************************************
+  // *** [ 1. chart-state ] ****************************************************************
   // *** [abrufen]
   useEffect(() => {
-    // holt gespeicherten key aus storage (state = true / null)
     const storedChartState = sessionStorage.getItem("categories:isChartOpen");
-
-    // wenn key existiert -> state = true
     if (storedChartState) setIsChartOpen(true);
-  }, []); // läuft nur 1x bei 1. render
+  }, []);
 
-  // *** [speichern]: bei Änderung
+  // *** [speichern]: wenn state = true
   useEffect(() => {
-    // (nur) wenn state = true -> key in storage speichern
     if (isChartOpen) {
       sessionStorage.setItem("categories:isChartOpen", "true");
     } else {
-      // ansonsten key löschen (damit default = false)
       sessionStorage.removeItem("categories:isChartOpen");
     }
-  }, [isChartOpen]); // läuft nur, wenn sich state ändert (= true)
+  }, [isChartOpen]);
 
-  // *** [ 2. TYPE-filter ] ****************************************************************
-  // *** [abrufen]
+  // *** [ 2. type-filter ] ****************************************************************
+  // *** [abrufen aus url]: wenn query von FormAddCategory
   useEffect(() => {
-    const storedTypeFilter = sessionStorage.getItem("categories:typeFilter");
-
-    if (storedTypeFilter === "Income") {
-      setTypeFilter("Income"); // wenn income gespeichert -> wiederherstellen
+    if (!isReady) return;
+    if (type === "Income" || type === "Expense") {
+      setTypeFilter(type); // type in url: in filter
+      replace("/categories", undefined, { shallow: true }); // url wieder /categories, nichts maskieren, kein remount
     }
-  }, []);
+  }, [isReady, type, replace]);
 
-  // *** [speichern]
+  // *** [abrufen aus storage]: wenn kein query
+  useEffect(() => {
+    if (!isReady) return;
+    if (type === "Income" || type === "Expense") return; // type in url: abbrechen, nicht aus storage
+
+    const storedTypeFilter = sessionStorage.getItem("categories:typeFilter");
+    if (storedTypeFilter === "Income") {
+      setTypeFilter("Income"); // income in storage: in filter
+    }
+  }, [isReady, type]);
+
+  // *** [speichern]: nur wenn income
   useEffect(() => {
     if (typeFilter === "Income") {
-      sessionStorage.setItem("categories:typeFilter", "Income"); // nur bei Wechsel zu income
+      sessionStorage.setItem("categories:typeFilter", "Income");
     } else {
       sessionStorage.removeItem("categories:typeFilter");
     }
   }, [typeFilter]);
 
   // ***************************************************************************************
-
   // *** [ fetch ]
   const { data: categories, error } = useSWR("/api/categories");
 
@@ -66,8 +77,8 @@ export default function CategoriesPage() {
   if (error) return <h3>Failed to load categories</h3>;
   if (!categories) return <h3>Loading ...</h3>;
 
-  // *** [ abgeleitete Daten ] *************************************************************
-  // *** [ 1. CATEGORIES ] filtern & sortieren *********************************************
+  // *** [ ABGELEITETE DATEN ] *************************************************************
+  // *** [ 1. categories ] filtern + sortieren *********************************************
   const sortedActiveCategories = [...categories]
     .filter((category) => category.type === typeFilter) // nur aktiver type
     .sort((a, b) => {
@@ -77,7 +88,17 @@ export default function CategoriesPage() {
       return a.name.localeCompare(b.name, "de-DE"); // Betrag gleich: A-Z
     });
 
-  // *** [ 2. CHART ] **********************************************************************
+  // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
+  // *** [snapshot]
+  const navKey = `catNav:/categories:${typeFilter}`; // sessionStorage-key
+  const navIds = sortedActiveCategories.map((category) => category._id); // ID-array
+
+  // *** [snapshot]: in sessionStorage speichern (für < > nav in CategoryDetailsPage)
+  function storeCatNavSnapshot() {
+    sessionStorage.setItem(navKey, JSON.stringify(navIds));
+  }
+
+  // *** [ 3. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = sortedActiveCategories
     .filter((category) => category.totalAmount > 0)
@@ -106,9 +127,10 @@ export default function CategoriesPage() {
     setIsChartOpen((prevState) => !prevState);
   }
 
-  function switchTypeFilter(type) {
-    if (type === typeFilter) return; // wenn filter bereits aktiv -> nichts
-    setTypeFilter(type); // ansonsten auf anderen type switchen
+  function toggleTypeFilter() {
+    setTypeFilter((prevState) =>
+      prevState === "Expense" ? "Income" : "Expense"
+    );
   }
 
   return (
@@ -141,7 +163,7 @@ export default function CategoriesPage() {
 
             <BalanceContainer>
               <p>
-                {typeFilter === "Income" ? "Total Income" : "Total Expense"}
+                {typeFilter === "Expense" ? "Total Expense" : "Total Income"}
               </p>
 
               <p className="value">
@@ -163,28 +185,17 @@ export default function CategoriesPage() {
             <ChartIcon />
           </IconWrapper>
 
-          <ButtonContainer>
-            <button
-              onClick={() => switchTypeFilter("Income")}
-              className={typeFilter === "Income" ? "active" : ""}
-            >
-              Incomes
-            </button>
-
-            <button
-              onClick={() => switchTypeFilter("Expense")}
-              className={typeFilter === "Expense" ? "active" : ""}
-            >
-              Expenses
-            </button>
-          </ButtonContainer>
+          <button onClick={toggleTypeFilter}>
+            {typeFilter === "Expense" ? "Expenses" : "Incomes"}
+          </button>
         </FilterSection>
 
         <StyledList>
           {sortedActiveCategories.map((category) => (
             <ListItem key={category._id} $empty={category.totalAmount <= 0}>
               <StyledLink
-                href={`/categories/${category._id}?from=/categories`} // Eintrittspunkt CategoryDetailsPage  ;  "?from/categories": CategoriesPage als Herkunft merken, um nach delete von category wieder hierhin zurück (anstatt zur jetzt gelöschten CategoryDetailsPage)
+                href={`/categories/${category._id}?from=/categories&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft = CategoriesPage (nach category-delete) // "&navKey=...": ID-Reihenfolge (< > nav)
+                onClick={storeCatNavSnapshot}
               >
                 <ColorTag $categoryColor={category.color} />
 
@@ -241,11 +252,27 @@ const BalanceContainer = styled.div`
 `;
 
 const FilterSection = styled.div`
-  display: flex; // IconWrapper + ButtonContainer nebeneinander
-  justify-content: space-between; // icon links, buttons rechts
+  display: flex; // IconWrapper + button nebeneinander
+  justify-content: space-between; // icon links, button rechts
 
   max-width: 285px; // schmaler als list
   margin: 0 auto 1.5rem auto; // Abstand list, horizontal zentriert
+
+  button {
+    background-color: var(--button-active-color);
+    color: var(--button-active-text-color);
+    border: none;
+    width: 90px;
+    height: 30px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 1);
+
+    &:hover {
+      transform: scale(1.04);
+    }
+  }
 `;
 
 const IconWrapper = styled.div`
@@ -273,33 +300,6 @@ const IconWrapper = styled.div`
   &.active {
     background-color: var(--button-active-color);
     color: var(--button-active-text-color);
-  }
-`;
-
-const ButtonContainer = styled.div`
-  display: flex;
-  gap: 0.75rem;
-
-  button {
-    background-color: var(--button-background-color);
-    color: var(--button-text-color);
-    border: none;
-    width: 90px;
-    height: 30px;
-    border-radius: 20px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-    &:hover {
-      transform: scale(1.04);
-      color: var(--primary-text-color);
-    }
-
-    &.active {
-      background-color: var(--button-active-color);
-      color: var(--button-active-text-color);
-    }
   }
 `;
 

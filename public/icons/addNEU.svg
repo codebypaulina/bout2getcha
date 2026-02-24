@@ -1,0 +1,11 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  fill="currentColor"
+  aria-hidden="true"
+  focusable="false"
+>
+  <path class="circle" d="M12 0A12 12 0 1 0 24 12 12 12 0 0 0 12 0Z" />
+  <rect class="plus" x="6.8" y="10.8" width="10.4" height="2.4" rx="1.2" />
+  <rect class="plus" x="10.8" y="6.8" width="2.4" height="10.4" rx="1.2" />
+</svg>
