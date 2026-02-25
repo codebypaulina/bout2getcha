@@ -1,9 +1,17 @@
 import dbConnect from "@/db/connect";
 import Category from "@/db/models/Category";
 import Transaction from "@/db/models/Transaction"; // um der ca zugehörige ta zu zählen / löschen (für ConfirmModal in FormEditCategory)
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]";
 
 export default async function handler(request, response) {
-  await dbConnect();
+  // auth guard
+  const session = await getServerSession(request, response, authOptions);
+  if (!session) {
+    return response.status(401).json({ error: "Not authenticated" });
+  }
+
+  await dbConnect(); // DB
 
   const { id } = request.query; // ruft ID aus URL ab
 

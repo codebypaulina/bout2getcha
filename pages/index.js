@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
+import LoginSection from "@/components/LoginSection";
 import Navbar from "@/components/Navbar";
 import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
@@ -140,8 +141,9 @@ export default function HomePage() {
 
   return (
     <>
+      <LoginSection />
+
       <ContentContainer>
-        {/* <LoginSection /> */}
         <h1>Expenses</h1>
 
         {isChartOpen && chartData.length > 0 && (
