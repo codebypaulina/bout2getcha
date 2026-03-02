@@ -1,5 +1,6 @@
-import useSWR from "swr";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
@@ -18,6 +19,11 @@ const ResponsivePie = dynamic(
 export default function HomePage() {
   const [hiddenCategories, setHiddenCategories] = useState([]);
   const [isChartOpen, setIsChartOpen] = useState(false);
+
+  const { data: session, status } = useSession(); // auth
+  const { data: categories, error } = useSWR(
+    session ? "/api/categories" : null // data-fetch (wenn eingeloggt)
+  );
 
   // *** [ LOCAL STORAGE ] hidden categories ***********************************************
   // *** [abrufen]
@@ -63,12 +69,12 @@ export default function HomePage() {
     }
   }, [isChartOpen]);
 
-  // ***************************************************************************************
+  // *** [ guards ] ************************************************************************
+  // *** [auth]
+  if (status === "loading") return <h3>Loading ...</h3>;
+  if (!session) return <LoginSection />;
 
-  // *** [ fetch ]
-  const { data: categories, error } = useSWR("/api/categories");
-
-  // *** [ guards ]
+  // *** [data]
   if (error) return <h3>Failed to load categories</h3>;
   if (!categories) return <h3>Loading ...</h3>;
 

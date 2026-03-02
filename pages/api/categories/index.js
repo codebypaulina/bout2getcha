@@ -1,66 +1,94 @@
-import dbConnect from "@/db/connect";
-import Category from "@/db/models/Category";
+import mongoose from "mongoose";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import dbConnect from "@/db/connect";
+import Category from "@/db/models/Category";
 
 export default async function handler(request, response) {
-  // auth guard
+  // *** [ auth guard ]
   const session = await getServerSession(request, response, authOptions);
   if (!session) {
     return response.status(401).json({ error: "Not authenticated" });
   }
 
-  await dbConnect(); // DB
+  // *** [ user / ownership ]
+  const userId = session.user.userId; // aus NextAuth-session (string)
 
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return response.status(400).json({ error: "Invalid user id" }); // defensive check (kein crash bei ungültiger ID)
+  }
+
+  const userObjectId = mongoose.Types.ObjectId.createFromHexString(userId); // aktueller user als ObjectId (für MongoDB-Queries)
+
+  // *** [ DB ]
+  await dbConnect();
+
+  // *** [ GET ] **********************************************************
+  // categories | zugehörige transactions | totalAmount
   if (request.method === "GET") {
     try {
-      // Kategorien mit zugehörigen Transaktionen abrufen & totalAmount berechnen
       const categories = await Category.aggregate([
+        // [categories] des eingeloggten users:
         {
-          // lookup-Integration: um Transaktionen in Kategorie zu integrieren
+          $match: { userId: userObjectId },
+        },
+
+        // [transactions] in category integrieren:
+        {
           $lookup: {
-            from: "transactions", // Collection, die durchsucht wird
-            localField: "_id", // Feld in Category-Collection
-            foreignField: "category", // Feld in Transaction-Collection
-            as: "transactions", // neues Feld, das die integrierten Transaktionen enthält
+            from: "transactions", // collection, aus der gejoint wird
+            let: { categoryId: "$_id" }, // aktuelle category-ID für join (in pipeline "$$categoryId")
+            pipeline: [
+              {
+                $match: {
+                  // Feld-zu-Feld / Feld-zu-Variable vergleichen:
+                  $expr: {
+                    $and: [
+                      // nur transactions mit aktueller category-ID:
+                      // ($category = Feld in transactions-collection: transaction.category // $$categoryId = let-Variable ID)
+                      { $eq: ["$category", "$$categoryId"] },
+
+                      // nur transactions des eingeloggten users:
+                      // ($userId = Feld in transactions-collection: transaction.userId // userObjectId = user)
+                      { $eq: ["$userId", userObjectId] },
+                    ],
+                  },
+                },
+              },
+            ],
+            as: "transactions", // integrierte transactions (neues Feld)
           },
         },
+
+        // [totalAmount] aus integrierten transactions:
         {
-          // totalAmount berechnen & neues Feld zur Kategorie hinzufügen
           $addFields: {
-            totalAmount: { $sum: "$transactions.amount" }, // Summe aller amounts der integrierten Transaktionen
+            totalAmount: { $sum: "$transactions.amount" },
           },
         },
       ]);
-      response.status(200).json(categories);
-    } catch (error) {
-      response.status(500).json({ error: "Failed to fetch categories" });
-    }
-  } else if (request.method === "POST") {
-    try {
-      const newCategory = new Category(request.body); // erstellt neue Kategorie
-      const savedCategory = await newCategory.save(); // speichert neue Kategorie
 
-      response.status(201).json(savedCategory);
+      return response.status(200).json(categories);
     } catch (error) {
-      response.status(500).json({ error: "Failed to create category" });
+      return response.status(500).json({ error: "Failed to fetch categories" });
     }
-  } else {
-    response.status(405).json({ message: "Method not allowed" });
   }
+
+  // *** [ POST ] *********************************************************
+  if (request.method === "POST") {
+    try {
+      const newCategory = new Category({
+        ...request.body,
+        userId: userObjectId,
+      }); // neue category erstellen
+      const savedCategory = await newCategory.save(); // in DB speichern
+
+      return response.status(201).json(savedCategory);
+    } catch (error) {
+      return response.status(500).json({ error: "Failed to create category" });
+    }
+  }
+
+  // *** [ fallback ] *****************************************************
+  return response.status(405).json({ message: "Method not allowed" });
 }
-
-/* 
-Anstatt Feld "totalAmount" direkt in der collection zu speichern, besser "totalAmount" dynamisch mit Aggregation in MongoDB berechnen, weil:
-
-1. Dynamische Datenaktualisierung
-   Wenn sich Transaktionen ändern (bearbeitet / gelöscht / neu hinzugefügt), wird totalAmount automatisch aktualisiert.
-   Es muss keine manuelle Aktualisierung des Felds durchgeführt werden.
-   = Code effizienter & weniger fehleranfällig.
-
-2. Vermeidung Dateninkonsistenz
-   Wäre totalAmount als festes Feld in der collection gespeichert, müsste er jedes Mal manuell aktualisiert werden, wenn sich Transaktionen ändern.
-   Ein nicht korrekt aktualisierter Wert kann zu Dateninkonsistenzen führen.
-   Durch Aggregation berechnet MongoDB totalAmount basierend auf aktuellen Daten jedes Mal neu.
-   = Wert immer korrekt.
-*/

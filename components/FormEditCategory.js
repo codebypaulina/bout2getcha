@@ -75,14 +75,14 @@ export default function FormEditCategory() {
 
   // *** [2. confirm-button]: category löschen
   async function handleConfirmDelete() {
-    // transactionCount aus API: Fall A (leere ca) / Fall B (ca + zugehörige ta)
-    const hasTransactions = category.transactionCount > 0;
+    const hasTransactions = category.transactionCount > 0; // Anzahl transactions aus API
 
     try {
-      // wählt endpoint-URL abhängig davon, ob cascade-delete nötig
+      // cascade delete
       const url = hasTransactions
-        ? `/api/categories/${id}?cascade=true`
-        : `/api/categories/${id}`;
+        ? `/api/categories/${id}?cascade=true` // erst enthaltene transaction(s)
+        : `/api/categories/${id}`; // nur category (leer)
+
       const response = await fetch(url, {
         method: "DELETE",
       });

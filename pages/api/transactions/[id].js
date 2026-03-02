@@ -1,60 +1,91 @@
-import dbConnect from "@/db/connect";
-import Transaction from "@/db/models/Transaction";
+import mongoose from "mongoose";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import dbConnect from "@/db/connect";
+import Transaction from "@/db/models/Transaction";
 
 export default async function handler(request, response) {
-  // auth guard
+  // *** [ auth guard ]
   const session = await getServerSession(request, response, authOptions);
   if (!session) {
     return response.status(401).json({ error: "Not authenticated" });
   }
 
-  await dbConnect(); // DB
+  // *** [ user / ownership ]
+  const userId = session.user.userId; // aus NextAuth-session (string)
 
-  const { id } = request.query; // ruft ID aus URL ab
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return response.status(400).json({ error: "Invalid user id" }); // defensive check (kein crash bei ungültiger ID)
+  }
 
+  const userObjectId = mongoose.Types.ObjectId.createFromHexString(userId); // aktueller user als ObjectId (für MongoDB-Queries)
+
+  // *** [ DB ]
+  await dbConnect();
+
+  const { id } = request.query; // transaction-ID aus URL
+
+  // *** [ GET ] **********************************************************
   if (request.method === "GET") {
     try {
-      const transaction = await Transaction.findById(id).populate("category"); // holt transaction anhand ID aus database + `populate` für details der entspr. category
+      const transaction = await Transaction.findOne({
+        _id: id,
+        userId: userObjectId, // transaction des eingeloggten users
+      }).populate("category"); // für details der entspr. category
 
       if (!transaction) {
         return response.status(404).json({ error: "Transaction not found" });
       }
 
-      response.status(200).json(transaction);
+      return response.status(200).json(transaction);
     } catch (error) {
-      response.status(500).json({ error: "Failed to fetch transaction" });
+      return response
+        .status(500)
+        .json({ error: "Failed to fetch transaction" });
     }
-  } else if (request.method === "PUT") {
+  }
+
+  // *** [ PUT ] **********************************************************
+  if (request.method === "PUT") {
     try {
-      const updatedTransaction = await Transaction.findByIdAndUpdate(
-        id,
+      const updatedTransaction = await Transaction.findOneAndUpdate(
+        { _id: id, userId: userObjectId },
         request.body,
-        { new: true } // geupdatete Version der transaction zurück
+        { new: true } // geupdatete Version der transaction
       ).populate("category");
 
       if (!updatedTransaction) {
         return response.status(404).json({ error: "Transaction not found" });
       }
 
-      response.status(200).json(updatedTransaction);
+      return response.status(200).json(updatedTransaction);
     } catch (error) {
-      response.status(500).json({ error: "Failed to update transaction" });
+      return response
+        .status(500)
+        .json({ error: "Failed to update transaction" });
     }
-  } else if (request.method === "DELETE") {
+  }
+
+  // *** [ DELETE ] *******************************************************
+  if (request.method === "DELETE") {
     try {
-      const deletedTransaction = await Transaction.findByIdAndDelete(id);
+      const deletedTransaction = await Transaction.findOneAndDelete({
+        _id: id,
+        userId: userObjectId,
+      });
 
       if (!deletedTransaction) {
         return response.status(404).json({ error: "Transaction not found" });
       }
 
-      response.status(204).end();
+      return response.status(204).end();
     } catch (error) {
-      response.status(500).json({ error: "Failed to delete transaction" });
+      return response
+        .status(500)
+        .json({ error: "Failed to delete transaction" });
     }
-  } else {
-    return response.status(405).json({ message: "Method not allowed" });
   }
+
+  // *** [ fallback ] *****************************************************
+  return response.status(405).json({ message: "Method not allowed" });
 }
