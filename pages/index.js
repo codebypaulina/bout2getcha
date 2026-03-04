@@ -21,14 +21,18 @@ export default function HomePage() {
   const [isChartOpen, setIsChartOpen] = useState(false);
 
   const { data: session, status } = useSession(); // auth
+  const userId = session?.user?.userId; // user-ID (für local + session storage / data-fetch)
+
   const { data: categories, error } = useSWR(
-    session ? "/api/categories" : null // data-fetch (wenn eingeloggt)
+    userId ? `/api/categories?u=${userId}` : null // data-fetch
   );
 
   // *** [ LOCAL STORAGE ] hidden categories ***********************************************
   // *** [abrufen]
   useEffect(() => {
-    const storedHiddenCategories = localStorage.getItem("hiddenCategories");
+    if (!userId) return;
+    const key = `u:${userId}:hiddenCategories`;
+    const storedHiddenCategories = localStorage.getItem(key);
     if (!storedHiddenCategories) return;
 
     try {
@@ -37,42 +41,48 @@ export default function HomePage() {
         setHiddenCategories(parsedHiddenCategories);
       } // state setzen, nur wenn array okay
     } catch {
-      // ignorieren -> default []
+      // ignorieren -> default
     }
-  }, []);
+  }, [userId]);
 
   // *** [speichern]: nur wenn array nicht leer
   useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:hiddenCategories`;
+
     if (hiddenCategories.length !== 0) {
-      localStorage.setItem(
-        "hiddenCategories",
-        JSON.stringify(hiddenCategories)
-      );
+      localStorage.setItem(key, JSON.stringify(hiddenCategories));
     } else {
-      localStorage.removeItem("hiddenCategories");
+      localStorage.removeItem(key);
     }
-  }, [hiddenCategories]);
+  }, [userId, hiddenCategories]);
 
   // *** [ SESSION STORAGE ] chart-state ***************************************************
   // *** [abrufen]
   useEffect(() => {
-    const storedChartState = sessionStorage.getItem("home:isChartOpen");
+    if (!userId) return;
+    const key = `u:${userId}:home:isChartOpen`;
+    const storedChartState = sessionStorage.getItem(key);
     if (storedChartState) setIsChartOpen(true);
-  }, []);
+  }, [userId]);
 
-  // *** [speichern]: wenn open
+  // *** [speichern]: bei Änderung (= open)
   useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:home:isChartOpen`;
+
     if (isChartOpen) {
-      sessionStorage.setItem("home:isChartOpen", "true");
+      sessionStorage.setItem(key, "true");
     } else {
-      sessionStorage.removeItem("home:isChartOpen");
+      sessionStorage.removeItem(key);
     }
-  }, [isChartOpen]);
+  }, [userId, isChartOpen]);
 
   // *** [ guards ] ************************************************************************
   // *** [auth]
   if (status === "loading") return <h3>Loading ...</h3>;
   if (!session) return <LoginSection />;
+  if (!userId) return <h3>Loading ...</h3>;
 
   // *** [data]
   if (error) return <h3>Failed to load categories</h3>;
@@ -101,7 +111,7 @@ export default function HomePage() {
 
   // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
-  const navKey = "catNav:/"; // sessionStorage-key
+  const navKey = `u:${userId}:catNav:/`; // sessionStorage-key
   const navIds = sortedCategories.map((category) => category._id); // ID-array
 
   // *** [snapshot]: in sessionStorage speichern (für < > nav in CategoryDetailsPage)

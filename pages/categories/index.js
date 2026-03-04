@@ -1,6 +1,7 @@
-import useSWR from "swr";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
+import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
@@ -18,26 +19,37 @@ export default function CategoriesPage() {
   const { isReady, query, replace } = router;
   const type = query.type; // von FormAddCategory für type-filter
 
-  // *** [ states ]
   const [typeFilter, setTypeFilter] = useState("Expense");
   const [isChartOpen, setIsChartOpen] = useState(false);
+
+  const { data: session } = useSession(); // auth
+  const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
+
+  const { data: categories, error } = useSWR(
+    userId ? `/api/categories?u=${userId}` : null // data-fetch
+  );
 
   // *** [ SESSION STORAGE ] ***************************************************************
   // *** [ 1. chart-state ] ****************************************************************
   // *** [abrufen]
   useEffect(() => {
-    const storedChartState = sessionStorage.getItem("categories:isChartOpen");
+    if (!userId) return;
+    const key = `u:${userId}:categories:isChartOpen`;
+    const storedChartState = sessionStorage.getItem(key);
     if (storedChartState) setIsChartOpen(true);
-  }, []);
+  }, [userId]);
 
-  // *** [speichern]: wenn state = true
+  // *** [speichern]: bei Änderung (state = true)
   useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:categories:isChartOpen`;
+
     if (isChartOpen) {
-      sessionStorage.setItem("categories:isChartOpen", "true");
+      sessionStorage.setItem(key, "true");
     } else {
-      sessionStorage.removeItem("categories:isChartOpen");
+      sessionStorage.removeItem(key);
     }
-  }, [isChartOpen]);
+  }, [userId, isChartOpen]);
 
   // *** [ 2. type-filter ] ****************************************************************
   // *** [abrufen aus url]: wenn query von FormAddCategory
@@ -52,30 +64,30 @@ export default function CategoriesPage() {
   // *** [abrufen aus storage]: wenn kein query
   useEffect(() => {
     if (!isReady) return;
+    if (!userId) return;
     if (type === "Income" || type === "Expense") return; // type in url: abbrechen, nicht aus storage
 
-    const storedTypeFilter = sessionStorage.getItem("categories:typeFilter");
-    if (storedTypeFilter === "Income") {
-      setTypeFilter("Income"); // income in storage: in filter
-    }
-  }, [isReady, type]);
+    const key = `u:${userId}:categories:typeFilter`;
+    const storedTypeFilter = sessionStorage.getItem(key);
+    if (storedTypeFilter === "Income") setTypeFilter("Income"); // income in storage: in filter
+  }, [isReady, userId, type]);
 
   // *** [speichern]: nur wenn income
   useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:categories:typeFilter`;
+
     if (typeFilter === "Income") {
-      sessionStorage.setItem("categories:typeFilter", "Income");
+      sessionStorage.setItem(key, "Income");
     } else {
-      sessionStorage.removeItem("categories:typeFilter");
+      sessionStorage.removeItem(key);
     }
-  }, [typeFilter]);
+  }, [userId, typeFilter]);
 
-  // ***************************************************************************************
-  // *** [ fetch ]
-  const { data: categories, error } = useSWR("/api/categories");
-
-  // *** [ guards ]
-  if (error) return <h3>Failed to load categories</h3>;
-  if (!categories) return <h3>Loading ...</h3>;
+  // *** [ guards ] ************************************************************************
+  if (!userId) return <h3>Loading ...</h3>; // auth
+  if (error) return <h3>Failed to load categories</h3>; // data
+  if (!categories) return <h3>Loading ...</h3>; // data
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
   // *** [ 1. categories ] filtern + sortieren *********************************************
@@ -90,7 +102,7 @@ export default function CategoriesPage() {
 
   // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
-  const navKey = `catNav:/categories:${typeFilter}`; // sessionStorage-key
+  const navKey = `u:${userId}:catNav:/categories:${typeFilter}`; // sessionStorage-key
   const navIds = sortedActiveCategories.map((category) => category._id); // ID-array
 
   // *** [snapshot]: in sessionStorage speichern (für < > nav in CategoryDetailsPage)

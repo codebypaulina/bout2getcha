@@ -1,5 +1,6 @@
-import useSWR from "swr";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
@@ -19,6 +20,17 @@ export default function TransactionsPage() {
   const [dateFilterPopup, setDateFilterPopup] = useState(false); // date-filter-popup
   const [isChartOpen, setIsChartOpen] = useState(false); // chart-state
 
+  const { data: session } = useSession(); // auth
+  const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
+
+  // *** [ data-fetch ]
+  const { data: transactions, error: errorTransactions } = useSWR(
+    userId ? `/api/transactions?u=${userId}` : null
+  );
+  const { data: categories, error: errorCategories } = useSWR(
+    userId ? `/api/categories?u=${userId}` : null
+  );
+
   // dateFilter nur active, wenn from/to nicht null
   const isDateFilterActive = dateFilter.from !== null || dateFilter.to !== null;
 
@@ -26,75 +38,80 @@ export default function TransactionsPage() {
   // *** [ 1. date-filter ] ****************************************************************
   // *** [abrufen]
   useEffect(() => {
-    const storedDateFilter = sessionStorage.getItem("dateFilter"); // holt gespeicherten key aus storage
+    if (!userId) return;
+    const key = `u:${userId}:dateFilter`;
+    const storedDateFilter = sessionStorage.getItem(key);
     if (!storedDateFilter) return;
 
-    const parsedDateFilter = JSON.parse(storedDateFilter); // string in object für from/to
-    const { from = null, to = null } = parsedDateFilter; // holt from/to
-    setDateFilter({ from, to }); // setzt from/to
-  }, []); // läuft nur 1x bei 1. render
-
-  // *** [speichern]: bei Änderung
-  useEffect(() => {
-    // (nur) wenn from/to nicht null -> key in storage
-    if (isDateFilterActive) {
-      sessionStorage.setItem("dateFilter", JSON.stringify(dateFilter));
-    } else {
-      // ansonsten key löschen
-      sessionStorage.removeItem("dateFilter");
+    try {
+      const parsedDateFilter = JSON.parse(storedDateFilter); // string in object für from/to
+      const { from = null, to = null } = parsedDateFilter ?? {}; // holt from/to
+      setDateFilter({ from, to }); // setzt from/to
+    } catch {
+      // ignorieren -> default
     }
-  }, [isDateFilterActive, dateFilter]); // läuft nur, wenn sich state ändert (= from/to nicht null)
+  }, [userId]);
+
+  // *** [speichern]: bei Änderung (state = from/to nicht null)
+  useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:dateFilter`;
+
+    if (isDateFilterActive) {
+      sessionStorage.setItem(key, JSON.stringify(dateFilter));
+    } else {
+      sessionStorage.removeItem(key);
+    }
+  }, [userId, isDateFilterActive, dateFilter]);
 
   // *** [ 2. chart-state ] ****************************************************************
   // *** [abrufen]
   useEffect(() => {
-    // holt gespeicherten key aus storage (state = true / null)
-    const storedChartState = sessionStorage.getItem("transactions:isChartOpen");
-
-    // wenn key existiert -> state = true
+    if (!userId) return;
+    const key = `u:${userId}:transactions:isChartOpen`;
+    const storedChartState = sessionStorage.getItem(key);
     if (storedChartState) setIsChartOpen(true);
-  }, []); // läuft nur 1x bei 1. render
+  }, [userId]);
 
-  // *** [speichern]: bei Änderung
+  // *** [speichern]: bei Änderung (= open)
   useEffect(() => {
-    // (nur) wenn state = true -> key in storage speichern
+    if (!userId) return;
+    const key = `u:${userId}:transactions:isChartOpen`;
+
     if (isChartOpen) {
-      sessionStorage.setItem("transactions:isChartOpen", "true");
+      sessionStorage.setItem(key, "true");
     } else {
-      // ansonsten key löschen (damit default = false)
-      sessionStorage.removeItem("transactions:isChartOpen");
+      sessionStorage.removeItem(key);
     }
-  }, [isChartOpen]); // läuft nur, wenn sich state ändert (= true)
+  }, [userId, isChartOpen]);
 
   // *** [ 3. type-filter ] ****************************************************************
   // *** [abrufen]
   useEffect(() => {
-    const storedTypeFilter = sessionStorage.getItem("transactions:typeFilter");
+    if (!userId) return;
+    const key = `u:${userId}:transactions:typeFilter`;
+    const storedTypeFilter = sessionStorage.getItem(key);
     if (storedTypeFilter !== "Income" && storedTypeFilter !== "Expense") return;
 
     setTypeFilter(storedTypeFilter);
-  }, []);
+  }, [userId]);
 
   // *** [speichern]
   useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:transactions:typeFilter`;
+
     if (typeFilter) {
-      sessionStorage.setItem("transactions:typeFilter", typeFilter);
+      sessionStorage.setItem(key, typeFilter);
     } else {
-      sessionStorage.removeItem("transactions:typeFilter");
+      sessionStorage.removeItem(key);
     }
-  }, [typeFilter]);
+  }, [userId, typeFilter]);
 
-  // ***************************************************************************************
-
-  // *** [ fetch ]
-  const { data: transactions, error: errorTransactions } =
-    useSWR("/api/transactions");
-  const { data: categories, error: errorCategories } =
-    useSWR("/api/categories");
-
-  // *** [ guards ]
-  if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>;
-  if (!transactions || !categories) return <h3>Loading ...</h3>;
+  // *** [ guards ] ************************************************************************
+  if (!userId) return <h3>Loading ...</h3>; // auth
+  if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>; // data
+  if (!transactions || !categories) return <h3>Loading ...</h3>; // data
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
   // *** [ 1. transactions ] sortieren + filtern *******************************************
