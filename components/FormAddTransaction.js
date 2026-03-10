@@ -1,6 +1,7 @@
 import useSWR from "swr";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import styled from "styled-components";
 import CloseIcon from "@/public/icons/close.svg";
 
@@ -8,8 +9,12 @@ export default function FormAddTransaction({ onCancel, onSuccess }) {
   const router = useRouter();
   const { category: queryCategoryId } = router.query;
 
-  // *** [ fetch ]
-  const { data: categories, error } = useSWR("/api/categories");
+  const { data: session } = useSession(); // auth
+  const userId = session?.user?.userId; // für data-fetch, SWR cache-key
+
+  const { data: categories, error } = useSWR(
+    userId ? `/api/categories?u=${userId}` : null
+  ); // data-fetch
 
   // *** [ states ]
   const [currentCategoryId, setCurrentCategoryId] = useState(""); // ID für dropdown

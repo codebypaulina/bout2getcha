@@ -5,7 +5,9 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/db/mongodb";
 
 export const authOptions = {
-  // Configure one or more authentication providers
+  secret: process.env.NEXTAUTH_SECRET,
+  session: { strategy: "jwt" },
+
   adapter: MongoDBAdapter(clientPromise),
   providers: [
     GithubProvider({
@@ -21,8 +23,17 @@ export const authOptions = {
   debug: true,
 
   callbacks: {
-    async session({ session, user }) {
-      session.user.userId = user.id;
+    async jwt({ token, user }) {
+      if (user) {
+        token.userId = user.id;
+      }
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.userId = token.userId;
+      }
       return session;
     },
   },

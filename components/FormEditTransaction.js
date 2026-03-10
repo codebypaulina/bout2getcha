@@ -1,6 +1,7 @@
 import useSWR, { mutate } from "swr";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react"; // effect + state: category-Änderung -> type-Änderung // state: ConfirmModal open/!open
+import { useSession } from "next-auth/react";
 import styled from "styled-components";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import CloseIcon from "@/public/icons/close.svg";
@@ -9,12 +10,16 @@ export default function FormEditTransaction() {
   const router = useRouter();
   const { id } = router.query; // transaction-ID aus URL
 
-  // *** [ fetch ]
+  const { data: session } = useSession(); // auth
+  const userId = session?.user?.userId; // für data-fetch, SWR cache-key
+
+  // *** [ data-fetch ]
   const { data: transaction, error: errorTransaction } = useSWR(
-    id ? `/api/transactions/${id}` : null
+    id && userId ? `/api/transactions/${id}?u=${userId}` : null
   );
-  const { data: categories, error: errorCategories } =
-    useSWR("/api/categories");
+  const { data: categories, error: errorCategories } = useSWR(
+    userId ? `/api/categories?u=${userId}` : null
+  );
 
   // *** [ states ]
   const [isConfirmOpen, setIsConfirmOpen] = useState(false); // für DeleteConfirmModal

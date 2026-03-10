@@ -109,9 +109,8 @@ export default function TransactionsPage() {
   }, [userId, typeFilter]);
 
   // *** [ guards ] ************************************************************************
-  if (!userId) return <h3>Loading ...</h3>; // auth
-  if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>; // data
-  if (!transactions || !categories) return <h3>Loading ...</h3>; // data
+  if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>;
+  if (!transactions || !categories) return <h3>Loading ...</h3>;
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
   // *** [ 1. transactions ] sortieren + filtern *******************************************

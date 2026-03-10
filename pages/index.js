@@ -4,7 +4,6 @@ import useSWR, { mutate } from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
-import LoginSection from "@/components/LoginSection";
 import Navbar from "@/components/Navbar";
 import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
@@ -20,7 +19,7 @@ export default function HomePage() {
   const [hiddenCategories, setHiddenCategories] = useState([]);
   const [isChartOpen, setIsChartOpen] = useState(false);
 
-  const { data: session, status } = useSession(); // auth
+  const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für local + session storage / data-fetch)
 
   const { data: categories, error } = useSWR(
@@ -102,12 +101,6 @@ export default function HomePage() {
   }, [userId]);
 
   // *** [ guards ] ************************************************************************
-  // *** [auth]
-  if (status === "loading") return <h3>Loading ...</h3>;
-  if (!session) return <LoginSection />;
-  if (!userId) return <h3>Loading ...</h3>;
-
-  // *** [data]
   if (error) return <h3>Failed to load categories</h3>;
   if (!categories) return <h3>Loading ...</h3>;
 
@@ -180,8 +173,6 @@ export default function HomePage() {
 
   return (
     <>
-      <LoginSection />
-
       <ContentContainer>
         <h1>Expenses</h1>
 

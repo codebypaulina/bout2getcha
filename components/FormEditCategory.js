@@ -1,6 +1,7 @@
 import useSWR, { mutate } from "swr";
 import { useRouter } from "next/router";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import styled from "styled-components";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import CloseIcon from "@/public/icons/close.svg";
@@ -9,8 +10,12 @@ export default function FormEditCategory() {
   const router = useRouter();
   const { id, from } = router.query; // from für back navigation nach category-delete
 
-  // *** [ fetch ]
-  const { data: category, error } = useSWR(id ? `/api/categories/${id}` : null);
+  const { data: session } = useSession(); // auth
+  const userId = session?.user?.userId; // für data-fetch, SWR cache-key
+
+  const { data: category, error } = useSWR(
+    id && userId ? `/api/categories/${id}?u=${userId}` : null
+  ); // data-fetch
 
   // *** [ states ]
   const [isConfirmOpen, setIsConfirmOpen] = useState(false); // für DeleteConfirmModal
@@ -59,7 +64,7 @@ export default function FormEditCategory() {
 
       // SWR-detail-cache: revalidieren, um category.transactionCount nicht zu überschreiben
       // -> values geupdated (CategoryDetailsPage + reopened form)
-      mutate(`/api/categories/${id}`);
+      mutate(`/api/categories/${id}?u=${userId}`);
       console.log("UPDATING SUCCESSFUL! (category)");
       router.back();
     } catch (error) {

@@ -1,22 +1,31 @@
 import { useSession, signIn, signOut } from "next-auth/react";
 
-export default function LoginSection() {
+export default function LoginSection({ callbackUrl = "/" }) {
+  // callbackUrl von ProfilePage
+
   const { data: session } = useSession();
 
   console.log("user-data: ", session);
 
+  // [eingeloggt]: Logout -> ProfilePage
   if (session) {
     return (
       <>
         Signed in as {session.user.name} <br />
-        <button onClick={() => signOut()}>Sign out</button>
+        <button onClick={() => signOut({ callbackUrl: "/profile" })}>
+          Sign out
+        </button>
       </>
     );
   }
+
+  // [nicht eingeloggt]: Login -> callbackUrl
   return (
     <>
       Not signed in <br />
-      <button onClick={() => signIn()}>Sign in</button>
+      <button onClick={() => signIn(undefined, { callbackUrl })}>
+        Sign in
+      </button>
     </>
   );
 }

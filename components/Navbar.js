@@ -59,7 +59,7 @@ export default function Navbar() {
 
         <NavbarItem $isActive={router.pathname === "/profile"}>
           <StyledLink
-            href=""
+            href="/profile"
             aria-label="Profile"
             aria-current={router.pathname === "/profile" ? "page" : undefined}
           >

@@ -85,9 +85,8 @@ export default function CategoriesPage() {
   }, [userId, typeFilter]);
 
   // *** [ guards ] ************************************************************************
-  if (!userId) return <h3>Loading ...</h3>; // auth
-  if (error) return <h3>Failed to load categories</h3>; // data
-  if (!categories) return <h3>Loading ...</h3>; // data
+  if (error) return <h3>Failed to load categories</h3>;
+  if (!categories) return <h3>Loading ...</h3>;
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
   // *** [ 1. categories ] filtern + sortieren *********************************************
@@ -107,6 +106,7 @@ export default function CategoriesPage() {
 
   // *** [snapshot]: in sessionStorage speichern (für < > nav in CategoryDetailsPage)
   function storeCatNavSnapshot() {
+    if (!userId) return;
     sessionStorage.setItem(navKey, JSON.stringify(navIds));
   }
 

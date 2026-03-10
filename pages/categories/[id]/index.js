@@ -1,6 +1,7 @@
 import useSWR from "swr";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 import styled from "styled-components";
 import Link from "next/link";
 import CloseIcon from "/public/icons/close.svg";
@@ -12,6 +13,17 @@ import AddIcon from "/public/icons/addNEU.svg";
 export default function CategoryDetailsPage() {
   const router = useRouter();
   const { id, from, navKey } = router.query;
+
+  const { data: session } = useSession(); // auth
+  const userId = session?.user?.userId; // für data-fetch, SWR cache-key
+
+  // *** [ data-fetch ]
+  const { data: category, error: errorCategory } = useSWR(
+    id && userId ? `/api/categories/${id}?u=${userId}` : null
+  );
+  const { data: transactions, error: errorTransactions } = useSWR(
+    userId ? `/api/transactions?u=${userId}` : null
+  );
 
   // *** [ < > nav ] ***********************************************************************
   // *** [ state ]: snapshot ID-Reihenfolge category-list
@@ -81,20 +93,11 @@ export default function CategoryDetailsPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevCat, goToNextCat]);
 
-  // ***************************************************************************************
-  // *** [ fetch ]
-  const { data: category, error: errorCategory } = useSWR(
-    id ? `/api/categories/${id}` : null
-  );
-  const { data: transactions, error: errorTransactions } =
-    useSWR("/api/transactions");
-
-  // *** [ guards ]
+  // *** [ guards ] ************************************************************************
   if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
   if (!category || !transactions) return <h3>Loading ...</h3>;
 
-  // ***************************************************************************************
-  // *** [ transactions ]: filtern + sortieren
+  // *** [ transactions ]: filtern + sortieren *********************************************
   const filteredTransactions = transactions
     .filter((transaction) => transaction.category?._id === id) // nur aktuelle category
     .sort((a, b) => new Date(a.date) - new Date(b.date)); // Datum aufsteigend
