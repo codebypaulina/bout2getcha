@@ -22,8 +22,12 @@ export default function HomePage() {
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für local + session storage / data-fetch)
 
-  const { data: categories, error } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null // data-fetch
+  // *** [ data-fetch ]
+  const { data: categories, error: errorCategories } = useSWR(
+    userId ? `/api/categories?u=${userId}` : null
+  );
+  const { data: transactions, error: errorTransactions } = useSWR(
+    userId ? `/api/transactions?u=${userId}` : null
   );
 
   // *** [ LOCAL STORAGE ] hidden categories ***********************************************
@@ -78,13 +82,43 @@ export default function HomePage() {
   }, [userId, isChartOpen]);
 
   // *** [ guards ] ************************************************************************
-  if (error) return <h3>Failed to load categories</h3>;
-  if (!categories) return <h3>Loading ...</h3>;
+  if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
+  if (!categories || !transactions) return <h3>Loading ...</h3>;
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
-  // *** [ 1. categories ] filtern + sortieren *********************************************
+  // *** [ 1. transactions ]: nur aus aktuellem Monat **************************************
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const currentMonthTransactions = transactions.filter((transaction) => {
+    const transactionDate = new Date(transaction.date);
+
+    return (
+      transactionDate.getFullYear() === currentYear &&
+      transactionDate.getMonth() === currentMonth
+    );
+  });
+
+  // *** [ 2. categories ] *****************************************************************
+  // *** [mit totals]
+  const categoriesWithTotals = categories.map((category) => {
+    const totalAmount = currentMonthTransactions
+      .filter((transaction) => {
+        const categoryId =
+          typeof transaction.category === "string"
+            ? transaction.category
+            : transaction.category?._id;
+
+        return categoryId === category._id;
+      })
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+    return { ...category, totalAmount };
+  });
+
   // *** [filtern]: alle expense + nicht leer
-  const expenseCategories = categories.filter(
+  const expenseCategories = categoriesWithTotals.filter(
     (category) => category.type === "Expense" && category.totalAmount > 0
   );
 
