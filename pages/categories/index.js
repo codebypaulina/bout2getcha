@@ -25,8 +25,12 @@ export default function CategoriesPage() {
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
 
-  const { data: categories, error } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null // data-fetch
+  // *** [ data-fetch ]
+  const { data: categories, error: errorCategories } = useSWR(
+    userId ? `/api/categories?u=${userId}` : null
+  );
+  const { data: transactions, error: errorTransactions } = useSWR(
+    userId ? `/api/transactions?u=${userId}` : null
   );
 
   // *** [ SESSION STORAGE ] ***************************************************************
@@ -85,12 +89,29 @@ export default function CategoriesPage() {
   }, [userId, typeFilter]);
 
   // *** [ guards ] ************************************************************************
-  if (error) return <h3>Failed to load categories</h3>;
-  if (!categories) return <h3>Loading ...</h3>;
+  if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
+  if (!categories || !transactions) return <h3>Loading ...</h3>;
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
-  // *** [ 1. categories ] filtern + sortieren *********************************************
-  const sortedActiveCategories = [...categories]
+  // *** [ 1. categories ] *****************************************************************
+  // *** [mit totals]
+  const categoriesWithTotals = categories.map((category) => {
+    const totalAmount = transactions
+      .filter((transaction) => {
+        const categoryId =
+          typeof transaction.category === "string"
+            ? transaction.category
+            : transaction.category?._id;
+
+        return categoryId === category._id;
+      })
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+    return { ...category, totalAmount };
+  });
+
+  // *** [filtern + sortieren]
+  const sortedActiveCategories = categoriesWithTotals
     .filter((category) => category.type === typeFilter) // nur aktiver type
     .sort((a, b) => {
       if (b.totalAmount !== a.totalAmount) {

@@ -24,55 +24,67 @@ export default async function handler(request, response) {
   await dbConnect();
 
   // *** [ GET ] **********************************************************
-  // categories | zugehörige transactions | totalAmount
   if (request.method === "GET") {
     try {
-      const categories = await Category.aggregate([
-        // [categories] des eingeloggten users:
-        {
-          $match: { userId: userObjectId },
-        },
-
-        // [transactions] in category integrieren:
-        {
-          $lookup: {
-            from: "transactions", // collection, aus der gejoint wird
-            let: { categoryId: "$_id" }, // aktuelle category-ID für join (in pipeline "$$categoryId")
-            pipeline: [
-              {
-                $match: {
-                  // Feld-zu-Feld / Feld-zu-Variable vergleichen:
-                  $expr: {
-                    $and: [
-                      // nur transactions mit aktueller category-ID:
-                      // ($category = Feld in transactions-collection: transaction.category // $$categoryId = let-Variable ID)
-                      { $eq: ["$category", "$$categoryId"] },
-
-                      // nur transactions des eingeloggten users:
-                      // ($userId = Feld in transactions-collection: transaction.userId // userObjectId = user)
-                      { $eq: ["$userId", userObjectId] },
-                    ],
-                  },
-                },
-              },
-            ],
-            as: "transactions", // integrierte transactions (neues Feld)
-          },
-        },
-
-        // [totalAmount] aus integrierten transactions:
-        {
-          $addFields: {
-            totalAmount: { $sum: "$transactions.amount" },
-          },
-        },
-      ]);
+      const categories = await Category.find({
+        userId: userObjectId, // nur categories des eingeloggten users
+      });
 
       return response.status(200).json(categories);
     } catch (error) {
       return response.status(500).json({ error: "Failed to fetch categories" });
     }
   }
+
+  // // categories | zugehörige transactions | totalAmount
+  // if (request.method === "GET") {
+  //   try {
+  //     const categories = await Category.aggregate([
+  //       // [categories] des eingeloggten users:
+  //       {
+  //         $match: { userId: userObjectId },
+  //       },
+
+  //       // [transactions] in category integrieren:
+  //       {
+  //         $lookup: {
+  //           from: "transactions", // collection, aus der gejoint wird
+  //           let: { categoryId: "$_id" }, // aktuelle category-ID für join (in pipeline "$$categoryId")
+  //           pipeline: [
+  //             {
+  //               $match: {
+  //                 // Feld-zu-Feld / Feld-zu-Variable vergleichen:
+  //                 $expr: {
+  //                   $and: [
+  //                     // nur transactions mit aktueller category-ID:
+  //                     // ($category = Feld in transactions-collection: transaction.category // $$categoryId = let-Variable ID)
+  //                     { $eq: ["$category", "$$categoryId"] },
+
+  //                     // nur transactions des eingeloggten users:
+  //                     // ($userId = Feld in transactions-collection: transaction.userId // userObjectId = user)
+  //                     { $eq: ["$userId", userObjectId] },
+  //                   ],
+  //                 },
+  //               },
+  //             },
+  //           ],
+  //           as: "transactions", // integrierte transactions (neues Feld)
+  //         },
+  //       },
+
+  //       // [totalAmount] aus integrierten transactions:
+  //       {
+  //         $addFields: {
+  //           totalAmount: { $sum: "$transactions.amount" },
+  //         },
+  //       },
+  //     ]);
+
+  //     return response.status(200).json(categories);
+  //   } catch (error) {
+  //     return response.status(500).json({ error: "Failed to fetch categories" });
+  //   }
+  // }
 
   // *** [ POST ] *********************************************************
   if (request.method === "POST") {

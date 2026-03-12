@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
@@ -76,29 +76,6 @@ export default function HomePage() {
       sessionStorage.removeItem(key);
     }
   }, [userId, isChartOpen]);
-
-  // *** [ BOOTSTRAP seeding ] *************************************************************
-  // default categories + transactions für neue user
-  useEffect(() => {
-    if (!userId) return;
-
-    async function runBootstrap() {
-      try {
-        const response = await fetch("/api/bootstrap", { method: "POST" });
-        const data = await response.json();
-
-        // nach seed: SWR-cache ohne reload aktualisieren
-        if (!data.alreadySeeded) {
-          mutate(`/api/categories?u=${userId}`);
-          mutate(`/api/transactions?u=${userId}`);
-        }
-      } catch (error) {
-        console.error("Bootstrap failed");
-      }
-    }
-
-    runBootstrap();
-  }, [userId]);
 
   // *** [ guards ] ************************************************************************
   if (error) return <h3>Failed to load categories</h3>;
