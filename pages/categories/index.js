@@ -93,10 +93,24 @@ export default function CategoriesPage() {
   if (!categories || !transactions) return <h3>Loading ...</h3>;
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
-  // *** [ 1. categories ] *****************************************************************
+  // *** [ 1. transactions ]: nur aus aktuellem Monat **************************************
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const currentMonthTransactions = transactions.filter((transaction) => {
+    const transactionDate = new Date(transaction.date);
+
+    return (
+      transactionDate.getFullYear() === currentYear &&
+      transactionDate.getMonth() === currentMonth
+    );
+  });
+
+  // *** [ 2. categories ] *****************************************************************
   // *** [mit totals]
   const categoriesWithTotals = categories.map((category) => {
-    const totalAmount = transactions
+    const totalAmount = currentMonthTransactions
       .filter((transaction) => {
         const categoryId =
           typeof transaction.category === "string"
@@ -120,7 +134,7 @@ export default function CategoriesPage() {
       return a.name.localeCompare(b.name, "de-DE"); // Betrag gleich: A-Z
     });
 
-  // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
+  // *** [ 3. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
   const navKey = `u:${userId}:catNav:/categories:${typeFilter}`; // sessionStorage-key
   const navIds = sortedActiveCategories.map((category) => category._id); // ID-array
@@ -131,7 +145,7 @@ export default function CategoriesPage() {
     sessionStorage.setItem(navKey, JSON.stringify(navIds));
   }
 
-  // *** [ 3. chart ] **********************************************************************
+  // *** [ 4. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = sortedActiveCategories
     .filter((category) => category.totalAmount > 0)

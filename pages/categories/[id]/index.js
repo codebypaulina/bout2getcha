@@ -97,8 +97,23 @@ export default function CategoryDetailsPage() {
   if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
   if (!category || !transactions) return <h3>Loading ...</h3>;
 
-  // *** [ transactions ]: filtern + sortieren *********************************************
-  const filteredTransactions = transactions
+  // *** [ transactions ] ******************************************************************
+  // *** [nur aus aktuellem Monat]
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const currentMonthTransactions = transactions.filter((transaction) => {
+    const transactionDate = new Date(transaction.date);
+
+    return (
+      transactionDate.getFullYear() === currentYear &&
+      transactionDate.getMonth() === currentMonth
+    );
+  });
+
+  // *** [filtern + sortieren]
+  const filteredTransactions = currentMonthTransactions
     .filter((transaction) => transaction.category?._id === id) // nur aktuelle category
     .sort((a, b) => new Date(a.date) - new Date(b.date)); // Datum aufsteigend
 
