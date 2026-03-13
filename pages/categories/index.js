@@ -126,7 +126,8 @@ export default function CategoriesPage() {
   if (!categories || !transactions) return <h3>Loading ...</h3>;
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
-  // *** [ 1. active month ] ***************************************************************
+  // *** [ 1. months ] *********************************************************************
+  // *** [active month]
   const activeYear = activeMonthDate.getFullYear();
   const activeMonth = activeMonthDate.getMonth();
   const activeMonthLabel = activeMonthDate.toLocaleDateString("en-US", {
@@ -134,33 +135,33 @@ export default function CategoriesPage() {
     year: "numeric",
   });
 
-  // active month als "YYYY-MM" (für link zu CategoryDetailsPage)
-  const activeMonthKey = getMonthKey(activeMonthDate);
+  const activeMonthKey = getMonthKey(activeMonthDate); // in "YYYY-MM"
 
-  // *** [ 2. transactions ] ***************************************************************
-  // *** [ältere + neuere]: für MonthNav < >
-  const hasTransactionsInPrevMonth = transactions.some((transaction) => {
-    const transactionDate = new Date(transaction.date);
-    return (
-      transactionDate.getFullYear() < activeYear || // früheres Jahr
-      (transactionDate.getFullYear() === activeYear &&
-        transactionDate.getMonth() < activeMonth) // gleiches Jahr, früherer Monat
-    );
-  });
+  // *** [filled months]: für MonthNav, um leere zu überspringen
+  const monthsWithTx = [
+    ...new Set(
+      transactions.map((transaction) => getMonthKey(new Date(transaction.date)))
+    ),
+  ].sort(); // alle, zB ["2026-03", "2026-04", ...]
 
-  const hasTransactionsInNextMonth = transactions.some((transaction) => {
-    const transactionDate = new Date(transaction.date);
-    return (
-      transactionDate.getFullYear() > activeYear || // späteres Jahr
-      (transactionDate.getFullYear() === activeYear &&
-        transactionDate.getMonth() > activeMonth) // gleiches Jahr, späterer Monat
-    );
-  });
+  const prevMonthsWithTx = monthsWithTx.filter(
+    (monthKey) => monthKey < activeMonthKey
+  ); // alle VOR active month
+  const nextMonthsWithTx = monthsWithTx.filter(
+    (monthKey) => monthKey > activeMonthKey
+  ); // alle NACH active month
 
-  const isPrevMonthDisabled = !hasTransactionsInPrevMonth;
-  const isNextMonthDisabled = !hasTransactionsInNextMonth;
+  const prevMonthKey =
+    prevMonthsWithTx.length > 0
+      ? prevMonthsWithTx[prevMonthsWithTx.length - 1]
+      : null; // letzter früherer
 
-  // *** [nur aus active month]
+  const nextMonthKey = nextMonthsWithTx.length > 0 ? nextMonthsWithTx[0] : null; // erster späterer
+
+  const isPrevMonthDisabled = !prevMonthKey; // für < > buttons (davor/danach kein filled month: disabled)
+  const isNextMonthDisabled = !nextMonthKey;
+
+  // *** [ 2. transactions ]: nur aus active month *****************************************
   const activeMonthTransactions = transactions.filter((transaction) => {
     const transactionDate = new Date(transaction.date);
 
@@ -244,34 +245,25 @@ export default function CategoriesPage() {
   }
 
   // *** [ MonthNav < > ]
-  function goToPrevMonth() {
-    if (isPrevMonthDisabled) return;
+  function goToMonth(monthKey) {
+    if (!monthKey) return;
 
-    const nextDate = new Date(
-      activeMonthDate.getFullYear(),
-      activeMonthDate.getMonth() - 1,
-      1
-    ); // 1. Tag Vormonat
+    const [yearString, monthString] = monthKey.split("-");
+    const parsedYear = Number(yearString);
+    const parsedMonthIndex = Number(monthString) - 1;
+    const targetMonthDate = new Date(parsedYear, parsedMonthIndex, 1);
 
-    setActiveMonthDate(nextDate);
-    replace(`/categories?month=${getMonthKey(nextDate)}`, undefined, {
+    setActiveMonthDate(targetMonthDate);
+    replace(`/categories?month=${monthKey}`, undefined, {
       shallow: true,
     }); // url aktualisieren mit neuem active month ohne remount
   }
 
+  function goToPrevMonth() {
+    goToMonth(prevMonthKey);
+  }
   function goToNextMonth() {
-    if (isNextMonthDisabled) return;
-
-    const nextDate = new Date(
-      activeMonthDate.getFullYear(),
-      activeMonthDate.getMonth() + 1,
-      1
-    ); // 1. Tag Folgemonat
-
-    setActiveMonthDate(nextDate);
-    replace(`/categories?month=${getMonthKey(nextDate)}`, undefined, {
-      shallow: true,
-    });
+    goToMonth(nextMonthKey);
   }
 
   return (
