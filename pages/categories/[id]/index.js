@@ -12,7 +12,7 @@ import AddIcon from "/public/icons/addNEU.svg";
 
 export default function CategoryDetailsPage() {
   const router = useRouter();
-  const { id, from, navKey } = router.query;
+  const { id, from, month, navKey } = router.query;
 
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
@@ -55,16 +55,25 @@ export default function CategoryDetailsPage() {
 
   // *** [ nav routes ] ********************************************************************
   const fromQuery = from ? `?from=${encodeURIComponent(from)}` : ""; // back nav (HomePage / CategoriesPage)
+  const monthQuery = month
+    ? `${fromQuery ? "&" : "?"}month=${encodeURIComponent(month)}`
+    : ""; // active month bei < > nav
   const navKeyQuery = navKey
-    ? `${fromQuery ? "&" : "?"}navKey=${encodeURIComponent(navKey)}`
+    ? `${fromQuery || monthQuery ? "&" : "?"}navKey=${encodeURIComponent(navKey)}`
     : ""; // < > nav
 
   // *** [ nav actions ] *******************************************************************
   function closeCatDetails() {
     if (from) {
-      router.replace(from); // HomePage / CategoriesPage
+      const targetUrl = month
+        ? `${from}?month=${encodeURIComponent(month)}` // HomePage / CategoriesPage mit active month
+        : from; // HomePage / CategoriesPage
+      router.replace(targetUrl);
     } else {
-      router.replace("/categories"); // fallback
+      const fallbackUrl = month
+        ? `/categories?month=${encodeURIComponent(month)}`
+        : "/categories";
+      router.replace(fallbackUrl);
     }
   }
 
@@ -74,13 +83,13 @@ export default function CategoryDetailsPage() {
 
   const goToPrevCat = useCallback(() => {
     if (!prevId) return;
-    router.push(`/categories/${prevId}${fromQuery}${navKeyQuery}`);
-  }, [prevId, fromQuery, navKeyQuery, router]);
+    router.push(`/categories/${prevId}${fromQuery}${monthQuery}${navKeyQuery}`);
+  }, [prevId, fromQuery, monthQuery, navKeyQuery, router]);
 
   const goToNextCat = useCallback(() => {
     if (!nextId) return;
-    router.push(`/categories/${nextId}${fromQuery}${navKeyQuery}`);
-  }, [nextId, fromQuery, navKeyQuery, router]);
+    router.push(`/categories/${nextId}${fromQuery}${monthQuery}${navKeyQuery}`);
+  }, [nextId, fromQuery, monthQuery, navKeyQuery, router]);
 
   // *** [ keyboard nav ] ******************************************************************
   useEffect(() => {
@@ -97,23 +106,41 @@ export default function CategoryDetailsPage() {
   if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
   if (!category || !transactions) return <h3>Loading ...</h3>;
 
-  // *** [ transactions ] ******************************************************************
-  // *** [nur aus aktuellem Monat]
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
+  // *** [ ABGELEITETE DATEN ] *************************************************************
+  // *** [ 1. active month ]: aus url ******************************************************
+  let activeMonthDate = new Date();
 
-  const currentMonthTransactions = transactions.filter((transaction) => {
+  if (typeof month === "string") {
+    const [yearString, monthString] = month.split("-"); // "2026-02" -> "2026" + "02"
+    const parsedYear = Number(yearString); // "2026" -> 2026
+    const parsedMonthIndex = Number(monthString) - 1; // "02" => 2 => -1 => 1
+
+    if (
+      Number.isInteger(parsedYear) &&
+      Number.isInteger(parsedMonthIndex) &&
+      parsedMonthIndex >= 0 &&
+      parsedMonthIndex <= 11
+    ) {
+      activeMonthDate = new Date(parsedYear, parsedMonthIndex, 1); // 1. Tag von url-month
+    }
+  }
+
+  const activeYear = activeMonthDate.getFullYear();
+  const activeMonth = activeMonthDate.getMonth();
+
+  // *** [ 2. transactions ] ***************************************************************
+  // *** [nur aus active month]
+  const activeMonthTransactions = transactions.filter((transaction) => {
     const transactionDate = new Date(transaction.date);
 
     return (
-      transactionDate.getFullYear() === currentYear &&
-      transactionDate.getMonth() === currentMonth
+      transactionDate.getFullYear() === activeYear &&
+      transactionDate.getMonth() === activeMonth
     );
   });
 
   // *** [filtern + sortieren]
-  const filteredTransactions = currentMonthTransactions
+  const filteredTransactions = activeMonthTransactions
     .filter((transaction) => transaction.category?._id === id) // nur aktuelle category
     .sort((a, b) => new Date(a.date) - new Date(b.date)); // Datum aufsteigend
 

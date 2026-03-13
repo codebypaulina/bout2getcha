@@ -7,6 +7,8 @@ import dynamic from "next/dynamic";
 import styled from "styled-components";
 import Navbar from "@/components/Navbar";
 import ChartIcon from "@/public/icons/chart.svg";
+import PrevIcon from "@/public/icons/previous.svg";
+import NextIcon from "@/public/icons/next.svg";
 
 // hier muss dynamischer Import, sonst ES Module error (auch bei aktuellster next.js-Version)
 const ResponsivePie = dynamic(
@@ -14,13 +16,22 @@ const ResponsivePie = dynamic(
   { ssr: false }
 );
 
+// date-object -> "YYYY-MM" (für: in url, an CategoryDetailsPage, aus url)
+function getMonthKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
 export default function CategoriesPage() {
   const router = useRouter();
   const { isReady, query, replace } = router;
   const type = query.type; // von FormAddCategory für type-filter
+  const month = query.month; // "YYYY-MM" für & von CategoryDetailsPage
 
   const [typeFilter, setTypeFilter] = useState("Expense");
   const [isChartOpen, setIsChartOpen] = useState(false);
+  const [activeMonthDate, setActiveMonthDate] = useState(() => new Date());
 
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
@@ -88,29 +99,81 @@ export default function CategoriesPage() {
     }
   }, [userId, typeFilter]);
 
+  // *** [ ACTIVE MONTH: aus URL ] *********************************************************
+  useEffect(() => {
+    if (!isReady) return;
+    if (typeof month !== "string") return;
+
+    // für date-object
+    const [yearString, monthString] = month.split("-"); // "2026-02" -> "2026" + "02"
+    const parsedYear = Number(yearString); // "2026" -> 2026
+    const parsedMonthIndex = Number(monthString) - 1; // "02" => 2 => -1 => 1
+
+    if (
+      !Number.isInteger(parsedYear) ||
+      !Number.isInteger(parsedMonthIndex) ||
+      parsedMonthIndex < 0 ||
+      parsedMonthIndex > 11
+    ) {
+      return;
+    }
+
+    setActiveMonthDate(new Date(parsedYear, parsedMonthIndex, 1)); // active month: 1. Tag von url-month
+  }, [isReady, month]);
+
   // *** [ guards ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
   if (!categories || !transactions) return <h3>Loading ...</h3>;
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
-  // *** [ 1. transactions ]: nur aus aktuellem Monat **************************************
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
+  // *** [ 1. active month ] ***************************************************************
+  const activeYear = activeMonthDate.getFullYear();
+  const activeMonth = activeMonthDate.getMonth();
+  const activeMonthLabel = activeMonthDate.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
 
-  const currentMonthTransactions = transactions.filter((transaction) => {
+  // active month als "YYYY-MM" (für link zu CategoryDetailsPage)
+  const activeMonthKey = getMonthKey(activeMonthDate);
+
+  // *** [ 2. transactions ] ***************************************************************
+  // *** [ältere + neuere]: für MonthNav < >
+  const hasTransactionsInPrevMonth = transactions.some((transaction) => {
     const transactionDate = new Date(transaction.date);
-
     return (
-      transactionDate.getFullYear() === currentYear &&
-      transactionDate.getMonth() === currentMonth
+      transactionDate.getFullYear() < activeYear || // früheres Jahr
+      (transactionDate.getFullYear() === activeYear &&
+        transactionDate.getMonth() < activeMonth) // gleiches Jahr, früherer Monat
     );
   });
 
-  // *** [ 2. categories ] *****************************************************************
+  const hasTransactionsInNextMonth = transactions.some((transaction) => {
+    const transactionDate = new Date(transaction.date);
+    return (
+      transactionDate.getFullYear() > activeYear || // späteres Jahr
+      (transactionDate.getFullYear() === activeYear &&
+        transactionDate.getMonth() > activeMonth) // gleiches Jahr, späterer Monat
+    );
+  });
+
+  const isPrevMonthDisabled = !hasTransactionsInPrevMonth;
+  const isNextMonthDisabled = !hasTransactionsInNextMonth;
+
+  // *** [nur aus active month]
+  const activeMonthTransactions = transactions.filter((transaction) => {
+    const transactionDate = new Date(transaction.date);
+
+    return (
+      transactionDate.getFullYear() === activeYear &&
+      transactionDate.getMonth() === activeMonth
+    );
+  });
+
+  // *** [ 3. categories ] *****************************************************************
   // *** [mit totals]
   const categoriesWithTotals = categories.map((category) => {
-    const totalAmount = currentMonthTransactions
+    const totalAmount = activeMonthTransactions
       .filter((transaction) => {
         const categoryId =
           typeof transaction.category === "string"
@@ -134,7 +197,7 @@ export default function CategoriesPage() {
       return a.name.localeCompare(b.name, "de-DE"); // Betrag gleich: A-Z
     });
 
-  // *** [ 3. ID-Reihenfolge category-list ] ***********************************************
+  // *** [ 4. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
   const navKey = `u:${userId}:catNav:/categories:${typeFilter}`; // sessionStorage-key
   const navIds = sortedActiveCategories.map((category) => category._id); // ID-array
@@ -145,7 +208,7 @@ export default function CategoriesPage() {
     sessionStorage.setItem(navKey, JSON.stringify(navIds));
   }
 
-  // *** [ 4. chart ] **********************************************************************
+  // *** [ 5. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = sortedActiveCategories
     .filter((category) => category.totalAmount > 0)
@@ -180,10 +243,63 @@ export default function CategoriesPage() {
     );
   }
 
+  // *** [ MonthNav < > ]
+  function goToPrevMonth() {
+    if (isPrevMonthDisabled) return;
+
+    const nextDate = new Date(
+      activeMonthDate.getFullYear(),
+      activeMonthDate.getMonth() - 1,
+      1
+    ); // 1. Tag Vormonat
+
+    setActiveMonthDate(nextDate);
+    replace(`/categories?month=${getMonthKey(nextDate)}`, undefined, {
+      shallow: true,
+    }); // url aktualisieren mit neuem active month ohne remount
+  }
+
+  function goToNextMonth() {
+    if (isNextMonthDisabled) return;
+
+    const nextDate = new Date(
+      activeMonthDate.getFullYear(),
+      activeMonthDate.getMonth() + 1,
+      1
+    ); // 1. Tag Folgemonat
+
+    setActiveMonthDate(nextDate);
+    replace(`/categories?month=${getMonthKey(nextDate)}`, undefined, {
+      shallow: true,
+    });
+  }
+
   return (
     <>
       <ContentContainer>
         <h1>Categories</h1>
+
+        <MonthNav>
+          <NavButton
+            type="button"
+            aria-label="Previous month"
+            disabled={isPrevMonthDisabled}
+            onClick={goToPrevMonth}
+          >
+            <PrevIcon className="prev" />
+          </NavButton>
+
+          <p>{activeMonthLabel}</p>
+
+          <NavButton
+            type="button"
+            aria-label="Next month"
+            disabled={isNextMonthDisabled}
+            onClick={goToNextMonth}
+          >
+            <NextIcon className="next" />
+          </NavButton>
+        </MonthNav>
 
         {isChartOpen && chartData.length > 0 && (
           <ChartSection>
@@ -241,7 +357,7 @@ export default function CategoriesPage() {
           {sortedActiveCategories.map((category) => (
             <ListItem key={category._id} $empty={category.totalAmount <= 0}>
               <StyledLink
-                href={`/categories/${category._id}?from=/categories&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft = CategoriesPage (nach category-delete) // "&navKey=...": ID-Reihenfolge (< > nav)
+                href={`/categories/${category._id}?from=/categories&month=${activeMonthKey}&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft für nach category-delete // "&month=...": aktiver Monat // "&navKey=...": ID-Reihenfolge (< > nav)
                 onClick={storeCatNavSnapshot}
               >
                 <ColorTag $categoryColor={category.color} />
@@ -275,6 +391,57 @@ const ContentContainer = styled.div`
     margin-bottom: 1.5rem;
   }
 `;
+
+// ******************************************************************************
+
+const MonthNav = styled.div`
+  display: flex; // items nebeneinander
+  justify-content: space-between; // verteilt
+  align-items: center; // vertikal zentriert
+  margin: 0 auto 1rem auto;
+  max-width: 160px; // schmaler als list + FilterSection
+
+  p {
+    font-size: 0.85rem;
+  }
+`;
+
+const NavButton = styled.button`
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  background-color: var(--button-background-color);
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
+
+  svg {
+    height: 10px;
+    width: 10px;
+    stroke: var(--button-text-color);
+  }
+  .prev {
+    margin-right: 2px;
+  }
+  .next {
+    margin-left: 2px;
+  }
+
+  &:hover {
+    transform: scale(1.07);
+
+    svg {
+      stroke: var(--primary-text-color);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+`;
+
+// ******************************************************************************
 
 const ChartSection = styled.div`
   display: flex;
