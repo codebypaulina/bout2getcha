@@ -220,6 +220,8 @@ export default function CategoriesPage() {
       color: category.color,
     }));
 
+  const hasEnoughChartData = chartData.length >= 2; // für ChartButton + ChartSection
+
   // *** [value balance-container]: Summe angezeigter categories
   const totalValue = sortedActiveCategories.reduce(
     (sum, category) => sum + category.totalAmount,
@@ -235,6 +237,7 @@ export default function CategoriesPage() {
   // ***************************************************************************************
 
   function toggleChart() {
+    if (!hasEnoughChartData) return;
     setIsChartOpen((prevState) => !prevState);
   }
 
@@ -293,7 +296,28 @@ export default function CategoriesPage() {
           </NavButton>
         </MonthNav>
 
-        {isChartOpen && chartData.length > 0 && (
+        <FilterSection>
+          <ChartButton
+            type="button"
+            aria-label="Toggle chart"
+            className={isChartOpen && hasEnoughChartData ? "active" : ""}
+            disabled={!hasEnoughChartData}
+            onClick={toggleChart}
+          >
+            <ChartIcon />
+          </ChartButton>
+
+          <button
+            type="button"
+            aria-label="Toggle category type"
+            className="type-filter"
+            onClick={toggleTypeFilter}
+          >
+            {typeFilter === "Expense" ? "Expenses" : "Incomes"}
+          </button>
+        </FilterSection>
+
+        {isChartOpen && hasEnoughChartData && (
           <ChartSection>
             <PieWrapper>
               <ResponsivePie
@@ -331,19 +355,6 @@ export default function CategoriesPage() {
             </BalanceContainer>
           </ChartSection>
         )}
-
-        <FilterSection>
-          <IconWrapper
-            onClick={toggleChart}
-            className={isChartOpen ? "active" : ""}
-          >
-            <ChartIcon />
-          </IconWrapper>
-
-          <button onClick={toggleTypeFilter}>
-            {typeFilter === "Expense" ? "Expenses" : "Incomes"}
-          </button>
-        </FilterSection>
 
         <StyledList>
           {sortedActiveCategories.map((category) => (
@@ -458,13 +469,12 @@ const BalanceContainer = styled.div`
 `;
 
 const FilterSection = styled.div`
-  display: flex; // IconWrapper + button nebeneinander
-  justify-content: space-between; // icon links, button rechts
-
+  display: flex; // buttons nebeneinander
+  justify-content: space-between; // chart links, type rechts
   max-width: 285px; // schmaler als list
   margin: 0 auto 1.5rem auto; // Abstand list, horizontal zentriert
 
-  button {
+  button.type-filter {
     background-color: var(--button-active-color);
     color: var(--button-active-text-color);
     border: none;
@@ -481,7 +491,8 @@ const FilterSection = styled.div`
   }
 `;
 
-const IconWrapper = styled.div`
+const ChartButton = styled.button`
+  border: none;
   background-color: var(--button-background-color);
   color: var(--button-text-color);
   width: 32px;
@@ -506,6 +517,11 @@ const IconWrapper = styled.div`
   &.active {
     background-color: var(--button-active-color);
     color: var(--button-active-text-color);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
   }
 `;
 
