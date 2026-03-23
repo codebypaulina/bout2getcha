@@ -16,12 +16,87 @@ const ResponsivePie = dynamic(
   { ssr: false }
 );
 
-// date-object -> "YYYY-MM" (für: in url, an CategoryDetailsPage, aus url)
+// *** [ HELPERS ]: date ******************************************************************
+// *** [object -> "YYYY-MM"]: für in url, an CategoryDetailsPage, aus url
 function getMonthKey(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
 }
+
+// *** [object -> "DD.MM.YYYY"]: für activeRangeLabel
+function formatDateLabel(date) {
+  return date.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+// *** [1. Tag des Monats]: für default
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1); // 17.03.2026 -> 01.03.2026
+}
+
+// *** [letzter Tag des Monats]: für default (= 0. Tag des Folgemonats)
+function endOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  // new Date(2026, 3, 0) -> 31.03.2026
+  // new Date(2026, 3, 1) -> 01.04.2026
+}
+
+// *** [range-Tagesgrenzen]: für gültige + active range
+function getRangeBounds(startDate, endDate) {
+  return {
+    startTime: new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    ).getTime(), // Starttag um 00:00:00
+
+    endTime: new Date(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      endDate.getDate(),
+      23,
+      59,
+      59,
+      999
+    ).getTime(), // Endtag um 23:59:59
+  };
+}
+
+// *** [range + 1 / - 1]:
+function moveDateByMonths(date, monthOffset) {
+  const originalDay = date.getDate(); // ursprüngl. Tag
+
+  // Zieljahr + Zielmonat
+  const targetDate = new Date(
+    date.getFullYear(),
+    date.getMonth() + monthOffset,
+    1 // 1. Tag
+  );
+  const targetYear = targetDate.getFullYear();
+  const targetMonth = targetDate.getMonth();
+
+  const lastDayOfTargetMonth = new Date(
+    targetYear,
+    targetMonth + 1,
+    0 // 0. Tag des Folgemonats
+  ).getDate(); // letzter existierender Tag des Zielmonats (31.03.2026 -1 -> 28.02.2026)
+
+  // ursprüngl. Tag / letzter existierender Tag des Zielmonats
+  const nextDay = Math.min(originalDay, lastDayOfTargetMonth);
+
+  return new Date(targetYear, targetMonth, nextDay);
+}
+
+// ***************************************************************************************
+// ***************************************************************************************
 
 export default function CategoriesPage() {
   const router = useRouter();
@@ -31,7 +106,8 @@ export default function CategoriesPage() {
 
   const [typeFilter, setTypeFilter] = useState("Expense");
   const [isChartOpen, setIsChartOpen] = useState(false);
-  const [activeMonthDate, setActiveMonthDate] = useState(() => new Date());
+  const [rangeStart, setRangeStart] = useState(() => startOfMonth(new Date()));
+  const [rangeEnd, setRangeEnd] = useState(() => endOfMonth(new Date()));
 
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
@@ -99,7 +175,7 @@ export default function CategoriesPage() {
     }
   }, [userId, typeFilter]);
 
-  // *** [ ACTIVE MONTH: aus URL ] *********************************************************
+  // *** [ ACTIVE RANGE: aus URL ] *********************************************************
   useEffect(() => {
     if (!isReady) return;
     if (typeof month !== "string") return;
@@ -118,63 +194,136 @@ export default function CategoriesPage() {
       return;
     }
 
-    setActiveMonthDate(new Date(parsedYear, parsedMonthIndex, 1)); // active month: 1. Tag von url-month
+    const monthDate = new Date(parsedYear, parsedMonthIndex, 1); // 1. Tag des Monats
+
+    setRangeStart(startOfMonth(monthDate));
+    setRangeEnd(endOfMonth(monthDate));
   }, [isReady, month]);
 
   // *** [ guards ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
   if (!categories || !transactions) return <h3>Loading ...</h3>;
 
-  // *** [ ABGELEITETE DATEN ] *************************************************************
-  // *** [ 1. months ] *********************************************************************
-  // *** [active month]
-  const activeYear = activeMonthDate.getFullYear();
-  const activeMonth = activeMonthDate.getMonth();
-  const activeMonthLabel = activeMonthDate.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  // *** [ HELPERS ]: date range ***********************************************************
+  // *** [gültige range]: mind. 1 transaction in range
+  function isValidRange(transactions, startDate, endDate) {
+    const { startTime, endTime } = getRangeBounds(startDate, endDate);
 
-  const activeMonthKey = getMonthKey(activeMonthDate); // in "YYYY-MM"
+    return transactions.some((transaction) => {
+      const transactionTime = new Date(transaction.date).getTime();
+      return transactionTime >= startTime && transactionTime <= endTime;
+    });
+  }
 
-  // *** [filled months]: für MonthNav, um leere zu überspringen
-  const monthsWithTx = [
-    ...new Set(
-      transactions.map((transaction) => getMonthKey(new Date(transaction.date)))
-    ),
-  ].sort(); // alle, zB ["2026-03", "2026-04", ...]
+  // *** [erste gültige vorherige / nächste range]
+  function findClosestValidRange(
+    transactions,
+    currentStart,
+    currentEnd,
+    monthOffset,
+    minTxDate,
+    maxTxDate
+  ) {
+    // Grenzen
+    const minTime = getRangeBounds(
+      startOfMonth(minTxDate),
+      endOfMonth(minTxDate)
+    ).startTime; // älteste transaction
+    const maxTime = getRangeBounds(
+      startOfMonth(maxTxDate),
+      endOfMonth(maxTxDate)
+    ).endTime; // neuste transaction
 
-  const prevMonthsWithTx = monthsWithTx.filter(
-    (monthKey) => monthKey < activeMonthKey
-  ); // alle VOR active month
-  const nextMonthsWithTx = monthsWithTx.filter(
-    (monthKey) => monthKey > activeMonthKey
-  ); // alle NACH active month
+    // Prüfung: Beginn 1 range vor / nach active range
+    let candidateRange = {
+      start: moveDateByMonths(currentStart, monthOffset),
+      end: moveDateByMonths(currentEnd, monthOffset),
+    };
 
-  const prevMonthKey =
-    prevMonthsWithTx.length > 0
-      ? prevMonthsWithTx[prevMonthsWithTx.length - 1]
-      : null; // letzter früherer
+    while (true) {
+      const { startTime, endTime } = getRangeBounds(
+        candidateRange.start,
+        candidateRange.end
+      );
 
-  const nextMonthKey = nextMonthsWithTx.length > 0 ? nextMonthsWithTx[0] : null; // erster späterer
+      // Abbruch: komplette range liegt vor ältester / nach neuster transaction
+      if (endTime < minTime || startTime > maxTime) {
+        return null; // button disabled
+      }
 
-  const isPrevMonthDisabled = !prevMonthKey; // für < > buttons (davor/danach kein filled month: disabled)
-  const isNextMonthDisabled = !nextMonthKey;
+      // Treffer: erste gültige range
+      if (
+        isValidRange(transactions, candidateRange.start, candidateRange.end)
+      ) {
+        return candidateRange;
+      }
 
-  // *** [ 2. transactions ]: nur aus active month *****************************************
-  const activeMonthTransactions = transactions.filter((transaction) => {
-    const transactionDate = new Date(transaction.date);
+      // kein Treffer: weitere range in selbe Richtung
+      candidateRange = {
+        start: moveDateByMonths(candidateRange.start, monthOffset),
+        end: moveDateByMonths(candidateRange.end, monthOffset),
+      };
+    }
+  }
 
+  // *** [ DERIVED DATA ] ******************************************************************
+  // *** [ 1. date ] ***********************************************************************
+  // *** [alle date-Werte]: aus vorhandenen transactions
+  const transactionDates = transactions.map(
+    (transaction) => new Date(transaction.date)
+  );
+
+  // *** [date-Grenzen]
+  const minTransactionDate = new Date(
+    Math.min(...transactionDates.map((date) => date.getTime()))
+  ); // älteste vorhandene transaction
+  const maxTransactionDate = new Date(
+    Math.max(...transactionDates.map((date) => date.getTime()))
+  ); // neuste vorhandene transaction
+
+  // *** [ 2. range ] **********************************************************************
+  // *** [active range]
+  const activeRangeLabel = `${formatDateLabel(rangeStart)} - ${formatDateLabel(rangeEnd)}`; // state
+  const activeMonthKey = getMonthKey(rangeStart); // in "YYYY-MM"
+
+  // *** [vorherige + nächste gültige range]
+  const prevValidRange = findClosestValidRange(
+    transactions,
+    rangeStart, // state
+    rangeEnd,
+    -1,
+    minTransactionDate,
+    maxTransactionDate
+  );
+
+  const nextValidRange = findClosestValidRange(
+    transactions,
+    rangeStart, // state
+    rangeEnd,
+    1,
+    minTransactionDate,
+    maxTransactionDate
+  );
+
+  const isPrevRangeDisabled = !prevValidRange; // für < > buttons in DateNav
+  const isNextRangeDisabled = !nextValidRange;
+
+  // *** [ 3. transactions ]: nur aus active range *****************************************
+  const { startTime: activeRangeStartTime, endTime: activeRangeEndTime } =
+    getRangeBounds(rangeStart, rangeEnd); // Beginn + Ende active range (state)
+
+  const activeRangeTransactions = transactions.filter((transaction) => {
+    const transactionTime = new Date(transaction.date).getTime();
     return (
-      transactionDate.getFullYear() === activeYear &&
-      transactionDate.getMonth() === activeMonth
-    );
+      transactionTime >= activeRangeStartTime &&
+      transactionTime <= activeRangeEndTime
+    ); // transaction innerhalb range, wenn zw. Beginn + Ende
   });
 
-  // *** [ 3. categories ] *****************************************************************
+  // *** [ 4. categories ] *****************************************************************
   // *** [mit totals]
   const categoriesWithTotals = categories.map((category) => {
-    const totalAmount = activeMonthTransactions
+    const totalAmount = activeRangeTransactions
       .filter((transaction) => {
         const categoryId =
           typeof transaction.category === "string"
@@ -198,7 +347,7 @@ export default function CategoriesPage() {
       return a.name.localeCompare(b.name, "de-DE"); // Betrag gleich: A-Z
     });
 
-  // *** [ 4. ID-Reihenfolge category-list ] ***********************************************
+  // *** [ 5. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
   const navKey = `u:${userId}:catNav:/categories:${typeFilter}`; // sessionStorage-key
   const navIds = sortedActiveCategories.map((category) => category._id); // ID-array
@@ -209,7 +358,7 @@ export default function CategoriesPage() {
     sessionStorage.setItem(navKey, JSON.stringify(navIds));
   }
 
-  // *** [ 5. chart ] **********************************************************************
+  // *** [ 6. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = sortedActiveCategories
     .filter((category) => category.totalAmount > 0)
@@ -234,8 +383,7 @@ export default function CategoriesPage() {
     return Math.round((value / totalValue) * 100);
   }
 
-  // ***************************************************************************************
-
+  // *** [ HANDLERS ] **********************************************************************
   function toggleChart() {
     if (!hasEnoughChartData) return;
     setIsChartOpen((prevState) => !prevState);
@@ -247,26 +395,26 @@ export default function CategoriesPage() {
     );
   }
 
-  // *** [ MonthNav < > ]
-  function goToMonth(monthKey) {
-    if (!monthKey) return;
+  // *** [ DateNav < > ]
+  function changeDateRange(startDate, endDate) {
+    setRangeStart(startDate);
+    setRangeEnd(endDate);
 
-    const [yearString, monthString] = monthKey.split("-");
-    const parsedYear = Number(yearString);
-    const parsedMonthIndex = Number(monthString) - 1;
-    const targetMonthDate = new Date(parsedYear, parsedMonthIndex, 1);
+    const targetMonthKey = getMonthKey(startDate);
 
-    setActiveMonthDate(targetMonthDate);
-    replace(`/categories?month=${monthKey}`, undefined, {
+    replace(`/categories?month=${targetMonthKey}`, undefined, {
       shallow: true,
-    }); // url aktualisieren mit neuem active month ohne remount
+    }); // url aktualisieren mit neuer active range ohne remount
   }
 
-  function goToPrevMonth() {
-    goToMonth(prevMonthKey);
+  function goToPrevRange() {
+    if (!prevValidRange) return;
+    changeDateRange(prevValidRange.start, prevValidRange.end);
   }
-  function goToNextMonth() {
-    goToMonth(nextMonthKey);
+
+  function goToNextRange() {
+    if (!nextValidRange) return;
+    changeDateRange(nextValidRange.start, nextValidRange.end);
   }
 
   return (
@@ -277,20 +425,20 @@ export default function CategoriesPage() {
         <MonthNav>
           <NavButton
             type="button"
-            aria-label="Previous month"
-            disabled={isPrevMonthDisabled}
-            onClick={goToPrevMonth}
+            aria-label="Previous date range"
+            disabled={isPrevRangeDisabled}
+            onClick={goToPrevRange}
           >
             <PrevIcon className="prev" />
           </NavButton>
 
-          <p>{activeMonthLabel}</p>
+          <p>{activeRangeLabel}</p>
 
           <NavButton
             type="button"
-            aria-label="Next month"
-            disabled={isNextMonthDisabled}
-            onClick={goToNextMonth}
+            aria-label="Next date range"
+            disabled={isNextRangeDisabled}
+            onClick={goToNextRange}
           >
             <NextIcon className="next" />
           </NavButton>
