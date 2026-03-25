@@ -5,6 +5,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
+import DatePicker from "@/components/DatePicker";
 import Navbar from "@/components/Navbar";
 import ChartIcon from "@/public/icons/chart.svg";
 import PrevIcon from "@/public/icons/previous.svg";
@@ -33,16 +34,26 @@ function formatDateLabel(date) {
   });
 }
 
-// *** [1. Tag des Monats]: für default
+// *** [aktueller Monat]: 1. Tag
 function startOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1); // 17.03.2026 -> 01.03.2026
 }
 
-// *** [letzter Tag des Monats]: für default (= 0. Tag des Folgemonats)
+// *** [aktueller Monat]: letzter Tag
 function endOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0); // 0. Tag des Folgemonats
+  // new Date(2026, 2, 1) -> 01.03.2026
   // new Date(2026, 3, 0) -> 31.03.2026
   // new Date(2026, 3, 1) -> 01.04.2026
+}
+
+// *** [default range]: ganzer aktueller Monat
+function getDefaultRange() {
+  const today = new Date();
+  return {
+    from: startOfMonth(today),
+    to: endOfMonth(today),
+  };
 }
 
 // *** [range-Tagesgrenzen]: für gültige + active range
@@ -104,10 +115,16 @@ export default function CategoriesPage() {
   const type = query.type; // von FormAddCategory für type-filter
   const month = query.month; // "YYYY-MM" für & von CategoryDetailsPage
 
+  // *** [ STATES ]
   const [typeFilter, setTypeFilter] = useState("Expense");
   const [isChartOpen, setIsChartOpen] = useState(false);
-  const [rangeStart, setRangeStart] = useState(() => startOfMonth(new Date()));
-  const [rangeEnd, setRangeEnd] = useState(() => endOfMonth(new Date()));
+  const [rangeStart, setRangeStart] = useState(() => getDefaultRange().from); // active date range
+  const [rangeEnd, setRangeEnd] = useState(() => getDefaultRange().to);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false); // date picker
+  const [pickerRange, setPickerRange] = useState(() => getDefaultRange());
+  const [pickerVisibleMonth, setPickerVisibleMonth] = useState(
+    () => getDefaultRange().from
+  );
 
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
@@ -175,7 +192,8 @@ export default function CategoriesPage() {
     }
   }, [userId, typeFilter]);
 
-  // *** [ ACTIVE RANGE: aus URL ] *********************************************************
+  // *** [ DATE RANGE ] ********************************************************************
+  // *** [ 1. active range ]: aus URL
   useEffect(() => {
     if (!isReady) return;
     if (typeof month !== "string") return;
@@ -200,7 +218,15 @@ export default function CategoriesPage() {
     setRangeEnd(endOfMonth(monthDate));
   }, [isReady, month]);
 
-  // *** [ guards ] ************************************************************************
+  // *** [ 2. picker range ]
+  useEffect(() => {
+    if (!isDatePickerOpen) return;
+
+    setPickerRange({ from: rangeStart, to: rangeEnd }); // Start active range
+    setPickerVisibleMonth(rangeStart);
+  }, [isDatePickerOpen, rangeStart, rangeEnd]);
+
+  // *** [ GUARDS ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
   if (!categories || !transactions) return <h3>Loading ...</h3>;
 
@@ -224,6 +250,8 @@ export default function CategoriesPage() {
     minTxDate,
     maxTxDate
   ) {
+    if (!transactions.length) return null;
+
     // Grenzen
     const minTime = getRangeBounds(
       startOfMonth(minTxDate),
@@ -285,6 +313,12 @@ export default function CategoriesPage() {
   // *** [active range]
   const activeRangeLabel = `${formatDateLabel(rangeStart)} - ${formatDateLabel(rangeEnd)}`; // state
   const activeMonthKey = getMonthKey(rangeStart); // in "YYYY-MM"
+
+  // *** [default range]: für RangeButton
+  const defaultRange = getDefaultRange();
+  const isDefaultDateRange =
+    rangeStart.getTime() === defaultRange.from.getTime() &&
+    rangeEnd.getTime() === defaultRange.to.getTime();
 
   // *** [vorherige + nächste gültige range]
   const prevValidRange = findClosestValidRange(
@@ -384,18 +418,20 @@ export default function CategoriesPage() {
   }
 
   // *** [ HANDLERS ] **********************************************************************
+  // *** [ chart ] *************************************************************************
   function toggleChart() {
     if (!hasEnoughChartData) return;
     setIsChartOpen((prevState) => !prevState);
   }
 
+  // *** [ type ] **************************************************************************
   function toggleTypeFilter() {
     setTypeFilter((prevState) =>
       prevState === "Expense" ? "Income" : "Expense"
     );
   }
 
-  // *** [ DateNav < > ]
+  // *** [ DateNav < > ] *******************************************************************
   function changeDateRange(startDate, endDate) {
     setRangeStart(startDate);
     setRangeEnd(endDate);
@@ -417,32 +453,34 @@ export default function CategoriesPage() {
     changeDateRange(nextValidRange.start, nextValidRange.end);
   }
 
+  // *** [ DatePicker ] ********************************************************************
+  function openPicker() {
+    setIsDatePickerOpen(true);
+  }
+
+  function closePicker() {
+    setIsDatePickerOpen(false);
+  }
+
+  function applyPickerRange() {
+    if (!pickerRange?.from || !pickerRange?.to) return;
+    changeDateRange(pickerRange.from, pickerRange.to);
+    setIsDatePickerOpen(false);
+  }
+
+  function clearPickerRange() {
+    const defaultRange = getDefaultRange();
+    setPickerRange(defaultRange);
+    setPickerVisibleMonth(defaultRange.from);
+  }
+
+  // ***************************************************************************************
+  // ***************************************************************************************
+
   return (
     <>
       <ContentContainer>
         <h1>Categories</h1>
-
-        <MonthNav>
-          <NavButton
-            type="button"
-            aria-label="Previous date range"
-            disabled={isPrevRangeDisabled}
-            onClick={goToPrevRange}
-          >
-            <PrevIcon className="prev" />
-          </NavButton>
-
-          <p>{activeRangeLabel}</p>
-
-          <NavButton
-            type="button"
-            aria-label="Next date range"
-            disabled={isNextRangeDisabled}
-            onClick={goToNextRange}
-          >
-            <NextIcon className="next" />
-          </NavButton>
-        </MonthNav>
 
         <FilterSection>
           <ChartButton
@@ -455,15 +493,54 @@ export default function CategoriesPage() {
             <ChartIcon />
           </ChartButton>
 
-          <button
+          <DateNav>
+            <ArrowButton
+              type="button"
+              aria-label="Go to previous date range"
+              disabled={isPrevRangeDisabled}
+              onClick={goToPrevRange}
+            >
+              <PrevIcon className="prev" />
+            </ArrowButton>
+
+            <RangeButton
+              type="button"
+              aria-label="Change date range"
+              onClick={openPicker}
+              className={isDefaultDateRange ? "" : "active"}
+            >
+              {activeRangeLabel}
+            </RangeButton>
+
+            <ArrowButton
+              type="button"
+              aria-label="Go to next date range"
+              disabled={isNextRangeDisabled}
+              onClick={goToNextRange}
+            >
+              <NextIcon className="next" />
+            </ArrowButton>
+          </DateNav>
+
+          <TypeButton
             type="button"
             aria-label="Toggle category type"
-            className="type-filter"
             onClick={toggleTypeFilter}
-          >
-            {typeFilter === "Expense" ? "Expenses" : "Incomes"}
-          </button>
+            $typeFilter={typeFilter}
+          />
         </FilterSection>
+
+        {isDatePickerOpen && (
+          <DatePicker
+            pickerRange={pickerRange}
+            setPickerRange={setPickerRange}
+            pickerVisibleMonth={pickerVisibleMonth}
+            setPickerVisibleMonth={setPickerVisibleMonth}
+            applyPickerRange={applyPickerRange}
+            clearPickerRange={clearPickerRange}
+            closePicker={closePicker}
+          />
+        )}
 
         {isChartOpen && hasEnoughChartData && (
           <ChartSection>
@@ -489,7 +566,7 @@ export default function CategoriesPage() {
             </PieWrapper>
 
             <BalanceContainer>
-              <p>
+              <p className="label">
                 {typeFilter === "Expense" ? "Total Expense" : "Total Income"}
               </p>
 
@@ -534,7 +611,7 @@ export default function CategoriesPage() {
 
 const ContentContainer = styled.div`
   padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 350px; // Breite von list
+  max-width: 350px; // Breite DateNav, list + ChartSection
   margin: 0 auto; // content horizontal zentriert
 
   h1 {
@@ -544,27 +621,60 @@ const ContentContainer = styled.div`
 `;
 
 // ******************************************************************************
+const FilterSection = styled.div`
+  margin-bottom: 1.5rem;
+  background-color: #232323;
+  border-radius: 20px;
+  padding: 10px 12px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 
-const MonthNav = styled.div`
   display: flex; // items nebeneinander
   justify-content: space-between; // verteilt
   align-items: center; // vertikal zentriert
-  margin: 0 auto 1rem auto;
-  max-width: 160px; // schmaler als list + FilterSection
+`;
 
-  p {
-    font-size: 0.85rem;
+const ChartButton = styled.button`
+  border: none;
+  background: transparent;
+  color: var(--button-background-color);
+  line-height: 0; // unten bündiger
+  margin-bottom: 1px; // bündig
+  cursor: pointer;
+
+  svg {
+    width: 22px;
+    height: 22px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1)); // ohne Zwischenräume
+  }
+
+  &:hover {
+    transform: scale(1.07);
+  }
+
+  &.active {
+    color: var(--button-active-color);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
   }
 `;
 
-const NavButton = styled.button`
+const DateNav = styled.div`
+  display: flex; // buttons nebeneinander
+  align-items: center; // vertikal zentriert
+  gap: 0.4rem;
+`;
+
+const ArrowButton = styled.button`
   border: none;
   border-radius: 50%;
   width: 22px;
   height: 22px;
   background-color: var(--button-background-color);
   cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
 
   svg {
     height: 10px;
@@ -580,15 +690,48 @@ const NavButton = styled.button`
 
   &:hover {
     transform: scale(1.07);
-
-    svg {
-      stroke: var(--primary-text-color);
-    }
   }
 
   &:disabled {
     opacity: 0.35;
     pointer-events: none;
+  }
+`;
+
+const RangeButton = styled.button`
+  border: none;
+  border-radius: 20px;
+  background-color: var(--button-background-color);
+  color: var(--button-text-color);
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 8px;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
+
+  &:hover {
+    transform: scale(1.02);
+  }
+
+  &.active {
+    background-color: var(--button-active-color);
+    color: var(--button-active-text-color);
+  }
+`;
+
+const TypeButton = styled.button`
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
+
+  background-color: ${({ $typeFilter }) =>
+    $typeFilter === "Expense" ? "var(--expense-color)" : "var(--income-color)"};
+
+  &:hover {
+    transform: scale(1.07);
   }
 `;
 
@@ -597,79 +740,33 @@ const NavButton = styled.button`
 const ChartSection = styled.div`
   display: flex;
   flex-direction: column; // PieWrapper + BalanceContainer untereinander
-  max-width: 265px; // schmaler als FilterSection
-  margin: 0 auto 1.5rem auto; // Abstand FilterSection, horizontal zentriert
+  align-items: center; // horizontal zentriert
+  gap: 1rem;
+
+  background-color: #232323;
+  border-radius: 20px;
+  width: fit-content;
+  padding: 1.2rem 1.2rem 1rem 1.2rem;
+  margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
+  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 `;
 
 const PieWrapper = styled.div`
-  height: 150px;
-  width: 150px;
-  margin: 0 auto; // horizontal zentriert
+  height: 155px;
+  width: 155px;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Zwischenräume
 `;
 
 const BalanceContainer = styled.div`
-  align-self: flex-end; // rechts in ChartSection
-  text-align: center; // content horizontal zentriert
+  display: flex; // label + value nebeneinander
+  gap: 0.5rem;
+
+  p.label {
+    width: 85px;
+  }
 
   p.value {
     font-weight: bold;
-  }
-`;
-
-const FilterSection = styled.div`
-  display: flex; // buttons nebeneinander
-  justify-content: space-between; // chart links, type rechts
-  max-width: 285px; // schmaler als list
-  margin: 0 auto 1.5rem auto; // Abstand list, horizontal zentriert
-
-  button.type-filter {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
-    border: none;
-    width: 90px;
-    height: 30px;
-    border-radius: 20px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-    &:hover {
-      transform: scale(1.04);
-    }
-  }
-`;
-
-const ChartButton = styled.button`
-  border: none;
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
-  width: 32px;
-  height: 30px;
-  border-radius: 10px;
-  display: flex; // wegen Zentrierung von svg
-  align-items: center; // vertikal zentriert
-  justify-content: center; // horizontal zentriert
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  &:hover {
-    transform: scale(1.07);
-    color: var(--primary-text-color);
-  }
-
-  &.active {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
   }
 `;
 
@@ -683,6 +780,7 @@ const ListItem = styled.li`
   background-color: var(--list-item-background);
   border-radius: 20px;
   margin-bottom: 0.5rem; // Abstand zw. ListItems
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
 
   opacity: ${(props) =>
     props.$empty ? 0.2 : 1}; // dunkler bei totalAmount <= 0
