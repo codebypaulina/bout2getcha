@@ -18,14 +18,49 @@ const ResponsivePie = dynamic(
 );
 
 // *** [ HELPERS ]: date ******************************************************************
-// *** [object -> "YYYY-MM"]: für in url, an CategoryDetailsPage, aus url
-function getMonthKey(date) {
+// *** [new Date(YYYY, MM, DD) -> "YYYY-MM-DD"]: für dateFrom / dateTo (in url)
+function formatDateParam(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-// *** [object -> "DD.MM.YYYY"]: für activeRangeLabel
+// *** ["YYYY-MM-DD" -> new Date(YYYY, MM, DD)]: für dateFrom / dateTo (aus url)
+function parseDateParam(value) {
+  if (typeof value !== "string") return null;
+
+  const [yearString, monthString, dayString] = value.split("-"); // "2026-03-01" -> "2026" + "03" + "01"
+  const year = Number(yearString); // "2026" -> 2026
+  const monthIndex = Number(monthString) - 1; // "03" => 3 => -1 => 2
+  const day = Number(dayString); // "01" -> 1
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(monthIndex) ||
+    !Number.isInteger(day) ||
+    monthIndex < 0 ||
+    monthIndex > 11 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+
+  const date = new Date(year, monthIndex, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== monthIndex ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date; // new Date(2026, 2, 1)
+}
+
+// *** [new Date(YYYY, MM, DD) -> "DD.MM.YYYY"]: für activeRangeLabel
 function formatDateLabel(date) {
   return date.toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -81,7 +116,7 @@ function getRangeBounds(startDate, endDate) {
   };
 }
 
-// *** [range + 1 / - 1]:
+// *** [range + 1 / - 1 Monat]:
 function moveDateByMonths(date, monthOffset) {
   const originalDay = date.getDate(); // ursprüngl. Tag
 
@@ -113,7 +148,8 @@ export default function CategoriesPage() {
   const router = useRouter();
   const { isReady, query, replace } = router;
   const type = query.type; // von FormAddCategory für type-filter
-  const month = query.month; // "YYYY-MM" für & von CategoryDetailsPage
+  const dateFrom = query.dateFrom;
+  const dateTo = query.dateTo;
 
   // *** [ STATES ]
   const [typeFilter, setTypeFilter] = useState("Expense");
@@ -193,30 +229,19 @@ export default function CategoriesPage() {
   }, [userId, typeFilter]);
 
   // *** [ DATE RANGE ] ********************************************************************
-  // *** [ 1. active range ]: aus URL
+  // *** [ 1. active range ]: aus url in state
   useEffect(() => {
     if (!isReady) return;
-    if (typeof month !== "string") return;
 
-    // für date-object
-    const [yearString, monthString] = month.split("-"); // "2026-02" -> "2026" + "02"
-    const parsedYear = Number(yearString); // "2026" -> 2026
-    const parsedMonthIndex = Number(monthString) - 1; // "02" => 2 => -1 => 1
+    const parsedDateFrom = parseDateParam(dateFrom);
+    const parsedDateTo = parseDateParam(dateTo);
 
-    if (
-      !Number.isInteger(parsedYear) ||
-      !Number.isInteger(parsedMonthIndex) ||
-      parsedMonthIndex < 0 ||
-      parsedMonthIndex > 11
-    ) {
-      return;
-    }
+    if (!parsedDateFrom || !parsedDateTo) return;
+    if (parsedDateFrom.getTime() > parsedDateTo.getTime()) return;
 
-    const monthDate = new Date(parsedYear, parsedMonthIndex, 1); // 1. Tag des Monats
-
-    setRangeStart(startOfMonth(monthDate));
-    setRangeEnd(endOfMonth(monthDate));
-  }, [isReady, month]);
+    setRangeStart(parsedDateFrom);
+    setRangeEnd(parsedDateTo);
+  }, [isReady, dateFrom, dateTo]);
 
   // *** [ 2. picker range ]
   useEffect(() => {
@@ -252,6 +277,10 @@ export default function CategoriesPage() {
   ) {
     if (!transactions.length) return null;
 
+    const isFullMonthRange =
+      currentStart.getDate() === 1 &&
+      currentEnd.getTime() === endOfMonth(currentEnd).getTime();
+
     // Grenzen
     const minTime = getRangeBounds(
       startOfMonth(minTxDate),
@@ -263,10 +292,27 @@ export default function CategoriesPage() {
     ).endTime; // neuste transaction
 
     // Prüfung: Beginn 1 range vor / nach active range
-    let candidateRange = {
-      start: moveDateByMonths(currentStart, monthOffset),
-      end: moveDateByMonths(currentEnd, monthOffset),
-    };
+    let candidateRange = isFullMonthRange
+      ? {
+          start: startOfMonth(
+            new Date(
+              currentStart.getFullYear(),
+              currentStart.getMonth() + monthOffset,
+              1
+            )
+          ),
+          end: endOfMonth(
+            new Date(
+              currentEnd.getFullYear(),
+              currentEnd.getMonth() + monthOffset,
+              1
+            )
+          ),
+        }
+      : {
+          start: moveDateByMonths(currentStart, monthOffset),
+          end: moveDateByMonths(currentEnd, monthOffset),
+        };
 
     while (true) {
       const { startTime, endTime } = getRangeBounds(
@@ -287,10 +333,27 @@ export default function CategoriesPage() {
       }
 
       // kein Treffer: weitere range in selbe Richtung
-      candidateRange = {
-        start: moveDateByMonths(candidateRange.start, monthOffset),
-        end: moveDateByMonths(candidateRange.end, monthOffset),
-      };
+      candidateRange = isFullMonthRange
+        ? {
+            start: startOfMonth(
+              new Date(
+                candidateRange.start.getFullYear(),
+                candidateRange.start.getMonth() + monthOffset,
+                1
+              )
+            ),
+            end: endOfMonth(
+              new Date(
+                candidateRange.end.getFullYear(),
+                candidateRange.end.getMonth() + monthOffset,
+                1
+              )
+            ),
+          }
+        : {
+            start: moveDateByMonths(candidateRange.start, monthOffset),
+            end: moveDateByMonths(candidateRange.end, monthOffset),
+          };
     }
   }
 
@@ -310,15 +373,18 @@ export default function CategoriesPage() {
   ); // neuste vorhandene transaction
 
   // *** [ 2. range ] **********************************************************************
-  // *** [active range]
   const activeRangeLabel = `${formatDateLabel(rangeStart)} - ${formatDateLabel(rangeEnd)}`; // state
-  const activeMonthKey = getMonthKey(rangeStart); // in "YYYY-MM"
 
   // *** [default range]: für RangeButton
   const defaultRange = getDefaultRange();
   const isDefaultDateRange =
     rangeStart.getTime() === defaultRange.from.getTime() &&
     rangeEnd.getTime() === defaultRange.to.getTime();
+
+  // *** [monatsübergreifende range]: für < > buttons in DateNav
+  const isCrossMonthRange =
+    rangeStart.getFullYear() !== rangeEnd.getFullYear() ||
+    rangeStart.getMonth() !== rangeEnd.getMonth();
 
   // *** [vorherige + nächste gültige range]
   const prevValidRange = findClosestValidRange(
@@ -329,7 +395,6 @@ export default function CategoriesPage() {
     minTransactionDate,
     maxTransactionDate
   );
-
   const nextValidRange = findClosestValidRange(
     transactions,
     rangeStart, // state
@@ -339,8 +404,8 @@ export default function CategoriesPage() {
     maxTransactionDate
   );
 
-  const isPrevRangeDisabled = !prevValidRange; // für < > buttons in DateNav
-  const isNextRangeDisabled = !nextValidRange;
+  const isPrevRangeDisabled = isCrossMonthRange || !prevValidRange;
+  const isNextRangeDisabled = isCrossMonthRange || !nextValidRange;
 
   // *** [ 3. transactions ]: nur aus active range *****************************************
   const { startTime: activeRangeStartTime, endTime: activeRangeEndTime } =
@@ -432,25 +497,31 @@ export default function CategoriesPage() {
   }
 
   // *** [ DateNav < > ] *******************************************************************
-  function changeDateRange(startDate, endDate) {
-    setRangeStart(startDate);
+  function updateDateRange(startDate, endDate) {
+    setRangeStart(startDate); // neue active range in state
     setRangeEnd(endDate);
 
-    const targetMonthKey = getMonthKey(startDate);
-
-    replace(`/categories?month=${targetMonthKey}`, undefined, {
-      shallow: true,
-    }); // url aktualisieren mit neuer active range ohne remount
+    replace(
+      {
+        pathname: "/categories",
+        query: {
+          dateFrom: formatDateParam(startDate),
+          dateTo: formatDateParam(endDate),
+        },
+      },
+      undefined,
+      { shallow: true }
+    ); // neue active range in url (ohne remount)
   }
 
   function goToPrevRange() {
-    if (!prevValidRange) return;
-    changeDateRange(prevValidRange.start, prevValidRange.end);
+    if (isCrossMonthRange || !prevValidRange) return;
+    updateDateRange(prevValidRange.start, prevValidRange.end);
   }
 
   function goToNextRange() {
-    if (!nextValidRange) return;
-    changeDateRange(nextValidRange.start, nextValidRange.end);
+    if (isCrossMonthRange || !nextValidRange) return;
+    updateDateRange(nextValidRange.start, nextValidRange.end);
   }
 
   // *** [ DatePicker ] ********************************************************************
@@ -464,7 +535,7 @@ export default function CategoriesPage() {
 
   function applyPickerRange() {
     if (!pickerRange?.from || !pickerRange?.to) return;
-    changeDateRange(pickerRange.from, pickerRange.to);
+    updateDateRange(pickerRange.from, pickerRange.to);
     setIsDatePickerOpen(false);
   }
 
@@ -585,7 +656,7 @@ export default function CategoriesPage() {
           {sortedActiveCategories.map((category) => (
             <ListItem key={category._id} $empty={category.totalAmount <= 0}>
               <StyledLink
-                href={`/categories/${category._id}?from=/categories&month=${activeMonthKey}&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft für nach category-delete // "&month=...": aktiver Monat // "&navKey=...": ID-Reihenfolge (< > nav)
+                href={`/categories/${category._id}?from=/categories&dateFrom=${encodeURIComponent(formatDateParam(rangeStart))}&dateTo=${encodeURIComponent(formatDateParam(rangeEnd))}&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft für nach category-delete // "&dateFrom/To": active date range // "&navKey": ID-Reihenfolge (< > nav)
                 onClick={storeCatNavSnapshot}
               >
                 <ColorTag $categoryColor={category.color} />
