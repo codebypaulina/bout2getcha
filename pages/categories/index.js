@@ -1,11 +1,24 @@
-import useSWR from "swr";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
+import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
+import DatePicker from "@/components/DatePicker";
 import Navbar from "@/components/Navbar";
 import ChartIcon from "@/public/icons/chart.svg";
+import PrevIcon from "@/public/icons/previous.svg";
+import NextIcon from "@/public/icons/next.svg";
+
+import useDateFilter from "@/hooks/useDateFilter";
+import {
+  formatDateString,
+  formatDateLabel,
+  getDefaultRange,
+  getRangeBounds,
+  findClosestValidRange,
+} from "@/utils/dateFilter";
 
 // hier muss dynamischer Import, sonst ES Module error (auch bei aktuellster next.js-Version)
 const ResponsivePie = dynamic(
@@ -13,34 +26,53 @@ const ResponsivePie = dynamic(
   { ssr: false }
 );
 
+// ***************************************************************************************
+// ***************************************************************************************
+
 export default function CategoriesPage() {
-  const router = useRouter();
-  const { isReady, query, replace } = router;
+  const { isReady, query, replace } = useRouter();
   const type = query.type; // von FormAddCategory für type-filter
 
-  // *** [ states ]
-  const [typeFilter, setTypeFilter] = useState("Expense");
+  // *** [ STATES ]
   const [isChartOpen, setIsChartOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("Expense");
 
-  // *** [ SESSION STORAGE ] ***************************************************************
+  // *** [ AUTH ]
+  const { data: session } = useSession();
+  const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
+
+  // *** [ DATA-FETCH ]
+  const { data: categories, error: errorCategories } = useSWR(
+    userId ? `/api/categories?u=${userId}` : null
+  );
+  const { data: transactions, error: errorTransactions } = useSWR(
+    userId ? `/api/transactions?u=${userId}` : null
+  );
+
+  // *** [ SYNC ] **************************************************************************
   // *** [ 1. chart-state ] ****************************************************************
-  // *** [abrufen]
+  // *** [session storage abrufen]
   useEffect(() => {
-    const storedChartState = sessionStorage.getItem("categories:isChartOpen");
+    if (!userId) return;
+    const key = `u:${userId}:categories:isChartOpen`;
+    const storedChartState = sessionStorage.getItem(key);
     if (storedChartState) setIsChartOpen(true);
-  }, []);
+  }, [userId]);
 
-  // *** [speichern]: wenn state = true
+  // *** [session storage speichern]: bei Änderung (= open)
   useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:categories:isChartOpen`;
+
     if (isChartOpen) {
-      sessionStorage.setItem("categories:isChartOpen", "true");
+      sessionStorage.setItem(key, "true");
     } else {
-      sessionStorage.removeItem("categories:isChartOpen");
+      sessionStorage.removeItem(key);
     }
-  }, [isChartOpen]);
+  }, [userId, isChartOpen]);
 
   // *** [ 2. type-filter ] ****************************************************************
-  // *** [abrufen aus url]: wenn query von FormAddCategory
+  // *** [aus url abrufen]: wenn query von FormAddCategory
   useEffect(() => {
     if (!isReady) return;
     if (type === "Income" || type === "Expense") {
@@ -49,38 +81,143 @@ export default function CategoriesPage() {
     }
   }, [isReady, type, replace]);
 
-  // *** [abrufen aus storage]: wenn kein query
+  // *** [session storage abrufen]: wenn kein query
   useEffect(() => {
     if (!isReady) return;
+    if (!userId) return;
     if (type === "Income" || type === "Expense") return; // type in url: abbrechen, nicht aus storage
 
-    const storedTypeFilter = sessionStorage.getItem("categories:typeFilter");
-    if (storedTypeFilter === "Income") {
-      setTypeFilter("Income"); // income in storage: in filter
-    }
-  }, [isReady, type]);
+    const key = `u:${userId}:categories:typeFilter`;
+    const storedTypeFilter = sessionStorage.getItem(key);
+    if (storedTypeFilter === "Income") setTypeFilter("Income"); // income in storage: in filter
+  }, [isReady, userId, type]);
 
-  // *** [speichern]: nur wenn income
+  // *** [session storage speichern]: nur wenn income
   useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:categories:typeFilter`;
+
     if (typeFilter === "Income") {
-      sessionStorage.setItem("categories:typeFilter", "Income");
+      sessionStorage.setItem(key, "Income");
     } else {
-      sessionStorage.removeItem("categories:typeFilter");
+      sessionStorage.removeItem(key);
     }
-  }, [typeFilter]);
+  }, [userId, typeFilter]);
 
-  // ***************************************************************************************
-  // *** [ fetch ]
-  const { data: categories, error } = useSWR("/api/categories");
+  // *** [ 3. date-filter ]: state + picker + session storage ******************************
+  const {
+    dateFilter,
+    dateFilterTemplate,
+    isDatePickerOpen,
+    pickerRange,
+    setPickerRange,
+    pickerVisibleMonth,
+    setPickerVisibleMonth,
+    updateDateFilter,
+    openPicker,
+    closePicker,
+    applyPickerRange,
+    clearPickerRange,
+  } = useDateFilter(userId ? `u:${userId}:categories:dateFilter` : null);
 
-  // *** [ guards ]
-  if (error) return <h3>Failed to load categories</h3>;
-  if (!categories) return <h3>Loading ...</h3>;
+  // *** [ GUARDS ] ************************************************************************
+  if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
+  if (!categories || !transactions) return <h3>Loading ...</h3>;
 
-  // *** [ ABGELEITETE DATEN ] *************************************************************
-  // *** [ 1. categories ] filtern + sortieren *********************************************
-  const sortedActiveCategories = [...categories]
-    .filter((category) => category.type === typeFilter) // nur aktiver type
+  if (transactions?.length) {
+    const categoryShapes = transactions.map((transaction) => ({
+      typeofCategory: typeof transaction.category,
+      hasId:
+        transaction.category &&
+        typeof transaction.category === "object" &&
+        "_id" in transaction.category,
+      sample: transaction.category,
+    }));
+
+    console.log("category shapes:", categoryShapes);
+  }
+
+  // *** [ DERIVED DATA ] ******************************************************************
+  // *** [ 1. date ] ***********************************************************************
+  const transactionTimes = transactions.map((transaction) =>
+    new Date(transaction.date).getTime()
+  ); // alle vorhandenen dates als Zeitwerte
+
+  const minTransactionDate =
+    transactionTimes.length > 0
+      ? new Date(Math.min(...transactionTimes))
+      : null; // älteste vorhandene tx
+  const maxTransactionDate =
+    transactionTimes.length > 0
+      ? new Date(Math.max(...transactionTimes))
+      : null; // neuste vorhandene tx
+
+  // *** [ 2. range ] **********************************************************************
+  const dateFilterLabel = `${formatDateLabel(dateFilter.from)} - ${formatDateLabel(dateFilter.to)}`;
+
+  // *** [default range]: für RangeButton
+  const defaultRange = getDefaultRange();
+  const isDefaultRange =
+    dateFilter.from.getTime() === defaultRange.from.getTime() &&
+    dateFilter.to.getTime() === defaultRange.to.getTime();
+
+  // *** [monatsübergreifende range]: für < > buttons in DateNav
+  const isCrossMonthRange =
+    dateFilter.from.getFullYear() !== dateFilter.to.getFullYear() ||
+    dateFilter.from.getMonth() !== dateFilter.to.getMonth();
+
+  // *** [vorherige + nächste gültige range]
+  const prevValidRange =
+    isCrossMonthRange || !minTransactionDate || !maxTransactionDate
+      ? null
+      : findClosestValidRange(
+          transactions,
+          dateFilter.from, // state
+          -1,
+          minTransactionDate,
+          maxTransactionDate,
+          dateFilterTemplate
+        );
+  const nextValidRange =
+    isCrossMonthRange || !minTransactionDate || !maxTransactionDate
+      ? null
+      : findClosestValidRange(
+          transactions,
+          dateFilter.from, // state
+          1,
+          minTransactionDate,
+          maxTransactionDate,
+          dateFilterTemplate
+        );
+
+  const isPrevRangeDisabled = isCrossMonthRange || !prevValidRange;
+  const isNextRangeDisabled = isCrossMonthRange || !nextValidRange;
+
+  // *** [ 3. transactions ]: filtern ******************************************************
+  const { startTime: activeRangeStartTime, endTime: activeRangeEndTime } =
+    getRangeBounds(dateFilter.from, dateFilter.to); // Beginn + Ende active date range
+
+  const filteredTransactions = transactions.filter((transaction) => {
+    const transactionTime = new Date(transaction.date).getTime();
+    return (
+      transactionTime >= activeRangeStartTime &&
+      transactionTime <= activeRangeEndTime
+    ); // nur active date range
+  });
+
+  // *** [ 4. categories ] *****************************************************************
+  // *** [mit totals]
+  const categoriesWithTotals = categories.map((category) => {
+    const totalAmount = filteredTransactions
+      .filter((transaction) => transaction.category._id === category._id)
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+    return { ...category, totalAmount };
+  });
+
+  // *** [filtern + sortieren]
+  const sortedActiveCategories = categoriesWithTotals
+    .filter((category) => category.type === typeFilter) // nur active type-filter
     .sort((a, b) => {
       if (b.totalAmount !== a.totalAmount) {
         return b.totalAmount - a.totalAmount; // Betrag ungleich: total amount absteigend
@@ -88,9 +225,9 @@ export default function CategoriesPage() {
       return a.name.localeCompare(b.name, "de-DE"); // Betrag gleich: A-Z
     });
 
-  // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
+  // *** [ 5. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
-  const navKey = `catNav:/categories:${typeFilter}`; // sessionStorage-key
+  const navKey = `u:${userId}:catNav:/categories:${typeFilter}`; // sessionStorage-key
   const navIds = sortedActiveCategories.map((category) => category._id); // ID-array
 
   // *** [snapshot]: in sessionStorage speichern (für < > nav in CategoryDetailsPage)
@@ -98,7 +235,7 @@ export default function CategoriesPage() {
     sessionStorage.setItem(navKey, JSON.stringify(navIds));
   }
 
-  // *** [ 3. chart ] **********************************************************************
+  // *** [ 6. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = sortedActiveCategories
     .filter((category) => category.totalAmount > 0)
@@ -108,6 +245,8 @@ export default function CategoriesPage() {
       value: category.totalAmount,
       color: category.color,
     }));
+
+  const hasEnoughChartData = chartData.length > 0; // für ChartButton
 
   // *** [value balance-container]: Summe angezeigter categories
   const totalValue = sortedActiveCategories.reduce(
@@ -121,24 +260,99 @@ export default function CategoriesPage() {
     return Math.round((value / totalValue) * 100);
   }
 
-  // ***************************************************************************************
-
+  // *** [ HANDLERS ] **********************************************************************
+  // *** [ chart ]
   function toggleChart() {
     setIsChartOpen((prevState) => !prevState);
   }
 
+  // *** [ type ]
   function toggleTypeFilter() {
     setTypeFilter((prevState) =>
       prevState === "Expense" ? "Income" : "Expense"
     );
   }
 
+  // *** [ DateNav < > ]
+  function goToPrevMonth() {
+    if (!prevValidRange) return;
+    updateDateFilter(prevValidRange.start, prevValidRange.end);
+  }
+
+  function goToNextMonth() {
+    if (!nextValidRange) return;
+    updateDateFilter(nextValidRange.start, nextValidRange.end);
+  }
+
+  // ***************************************************************************************
+  // ***************************************************************************************
+
   return (
     <>
       <ContentContainer>
         <h1>Categories</h1>
 
-        {isChartOpen && chartData.length > 0 && (
+        <FilterSection>
+          <ChartButton
+            type="button"
+            aria-label="Toggle chart"
+            className={isChartOpen && hasEnoughChartData ? "active" : ""}
+            disabled={!hasEnoughChartData}
+            onClick={toggleChart}
+          >
+            <ChartIcon />
+          </ChartButton>
+
+          <DateNav>
+            <ArrowButton
+              type="button"
+              aria-label="Go to previous month"
+              disabled={isPrevRangeDisabled}
+              onClick={goToPrevMonth}
+            >
+              <PrevIcon className="prev" />
+            </ArrowButton>
+
+            <RangeButton
+              type="button"
+              aria-label="Change date range"
+              onClick={openPicker}
+              className={isDefaultRange ? "" : "active"}
+            >
+              {dateFilterLabel}
+            </RangeButton>
+
+            <ArrowButton
+              type="button"
+              aria-label="Go to next month"
+              disabled={isNextRangeDisabled}
+              onClick={goToNextMonth}
+            >
+              <NextIcon className="next" />
+            </ArrowButton>
+          </DateNav>
+
+          <TypeButton
+            type="button"
+            aria-label="Toggle category type"
+            onClick={toggleTypeFilter}
+            $typeFilter={typeFilter}
+          />
+        </FilterSection>
+
+        {isDatePickerOpen && (
+          <DatePicker
+            pickerRange={pickerRange}
+            setPickerRange={setPickerRange}
+            pickerVisibleMonth={pickerVisibleMonth}
+            setPickerVisibleMonth={setPickerVisibleMonth}
+            applyPickerRange={applyPickerRange}
+            clearPickerRange={clearPickerRange}
+            closePicker={closePicker}
+          />
+        )}
+
+        {isChartOpen && hasEnoughChartData && (
           <ChartSection>
             <PieWrapper>
               <ResponsivePie
@@ -162,7 +376,7 @@ export default function CategoriesPage() {
             </PieWrapper>
 
             <BalanceContainer>
-              <p>
+              <p className="label">
                 {typeFilter === "Expense" ? "Total Expense" : "Total Income"}
               </p>
 
@@ -177,24 +391,11 @@ export default function CategoriesPage() {
           </ChartSection>
         )}
 
-        <FilterSection>
-          <IconWrapper
-            onClick={toggleChart}
-            className={isChartOpen ? "active" : ""}
-          >
-            <ChartIcon />
-          </IconWrapper>
-
-          <button onClick={toggleTypeFilter}>
-            {typeFilter === "Expense" ? "Expenses" : "Incomes"}
-          </button>
-        </FilterSection>
-
         <StyledList>
           {sortedActiveCategories.map((category) => (
             <ListItem key={category._id} $empty={category.totalAmount <= 0}>
               <StyledLink
-                href={`/categories/${category._id}?from=/categories&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft = CategoriesPage (nach category-delete) // "&navKey=...": ID-Reihenfolge (< > nav)
+                href={`/categories/${category._id}?from=/categories&dateFrom=${encodeURIComponent(formatDateString(dateFilter.from))}&dateTo=${encodeURIComponent(formatDateString(dateFilter.to))}&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft für nach category-delete // "&dateFrom/To": active date range // "&navKey": ID-Reihenfolge (< > nav)
                 onClick={storeCatNavSnapshot}
               >
                 <ColorTag $categoryColor={category.color} />
@@ -220,7 +421,7 @@ export default function CategoriesPage() {
 
 const ContentContainer = styled.div`
   padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 350px; // Breite von list
+  max-width: 350px; // Breite DateNav, list + ChartSection
   margin: 0 auto; // content horizontal zentriert
 
   h1 {
@@ -229,77 +430,152 @@ const ContentContainer = styled.div`
   }
 `;
 
-const ChartSection = styled.div`
-  display: flex;
-  flex-direction: column; // PieWrapper + BalanceContainer untereinander
-  max-width: 265px; // schmaler als FilterSection
-  margin: 0 auto 1.5rem auto; // Abstand FilterSection, horizontal zentriert
-`;
-
-const PieWrapper = styled.div`
-  height: 150px;
-  width: 150px;
-  margin: 0 auto; // horizontal zentriert
-`;
-
-const BalanceContainer = styled.div`
-  align-self: flex-end; // rechts in ChartSection
-  text-align: center; // content horizontal zentriert
-
-  p.value {
-    font-weight: bold;
-  }
-`;
-
 const FilterSection = styled.div`
-  display: flex; // IconWrapper + button nebeneinander
-  justify-content: space-between; // icon links, button rechts
+  margin-bottom: 1.5rem;
+  background-color: #232323;
+  border-radius: 20px;
+  padding: 10px 12px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 
-  max-width: 285px; // schmaler als list
-  margin: 0 auto 1.5rem auto; // Abstand list, horizontal zentriert
-
-  button {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
-    border: none;
-    width: 90px;
-    height: 30px;
-    border-radius: 20px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-    &:hover {
-      transform: scale(1.04);
-    }
-  }
+  display: flex; // items nebeneinander
+  justify-content: space-between; // verteilt
+  align-items: center; // vertikal zentriert
 `;
 
-const IconWrapper = styled.div`
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
-  width: 32px;
-  height: 30px;
-  border-radius: 10px;
-  display: flex; // wegen Zentrierung von svg
-  align-items: center; // vertikal zentriert
-  justify-content: center; // horizontal zentriert
+const ChartButton = styled.button`
+  border: none;
+  background: transparent;
+  color: var(--button-background-color);
+  line-height: 0; // unten bündiger
+  margin-bottom: 1px; // bündig
   cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
   svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1)); // ohne Zwischenräume
   }
 
   &:hover {
     transform: scale(1.07);
-    color: var(--primary-text-color);
+  }
+
+  &.active {
+    color: var(--button-active-color);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+`;
+
+const DateNav = styled.div`
+  display: flex; // buttons nebeneinander
+  align-items: center; // vertikal zentriert
+  gap: 0.4rem;
+`;
+
+const ArrowButton = styled.button`
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  background-color: var(--button-background-color);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
+
+  svg {
+    height: 10px;
+    width: 10px;
+    stroke: var(--button-text-color);
+  }
+  .prev {
+    margin-right: 2px;
+  }
+  .next {
+    margin-left: 2px;
+  }
+
+  &:hover {
+    transform: scale(1.07);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+`;
+
+const RangeButton = styled.button`
+  border: none;
+  border-radius: 20px;
+  background-color: var(--button-background-color);
+  color: var(--button-text-color);
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 8px;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
+
+  &:hover {
+    transform: scale(1.02);
   }
 
   &.active {
     background-color: var(--button-active-color);
     color: var(--button-active-text-color);
+  }
+`;
+
+const TypeButton = styled.button`
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
+
+  background-color: ${({ $typeFilter }) =>
+    $typeFilter === "Expense" ? "var(--expense-color)" : "var(--income-color)"};
+
+  &:hover {
+    transform: scale(1.07);
+  }
+`;
+
+// ******************************************************************************
+
+const ChartSection = styled.div`
+  display: flex;
+  flex-direction: column; // PieWrapper + BalanceContainer untereinander
+  align-items: center; // horizontal zentriert
+  gap: 1rem;
+
+  background-color: #232323;
+  border-radius: 20px;
+  width: 200px;
+  padding: 1.2rem 1.2rem 1rem 1.2rem;
+  margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
+  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
+`;
+
+const PieWrapper = styled.div`
+  height: 155px;
+  width: 155px;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Zwischenräume
+`;
+
+const BalanceContainer = styled.div`
+  display: flex; // label + value nebeneinander
+  gap: 0.5rem;
+
+  p.label {
+    width: 85px;
+  }
+
+  p.value {
+    font-weight: bold;
   }
 `;
 
@@ -313,6 +589,7 @@ const ListItem = styled.li`
   background-color: var(--list-item-background);
   border-radius: 20px;
   margin-bottom: 0.5rem; // Abstand zw. ListItems
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
 
   opacity: ${(props) =>
     props.$empty ? 0.2 : 1}; // dunkler bei totalAmount <= 0

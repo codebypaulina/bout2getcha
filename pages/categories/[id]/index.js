@@ -1,6 +1,7 @@
 import useSWR from "swr";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 import styled from "styled-components";
 import Link from "next/link";
 import CloseIcon from "/public/icons/close.svg";
@@ -9,9 +10,88 @@ import PrevIcon from "/public/icons/previous.svg";
 import NextIcon from "/public/icons/next.svg";
 import AddIcon from "/public/icons/addNEU.svg";
 
+// *** [ HELPERS ]: date ******************************************************************
+// *** ["YYYY-MM-DD" -> new Date(YYYY, MM, DD)]: für dateFrom / dateTo (activeDateRange aus url)
+function parseDateParam(value) {
+  if (typeof value !== "string") return null;
+
+  const [yearString, monthString, dayString] = value.split("-");
+  const year = Number(yearString);
+  const monthIndex = Number(monthString) - 1;
+  const day = Number(dayString);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(monthIndex) ||
+    !Number.isInteger(day) ||
+    monthIndex < 0 ||
+    monthIndex > 11 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+
+  const date = new Date(year, monthIndex, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== monthIndex ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date; // new Date(2026, 2, 1)
+}
+
+// *** [aktueller Monat]
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1); // 1. Tag
+}
+function endOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0); // letzter Tag
+}
+
+// *** [range-Tagesgrenzen]
+function getRangeBounds(startDate, endDate) {
+  return {
+    startTime: new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    ).getTime(), // Starttag um 00:00:00
+
+    endTime: new Date(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      endDate.getDate(),
+      23,
+      59,
+      59,
+      999
+    ).getTime(), // Endtag um 23:59:59
+  };
+}
+
 export default function CategoryDetailsPage() {
   const router = useRouter();
-  const { id, from, navKey } = router.query;
+  const { id, from, dateFrom, dateTo, navKey } = router.query;
+
+  const { data: session } = useSession(); // auth
+  const userId = session?.user?.userId; // für data-fetch, SWR cache-key
+
+  // *** [ data-fetch ]
+  const { data: category, error: errorCategory } = useSWR(
+    id && userId ? `/api/categories/${id}?u=${userId}` : null
+  );
+  const { data: transactions, error: errorTransactions } = useSWR(
+    userId ? `/api/transactions?u=${userId}` : null
+  );
 
   // *** [ < > nav ] ***********************************************************************
   // *** [ state ]: snapshot ID-Reihenfolge category-list
@@ -43,17 +123,28 @@ export default function CategoryDetailsPage() {
 
   // *** [ nav routes ] ********************************************************************
   const fromQuery = from ? `?from=${encodeURIComponent(from)}` : ""; // back nav (HomePage / CategoriesPage)
+
+  const dateRangeQuery =
+    dateFrom && dateTo
+      ? `${fromQuery ? "&" : "?"}dateFrom=${encodeURIComponent(
+          dateFrom
+        )}&dateTo=${encodeURIComponent(dateTo)}`
+      : ""; // back & < > nav
+
   const navKeyQuery = navKey
-    ? `${fromQuery ? "&" : "?"}navKey=${encodeURIComponent(navKey)}`
+    ? `${fromQuery || dateRangeQuery ? "&" : "?"}navKey=${encodeURIComponent(navKey)}`
     : ""; // < > nav
 
   // *** [ nav actions ] *******************************************************************
   function closeCatDetails() {
-    if (from) {
-      router.replace(from); // HomePage / CategoriesPage
-    } else {
-      router.replace("/categories"); // fallback
-    }
+    const dateRangeQuery =
+      dateFrom && dateTo
+        ? `?dateFrom=${encodeURIComponent(dateFrom)}&dateTo=${encodeURIComponent(dateTo)}`
+        : "";
+
+    router.replace(
+      from ? `${from}${dateRangeQuery}` : `/categories${dateRangeQuery}` // HomePage / CategoriesPage + active date range
+    );
   }
 
   function editCatDetails() {
@@ -62,13 +153,17 @@ export default function CategoryDetailsPage() {
 
   const goToPrevCat = useCallback(() => {
     if (!prevId) return;
-    router.push(`/categories/${prevId}${fromQuery}${navKeyQuery}`);
-  }, [prevId, fromQuery, navKeyQuery, router]);
+    router.push(
+      `/categories/${prevId}${fromQuery}${dateRangeQuery}${navKeyQuery}`
+    );
+  }, [prevId, fromQuery, dateRangeQuery, navKeyQuery, router]);
 
   const goToNextCat = useCallback(() => {
     if (!nextId) return;
-    router.push(`/categories/${nextId}${fromQuery}${navKeyQuery}`);
-  }, [nextId, fromQuery, navKeyQuery, router]);
+    router.push(
+      `/categories/${nextId}${fromQuery}${dateRangeQuery}${navKeyQuery}`
+    );
+  }, [nextId, fromQuery, dateRangeQuery, navKeyQuery, router]);
 
   // *** [ keyboard nav ] ******************************************************************
   useEffect(() => {
@@ -81,23 +176,37 @@ export default function CategoryDetailsPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevCat, goToNextCat]);
 
-  // ***************************************************************************************
-  // *** [ fetch ]
-  const { data: category, error: errorCategory } = useSWR(
-    id ? `/api/categories/${id}` : null
-  );
-  const { data: transactions, error: errorTransactions } =
-    useSWR("/api/transactions");
-
-  // *** [ guards ]
+  // *** [ guards ] ************************************************************************
   if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
   if (!category || !transactions) return <h3>Loading ...</h3>;
 
-  // ***************************************************************************************
-  // *** [ transactions ]: filtern + sortieren
+  // *** [ ABGELEITETE DATEN ] *************************************************************
+  // *** [ 1. active date range ]: aus url *************************************************
+  const parsedDateFrom = parseDateParam(dateFrom);
+  const parsedDateTo = parseDateParam(dateTo);
+  const today = new Date();
+
+  const activeDateRange =
+    parsedDateFrom &&
+    parsedDateTo &&
+    parsedDateFrom.getTime() <= parsedDateTo.getTime()
+      ? getRangeBounds(parsedDateFrom, parsedDateTo)
+      : getRangeBounds(startOfMonth(today), endOfMonth(today)); // sonst aktueller Monat
+
+  // *** [ 2. transactions ] ***************************************************************
   const filteredTransactions = transactions
-    .filter((transaction) => transaction.category?._id === id) // nur aktuelle category
+    .filter((transaction) => {
+      const transactionDate = new Date(transaction.date).getTime();
+
+      return (
+        transactionDate >= activeDateRange.startTime &&
+        transactionDate <= activeDateRange.endTime
+      );
+    }) // nur active date range
+    .filter((transaction) => transaction.category?._id === id) // nur active category
     .sort((a, b) => new Date(a.date) - new Date(b.date)); // Datum aufsteigend
+
+  // ***************************************************************************************
 
   return (
     <ContentContainer>

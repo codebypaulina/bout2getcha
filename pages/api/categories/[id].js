@@ -1,71 +1,103 @@
+import mongoose from "mongoose";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]";
 import dbConnect from "@/db/connect";
 import Category from "@/db/models/Category";
-import Transaction from "@/db/models/Transaction"; // um der ca zugehörige ta zu zählen / löschen (für ConfirmModal in FormEditCategory)
+import Transaction from "@/db/models/Transaction";
 
 export default async function handler(request, response) {
+  // *** [ auth guard ]
+  const session = await getServerSession(request, response, authOptions);
+  if (!session) {
+    return response.status(401).json({ error: "Not authenticated" });
+  }
+
+  // *** [ user / ownership ]
+  const userId = session.user.userId; // aus NextAuth-session (string)
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return response.status(400).json({ error: "Invalid user id" }); // defensive check (kein crash bei ungültiger ID)
+  }
+
+  const userObjectId = mongoose.Types.ObjectId.createFromHexString(userId); // aktueller user als ObjectId (für MongoDB-Queries)
+
+  // *** [ DB ]
   await dbConnect();
 
-  const { id } = request.query; // ruft ID aus URL ab
+  const { id } = request.query; // category-ID aus URL
 
+  // *** [ GET ] **********************************************************
   if (request.method === "GET") {
     try {
-      const category = await Category.findById(id); // holt category anhand ID aus database
+      const category = await Category.findOne({
+        _id: id,
+        userId: userObjectId,
+      }); // category des eingeloggten users
 
       if (!category) {
         return response.status(404).json({ error: "Category not found" });
       }
 
-      /****************** für Fall A / B: ConfirmModal in FormEditCategory  **************************************************/
+      // *** für cascade delete (FormEditCategory)
       const transactionCount = await Transaction.countDocuments({
         category: id,
-      }); // zählt, wie viele ta diese ca referenzieren
+        userId: userObjectId,
+      }); // Anzahl transactions in category des eingeloggten users
 
-      response.status(200).json({
-        ...category.toObject(), // wandelt mongoose-doc in plain object um, um Felder ergänzen zu können
+      return response.status(200).json({
+        ...category.toObject(), // mongoose-doc in plain object, um Feld zu ergänzen
         transactionCount,
-      }); // hängt Anzahl ta an, um Fall A (leere ca löschen) / B (ca + zugehörige ta löschen) im Frontend safe zu entscheiden
-      /***********************************************************************************************************************/
+      });
     } catch (error) {
-      response.status(500).json({ error: "Failed to fetch category" });
+      return response.status(500).json({ error: "Failed to fetch category" });
     }
-  } else if (request.method === "PUT") {
+  }
+
+  // *** [ PUT ] **********************************************************
+  if (request.method === "PUT") {
     try {
-      const updatedCategory = await Category.findByIdAndUpdate(
-        id,
+      const updatedCategory = await Category.findOneAndUpdate(
+        { _id: id, userId: userObjectId },
         request.body,
-        { new: true } // geupdatete Version der category zurück
+        { new: true } // geupdatete Version der category
       );
 
       if (!updatedCategory) {
         return response.status(404).json({ error: "Category not found" });
       }
 
-      response.status(200).json(updatedCategory);
+      return response.status(200).json(updatedCategory);
     } catch (error) {
-      response.status(500).json({ error: "Failed to update category" });
+      return response.status(500).json({ error: "Failed to update category" });
     }
-  } else if (request.method === "DELETE") {
+  }
+
+  // *** [ DELETE ] *******************************************************
+  if (request.method === "DELETE") {
     try {
-      /****************** für Fall A / B: ConfirmModal in FormEditCategory  **************************************************/
-      const { cascade } = request.query; // liest optionalen query-Parameter cascade aus (zB ?cascade=true)
-      const shouldCascade = cascade === "true"; // true nur dann, wenn "true" als string übergeben wurde
+      // 1. cascade delete: erst enthaltene transaction(s) löschen
+      const { cascade } = request.query; // cascade aus URL (FormEditCategory)
 
-      if (shouldCascade) {
-        await Transaction.deleteMany({ category: id }); // löscht alle ta, die zu löschende ca referenzieren (Fall B)
+      if (cascade === "true") {
+        await Transaction.deleteMany({ category: id, userId: userObjectId });
       }
-      /***********************************************************************************************************************/
 
-      const deletedCategory = await Category.findByIdAndDelete(id); // löscht ca (Fall A + B)
+      // 2. category delete
+      const deletedCategory = await Category.findOneAndDelete({
+        _id: id,
+        userId: userObjectId,
+      });
 
       if (!deletedCategory) {
         return response.status(404).json({ error: "Category not found" });
       }
 
-      response.status(204).end();
+      return response.status(204).end();
     } catch (error) {
-      response.status(500).json({ error: "Failed to delete category" });
+      return response.status(500).json({ error: "Failed to delete category" });
     }
-  } else {
-    return response.status(405).json({ message: "Method not allowed" });
   }
+
+  // *** [ fallback ] *****************************************************
+  return response.status(405).json({ message: "Method not allowed" });
 }

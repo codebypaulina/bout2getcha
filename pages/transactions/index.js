@@ -1,11 +1,21 @@
-import useSWR from "swr";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
+import useDateFilter from "@/hooks/useDateFilter";
+import {
+  formatDateLabel,
+  getDefaultRange,
+  getRangeBounds,
+  findClosestValidRange,
+} from "@/utils/dateFilter";
+import DatePicker from "@/components/DatePicker";
 import Navbar from "@/components/Navbar";
-import DateIcon from "@/public/icons/date.svg";
 import ChartIcon from "@/public/icons/chart.svg";
+import PrevIcon from "@/public/icons/previous.svg";
+import NextIcon from "@/public/icons/next.svg";
 
 // dynamisch, sonst ES Module error (auch bei aktuellster next.js-Version)
 const ResponsivePie = dynamic(
@@ -14,126 +24,174 @@ const ResponsivePie = dynamic(
 );
 
 export default function TransactionsPage() {
-  const [typeFilter, setTypeFilter] = useState(null); // type-filter
-  const [dateFilter, setDateFilter] = useState({ from: null, to: null }); // date-filter
-  const [dateFilterPopup, setDateFilterPopup] = useState(false); // date-filter-popup
-  const [isChartOpen, setIsChartOpen] = useState(false); // chart-state
+  // *** [ STATES ]
+  const [isChartOpen, setIsChartOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState(null);
 
-  // dateFilter nur active, wenn from/to nicht null
-  const isDateFilterActive = dateFilter.from !== null || dateFilter.to !== null;
+  // *** [ AUTH ]
+  const { data: session } = useSession(); // auth
+  const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
 
-  // *** [ SESSION STORAGE ] ***************************************************************
-  // *** [ 1. date-filter ] ****************************************************************
-  // *** [abrufen]
+  // *** [ DATA-FETCH ]
+  const { data: transactions, error: errorTransactions } = useSWR(
+    userId ? `/api/transactions?u=${userId}` : null
+  );
+  const { data: categories, error: errorCategories } = useSWR(
+    userId ? `/api/categories?u=${userId}` : null
+  );
+
+  // *** [ SYNC ] **************************************************************************
+  // *** [ 1. chart-state ] ****************************************************************
+  // *** [session storage abrufen]
   useEffect(() => {
-    const storedDateFilter = sessionStorage.getItem("dateFilter"); // holt gespeicherten key aus storage
-    if (!storedDateFilter) return;
-
-    const parsedDateFilter = JSON.parse(storedDateFilter); // string in object für from/to
-    const { from = null, to = null } = parsedDateFilter; // holt from/to
-    setDateFilter({ from, to }); // setzt from/to
-  }, []); // läuft nur 1x bei 1. render
-
-  // *** [speichern]: bei Änderung
-  useEffect(() => {
-    // (nur) wenn from/to nicht null -> key in storage
-    if (isDateFilterActive) {
-      sessionStorage.setItem("dateFilter", JSON.stringify(dateFilter));
-    } else {
-      // ansonsten key löschen
-      sessionStorage.removeItem("dateFilter");
-    }
-  }, [isDateFilterActive, dateFilter]); // läuft nur, wenn sich state ändert (= from/to nicht null)
-
-  // *** [ 2. chart-state ] ****************************************************************
-  // *** [abrufen]
-  useEffect(() => {
-    // holt gespeicherten key aus storage (state = true / null)
-    const storedChartState = sessionStorage.getItem("transactions:isChartOpen");
-
-    // wenn key existiert -> state = true
+    if (!userId) return;
+    const key = `u:${userId}:transactions:isChartOpen`;
+    const storedChartState = sessionStorage.getItem(key);
     if (storedChartState) setIsChartOpen(true);
-  }, []); // läuft nur 1x bei 1. render
+  }, [userId]);
 
-  // *** [speichern]: bei Änderung
+  // *** [session storage speichern]: bei Änderung (= open)
   useEffect(() => {
-    // (nur) wenn state = true -> key in storage speichern
+    if (!userId) return;
+    const key = `u:${userId}:transactions:isChartOpen`;
+
     if (isChartOpen) {
-      sessionStorage.setItem("transactions:isChartOpen", "true");
+      sessionStorage.setItem(key, "true");
     } else {
-      // ansonsten key löschen (damit default = false)
-      sessionStorage.removeItem("transactions:isChartOpen");
+      sessionStorage.removeItem(key);
     }
-  }, [isChartOpen]); // läuft nur, wenn sich state ändert (= true)
+  }, [userId, isChartOpen]);
 
-  // *** [ 3. type-filter ] ****************************************************************
-  // *** [abrufen]
+  // *** [ 2. type-filter ] ****************************************************************
+  // *** [session storage abrufen]
   useEffect(() => {
-    const storedTypeFilter = sessionStorage.getItem("transactions:typeFilter");
+    if (!userId) return;
+    const key = `u:${userId}:transactions:typeFilter`;
+    const storedTypeFilter = sessionStorage.getItem(key);
     if (storedTypeFilter !== "Income" && storedTypeFilter !== "Expense") return;
 
     setTypeFilter(storedTypeFilter);
-  }, []);
+  }, [userId]);
 
-  // *** [speichern]
+  // *** [session storage speichern]
   useEffect(() => {
+    if (!userId) return;
+    const key = `u:${userId}:transactions:typeFilter`;
+
     if (typeFilter) {
-      sessionStorage.setItem("transactions:typeFilter", typeFilter);
+      sessionStorage.setItem(key, typeFilter);
     } else {
-      sessionStorage.removeItem("transactions:typeFilter");
+      sessionStorage.removeItem(key);
     }
-  }, [typeFilter]);
+  }, [userId, typeFilter]);
 
-  // ***************************************************************************************
+  // *** [ 3. date-filter ]: state + picker + session storage ******************************
+  const {
+    dateFilter,
+    dateFilterTemplate,
+    isDatePickerOpen,
+    pickerRange,
+    setPickerRange,
+    pickerVisibleMonth,
+    setPickerVisibleMonth,
+    updateDateFilter,
+    openPicker,
+    closePicker,
+    applyPickerRange,
+    clearPickerRange,
+  } = useDateFilter(userId ? `u:${userId}:transactions:dateFilter` : null);
 
-  // *** [ fetch ]
-  const { data: transactions, error: errorTransactions } =
-    useSWR("/api/transactions");
-  const { data: categories, error: errorCategories } =
-    useSWR("/api/categories");
-
-  // *** [ guards ]
+  // *** [ GUARDS ] ************************************************************************
   if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>;
   if (!transactions || !categories) return <h3>Loading ...</h3>;
 
-  // *** [ ABGELEITETE DATEN ] *************************************************************
-  // *** [ 1. transactions ] sortieren + filtern *******************************************
-  // *** [sortieren]: nach Datum absteigend
-  const sortedTransactions = [...transactions].sort(
-    (a, b) => new Date(b.date) - new Date(a.date)
-  );
+  if (transactions?.length) {
+    const categoryShapes = transactions.map((transaction) => ({
+      typeofCategory: typeof transaction.category,
+      hasId:
+        transaction.category &&
+        typeof transaction.category === "object" &&
+        "_id" in transaction.category,
+      sample: transaction.category,
+    }));
 
-  // für DateFilterPopup / handleDateChange: from/to-default
-  // const latestDate = sortedTransactions[0]?.date.split("T")[0]; // neuste transaction
-  const earliestDate =
-    sortedTransactions[sortedTransactions.length - 1]?.date.split("T")[0]; // älteste transaction
-  const today = new Date().toISOString().split("T")[0];
-  const defaultFrom = earliestDate ?? null;
-  const defaultTo = today;
+    console.log("category shapes:", categoryShapes);
+  }
 
-  // *** [filtern]: type- + date-filter auf sortedTransactions
-  const fromDate =
-    (dateFilter.from ?? defaultFrom)
-      ? new Date(dateFilter.from ?? defaultFrom)
-      : null;
-  const toDate =
-    (dateFilter.to ?? defaultTo) ? new Date(dateFilter.to ?? defaultTo) : null;
-  if (toDate) toDate.setHours(23, 59, 59, 999); // end of day: ganzen Tag einschließen (23:59:59)
+  // *** [ DERIVED DATA ] ******************************************************************
+  // *** [ 1. date ] ***********************************************************************
+  const transactionTimes = transactions.map((transaction) =>
+    new Date(transaction.date).getTime()
+  ); // alle vorhandenen dates als Zeitwerte
 
-  const filteredTransactions = sortedTransactions.filter((transaction) => {
-    // type-filter
-    const typeMatches = !typeFilter || transaction.category.type === typeFilter;
+  const minTransactionDate =
+    transactionTimes.length > 0
+      ? new Date(Math.min(...transactionTimes))
+      : null; // älteste vorhandene tx
+  const maxTransactionDate =
+    transactionTimes.length > 0
+      ? new Date(Math.max(...transactionTimes))
+      : null; // neuste vorhandene tx
 
-    // date-filter
-    const transactionDate = new Date(transaction.date);
-    const dateMatches =
-      (!fromDate || transactionDate >= fromDate) &&
-      (!toDate || transactionDate <= toDate);
+  // *** [ 2. range ] **********************************************************************
+  const dateFilterLabel = `${formatDateLabel(dateFilter.from)} - ${formatDateLabel(dateFilter.to)}`;
 
-    return typeMatches && dateMatches;
-  });
+  // *** [default range]: für RangeButton
+  const defaultRange = getDefaultRange();
+  const isDefaultRange =
+    dateFilter.from.getTime() === defaultRange.from.getTime() &&
+    dateFilter.to.getTime() === defaultRange.to.getTime();
 
-  // *** [ 2. totals ] pro category + pro type *********************************************
+  // *** [monatsübergreifende range]: für < > buttons in DateNav
+  const isCrossMonthRange =
+    dateFilter.from.getFullYear() !== dateFilter.to.getFullYear() ||
+    dateFilter.from.getMonth() !== dateFilter.to.getMonth();
+
+  // *** [vorherige + nächste gültige range]
+  const prevValidRange =
+    isCrossMonthRange || !minTransactionDate || !maxTransactionDate
+      ? null
+      : findClosestValidRange(
+          transactions,
+          dateFilter.from, // state
+          -1,
+          minTransactionDate,
+          maxTransactionDate,
+          dateFilterTemplate
+        );
+  const nextValidRange =
+    isCrossMonthRange || !minTransactionDate || !maxTransactionDate
+      ? null
+      : findClosestValidRange(
+          transactions,
+          dateFilter.from, // state
+          1,
+          minTransactionDate,
+          maxTransactionDate,
+          dateFilterTemplate
+        );
+
+  const isPrevRangeDisabled = isCrossMonthRange || !prevValidRange;
+  const isNextRangeDisabled = isCrossMonthRange || !nextValidRange;
+
+  // *** [ 3. transactions ]: filtern + sortieren ******************************************
+  const { startTime: activeRangeStartTime, endTime: activeRangeEndTime } =
+    getRangeBounds(dateFilter.from, dateFilter.to); // Beginn + Ende active date range
+
+  const filteredTransactions = transactions
+    .filter((transaction) => {
+      const transactionTime = new Date(transaction.date).getTime();
+      const isInRange =
+        transactionTime >= activeRangeStartTime &&
+        transactionTime <= activeRangeEndTime; // nur active date range
+      const matchesTypeFilter =
+        !typeFilter || transaction.category.type === typeFilter; // nur active type-filter
+
+      return isInRange && matchesTypeFilter;
+    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date)); // Datum absteigend
+
+  // *** [ 4. totals ] pro category + pro type *********************************************
   const totalByCategoryId = {}; // pro category: für categoriesWithTotals (chart-data type-filter)
   let totalIncome = 0; // pro type: für totalBalanceValue (balance-data + chart-data main view)
   let totalExpense = 0;
@@ -156,15 +214,39 @@ export default function TransactionsPage() {
     return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 }; // category + totalByCategoryId
   });
 
-  // *** [ 3. balance-data & chart-data ] **************************************************
-  // *** [balance]
-  const totalBalanceValue =
-    typeFilter === "Income"
-      ? totalIncome
-      : typeFilter === "Expense"
-        ? totalExpense
-        : totalIncome - totalExpense;
+  // *** [ 5. chart ] **************************************************
+  // *** [chart-data]
+  const chartData = typeFilter
+    ? categoriesWithTotals // segments: income-/expense-categories
+        .filter(
+          (category) => category.type === typeFilter && category.totalAmount > 0
+        )
+        .map((category) => ({
+          id: category._id,
+          label: category.name,
+          value: category.totalAmount,
+          color: category.color,
+        }))
+        .sort((a, b) => b.value - a.value) // segments value absteigend
+    : // segments main view: expenses + remaining income
+      [
+        {
+          id: "Expenses",
+          label: "Expenses",
+          value: totalExpense,
+          color: "var(--expense-color)",
+        },
+        {
+          id: "Remaining Income",
+          label: "Remaining Income",
+          value: totalIncome - totalExpense,
+          color: "var(--income-color)",
+        },
+      ];
 
+  const hasEnoughChartData = chartData.length > 0; // für ChartButton
+
+  // *** [balance-data]
   const totalBalanceLabel =
     typeFilter === "Income"
       ? "Total Income"
@@ -172,36 +254,12 @@ export default function TransactionsPage() {
         ? "Total Expense"
         : "Total Balance";
 
-  // *** [chart]
-  const chartData = (
-    typeFilter
-      ? categoriesWithTotals // segments: income-/expense-categories
-          .filter(
-            (category) =>
-              category.type === typeFilter && category.totalAmount > 0
-          )
-          .map((category) => ({
-            id: category._id,
-            label: category.name,
-            value: category.totalAmount,
-            color: category.color,
-          }))
-      : // segments main view: expenses + remaining income
-        [
-          {
-            id: "Expenses",
-            label: "Expenses",
-            value: totalExpense,
-            color: "var(--expense-color)",
-          },
-          {
-            id: "Remaining Income",
-            label: "Remaining Income",
-            value: totalIncome - totalExpense,
-            color: "var(--income-color)",
-          },
-        ]
-  ).sort((a, b) => a.value - b.value); // segments nach value absteigend gegen Uhrzeigersinn
+  const totalBalanceValue =
+    typeFilter === "Income"
+      ? totalIncome
+      : typeFilter === "Expense"
+        ? totalExpense
+        : totalIncome - totalExpense;
 
   // *** [tooltip %]
   const chartTotalValue = chartData.reduce(
@@ -214,45 +272,108 @@ export default function TransactionsPage() {
     return Math.round((value / chartTotalValue) * 100);
   }
 
-  // ***************************************************************************************
-
+  // *** [ HANDLERS ] **********************************************************************
+  // *** [ chart ]
   function toggleChart() {
     setIsChartOpen((prevState) => !prevState);
   }
 
-  function toggleTypeFilter(type) {
-    setTypeFilter((prevState) => (prevState === type ? null : type));
+  // *** [ type ]
+  function switchTypeFilter() {
+    setTypeFilter((prevState) => {
+      if (prevState === null) return "Expense";
+      if (prevState === "Expense") return "Income";
+      return null;
+    });
   }
 
-  function toggleDateFilterPopup() {
-    setDateFilterPopup((prevState) => !prevState);
+  // *** [ DateNav < > ]
+  function goToPrevMonth() {
+    if (!prevValidRange) return;
+    updateDateFilter(prevValidRange.start, prevValidRange.end);
   }
 
-  function handleDateChange(event) {
-    const { name, value } = event.target;
-
-    const defaultValue = name === "from" ? defaultFrom : defaultTo;
-    const dateFilterValue = !value || value === defaultValue ? null : value; // wenn default -> null
-
-    setDateFilter((prevState) => ({ ...prevState, [name]: dateFilterValue }));
+  function goToNextMonth() {
+    if (!nextValidRange) return;
+    updateDateFilter(nextValidRange.start, nextValidRange.end);
   }
 
-  function clearDateFilter() {
-    setDateFilter({ from: null, to: null });
-  }
-
+  // ***************************************************************************************
+  // ***************************************************************************************
   return (
     <>
       <ContentContainer>
         <h1>Transactions</h1>
 
-        {isChartOpen && chartData.length > 0 && (
+        <FilterSection>
+          <ChartButton
+            type="button"
+            aria-label="Toggle chart"
+            className={isChartOpen && hasEnoughChartData ? "active" : ""}
+            disabled={!hasEnoughChartData}
+            onClick={toggleChart}
+          >
+            <ChartIcon />
+          </ChartButton>
+
+          <DateNav>
+            <ArrowButton
+              type="button"
+              aria-label="Go to previous month"
+              disabled={isPrevRangeDisabled}
+              onClick={goToPrevMonth}
+            >
+              <PrevIcon className="prev" />
+            </ArrowButton>
+
+            <RangeButton
+              type="button"
+              aria-label="Change date range"
+              onClick={openPicker}
+              className={isDefaultRange ? "" : "active"}
+            >
+              {dateFilterLabel}
+            </RangeButton>
+
+            <ArrowButton
+              type="button"
+              aria-label="Go to next month"
+              disabled={isNextRangeDisabled}
+              onClick={goToNextMonth}
+            >
+              <NextIcon className="next" />
+            </ArrowButton>
+          </DateNav>
+
+          <TypeButton
+            type="button"
+            aria-label="Filter transactions by type"
+            onClick={switchTypeFilter}
+            $typeFilter={typeFilter}
+          />
+        </FilterSection>
+
+        {isDatePickerOpen && (
+          <DatePicker
+            pickerRange={pickerRange}
+            setPickerRange={setPickerRange}
+            pickerVisibleMonth={pickerVisibleMonth}
+            setPickerVisibleMonth={setPickerVisibleMonth}
+            applyPickerRange={applyPickerRange}
+            clearPickerRange={clearPickerRange}
+            closePicker={closePicker}
+          />
+        )}
+
+        {isChartOpen && hasEnoughChartData && (
           <ChartSection>
             <PieWrapper>
               <ResponsivePie
                 data={chartData}
                 colors={{ datum: "data.color" }}
                 innerRadius={0.5} // 50 % ausgeschnitten
+                startAngle={0} // Start: oben auf 12 Uhr
+                endAngle={-360} // Ende: volle Runde gegen Uhrzeigersinn
                 padAngle={2} // Abstand zwischen Segmenten
                 cornerRadius={3} // rundere Ecken der Segmente
                 arcLinkLabelsSkipAngle={360} // ausgeblendete Linien
@@ -268,7 +389,7 @@ export default function TransactionsPage() {
             </PieWrapper>
 
             <BalanceContainer>
-              <p>{totalBalanceLabel}</p>
+              <p className="label">{totalBalanceLabel}</p>
               <p className={`value ${totalBalanceValue < 0 ? "negative" : ""}`}>
                 {totalBalanceValue.toLocaleString("de-DE", {
                   minimumFractionDigits: 2,
@@ -280,99 +401,41 @@ export default function TransactionsPage() {
           </ChartSection>
         )}
 
-        <FilterSection>
-          <IconContainer>
-            <IconWrapper
-              onClick={toggleChart}
-              className={isChartOpen ? "active" : ""}
-            >
-              <ChartIcon className="chart" />
-            </IconWrapper>
+        {filteredTransactions.length === 0 ? (
+          <p className="no-transaction">No transactions in this date range.</p>
+        ) : (
+          <StyledList>
+            {filteredTransactions.map((transaction) => (
+              <ListItem key={transaction._id}>
+                <StyledLink href={`/transactions/${transaction._id}`}>
+                  <p className="date">
+                    {new Date(transaction.date).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </p>
 
-            <IconWrapper
-              onClick={toggleDateFilterPopup}
-              className={isDateFilterActive ? "active" : ""}
-            >
-              <DateIcon className="date" />
-            </IconWrapper>
-          </IconContainer>
+                  <ColorTag
+                    $typeFilter={typeFilter}
+                    $categoryType={transaction.category.type}
+                    $categoryColor={transaction.category.color}
+                  />
 
-          <ButtonContainer>
-            <button
-              onClick={() => toggleTypeFilter("Income")}
-              className={typeFilter === "Income" ? "active" : ""}
-            >
-              Incomes
-            </button>
-
-            <button
-              onClick={() => toggleTypeFilter("Expense")}
-              className={typeFilter === "Expense" ? "active" : ""}
-            >
-              Expenses
-            </button>
-          </ButtonContainer>
-        </FilterSection>
-
-        {dateFilterPopup && (
-          <>
-            <Overlay onClick={toggleDateFilterPopup} />
-
-            <DateFilterPopup>
-              <label htmlFor="from">From</label>
-              <input
-                type="date"
-                id="from"
-                name="from"
-                value={(dateFilter.from ?? defaultFrom) || ""} // vorherige Auswahl oder default
-                onChange={handleDateChange}
-              />
-
-              <label htmlFor="to">To</label>
-              <input
-                type="date"
-                id="to"
-                name="to"
-                value={(dateFilter.to ?? defaultTo) || ""} // vorherige Auswahl oder default
-                onChange={handleDateChange}
-              />
-
-              <button onClick={clearDateFilter}>Clear</button>
-            </DateFilterPopup>
-          </>
+                  <p className="description">{transaction.description}</p>
+                  <p className="category">{transaction.category.name}</p>
+                  <p className="amount">
+                    {transaction.amount.toLocaleString("de-DE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    €
+                  </p>
+                </StyledLink>
+              </ListItem>
+            ))}
+          </StyledList>
         )}
-
-        <StyledList>
-          {filteredTransactions.map((transaction) => (
-            <ListItem key={transaction._id}>
-              <StyledLink href={`/transactions/${transaction._id}`}>
-                <p className="date">
-                  {new Date(transaction.date).toLocaleDateString("de-DE", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
-                </p>
-
-                <ColorTag
-                  $typeFilter={typeFilter}
-                  $categoryType={transaction.category.type}
-                  $categoryColor={transaction.category.color}
-                />
-
-                <p className="description">{transaction.description}</p>
-                <p className="category">{transaction.category.name}</p>
-                <p className="amount">
-                  {transaction.amount.toLocaleString("de-DE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  €
-                </p>
-              </StyledLink>
-            </ListItem>
-          ))}
-        </StyledList>
       </ContentContainer>
 
       <Navbar />
@@ -380,98 +443,168 @@ export default function TransactionsPage() {
   );
 }
 
-const Overlay = styled.div`
-  position: fixed; // bei scroll im viewport
-  inset: 0; // füllt gesamten viewport
-  background: rgba(0, 0, 0, 0.6); // abgedunkelt
-  z-index: 9; // über Seite, unter Popup
-`;
-
-const DateFilterPopup = styled.div`
-  position: fixed; // bei scroll im viewport
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%); // zentriert
-  z-index: 10; // Popup über Overlay
-
-  width: 173px;
-  background-color: var(--background-color);
-  padding: 1.3rem 1.5rem 1.5rem 1.5rem;
-  border-radius: 1.5rem; // abgerundete Ecken
-  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-  display: flex;
-  flex-direction: column; // content untereinander
-
-  label {
-    font-weight: bold;
-    margin-bottom: 0.5rem; // Abstand input
-  }
-
-  input {
-    height: 1.5rem;
-    border-radius: 0.5rem; // abgerundete Ecken
-    border: 0.07rem solid var(--button-hover-color);
-    accent-color: var(
-      --button-hover-color // Firefox: wenn angeklickt, kein blauer Rahmen
-    );
-    cursor: text;
-  }
-
-  input#from {
-    margin-bottom: 0.8rem; // Abstand #to
-  }
-
-  button {
-    margin-top: 1.5rem; // Abstand input
-    align-self: center;
-
-    border: none;
-    border-radius: 20px;
-    width: 60px;
-    height: 30px;
-    cursor: pointer;
-    font-weight: bold;
-    background-color: var(--button-background-color);
-    color: var(--button-text-color);
-    box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-    &:hover {
-      transform: scale(1.07);
-      color: var(--primary-text-color);
-    }
-  }
-`;
-
-// ******************************************************************************
-
 const ContentContainer = styled.div`
   padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 430px; // Breite von list
+  max-width: 350px; // Breite von list
   margin: 0 auto; // content horizontal zentriert
 
   h1 {
     text-align: center;
     margin-bottom: 1.5rem;
   }
+
+  .no-transaction {
+    text-align: center;
+  }
 `;
+
+const FilterSection = styled.div`
+  margin-bottom: 1.5rem;
+  background-color: #232323;
+  border-radius: 20px;
+  padding: 10px 12px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
+
+  display: flex; // items nebeneinander
+  justify-content: space-between; // verteilt
+  align-items: center; // vertikal zentriert
+`;
+
+const ChartButton = styled.button`
+  border: none;
+  background: transparent;
+  color: var(--button-background-color);
+  line-height: 0; // unten bündiger
+  margin-bottom: 1px; // bündig
+  cursor: pointer;
+
+  svg {
+    width: 22px;
+    height: 22px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1)); // ohne Zwischenräume
+  }
+
+  &:hover {
+    transform: scale(1.07);
+  }
+
+  &.active {
+    color: var(--button-active-color);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+`;
+
+const DateNav = styled.div`
+  display: flex; // buttons nebeneinander
+  align-items: center; // vertikal zentriert
+  gap: 0.4rem;
+`;
+
+const ArrowButton = styled.button`
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  background-color: var(--button-background-color);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
+
+  svg {
+    height: 10px;
+    width: 10px;
+    stroke: var(--button-text-color);
+  }
+  .prev {
+    margin-right: 2px;
+  }
+  .next {
+    margin-left: 2px;
+  }
+
+  &:hover {
+    transform: scale(1.07);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+`;
+
+const RangeButton = styled.button`
+  border: none;
+  border-radius: 20px;
+  background-color: var(--button-background-color);
+  color: var(--button-text-color);
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 8px;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
+
+  &:hover {
+    transform: scale(1.02);
+  }
+
+  &.active {
+    background-color: var(--button-active-color);
+    color: var(--button-active-text-color);
+  }
+`;
+
+const TypeButton = styled.button`
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
+
+  background-color: ${({ $typeFilter }) =>
+    $typeFilter === "Expense"
+      ? "var(--expense-color)"
+      : $typeFilter === "Income"
+        ? "var(--income-color)"
+        : "var(--button-background-color)"};
+
+  &:hover {
+    transform: scale(1.07);
+  }
+`;
+
+// ******************************************************************************
 
 const ChartSection = styled.div`
   display: flex;
   flex-direction: column; // PieWrapper + BalanceContainer untereinander
-  max-width: 265px; // schmaler als FilterSection
-  margin: 0 auto 1.5rem auto; // Abstand FilterSection, horizontal zentriert
+  align-items: center; // horizontal zentriert
+  gap: 1rem;
+
+  background-color: #232323;
+  border-radius: 20px;
+  width: 200px;
+  padding: 1.2rem 1.2rem 1rem 1.2rem;
+  margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
+  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 `;
 
 const PieWrapper = styled.div`
-  height: 150px;
-  width: 150px;
-  margin: 0 auto; // horizontal zentriert
+  height: 155px;
+  width: 155px;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Zwischenräume
 `;
 
 const BalanceContainer = styled.div`
-  align-self: flex-end; // rechts in ChartSection
-  text-align: center; // content horizontal zentriert
+  display: flex; // label + value nebeneinander
+  gap: 0.5rem;
+
+  p.label {
+    width: 85px;
+  }
 
   p.value {
     font-weight: bold;
@@ -482,89 +615,21 @@ const BalanceContainer = styled.div`
   }
 `;
 
-const FilterSection = styled.div`
-  display: flex; // IconContainer + ButtonContainer nebeneinander
-  justify-content: space-between; // icon links, button rechts
-
-  max-width: 285px; // schmaler als list
-  margin: 0 auto 1.5rem auto; // Abstand list, horizontal zentriert
-`;
-
-const IconContainer = styled.div`
-  display: flex; // svgs nebeneinander
-  gap: 0.75rem; // für gap
-`;
-
-const IconWrapper = styled.div`
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
-  width: 32px;
-  height: 30px;
-  border-radius: 10px;
-  display: flex; // wegen Zentrierung von svgs
-  align-items: center; // vertikal zentriert
-  justify-content: center; // horizontal zentriert
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-  svg.chart {
-    width: 20px;
-    height: 20px;
-  }
-
-  svg.date {
-    width: 18px;
-    height: 18px;
-  }
-
-  &:hover {
-    transform: scale(1.07);
-    color: var(--primary-text-color);
-  }
-
-  &.active {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
-  }
-`;
-
-const ButtonContainer = styled.div`
-  display: flex; // für gap
-  gap: 0.75rem;
-
-  button {
-    background-color: var(--button-background-color);
-    color: var(--button-text-color);
-    border: none;
-    width: 90px;
-    height: 30px;
-    border-radius: 20px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-    &:hover {
-      transform: scale(1.04);
-      color: var(--primary-text-color);
-    }
-
-    &.active {
-      background-color: var(--button-active-color);
-      color: var(--button-active-text-color);
-    }
-  }
-`;
-
 // ******************************************************************************
 
 const StyledList = styled.ul`
   list-style-type: none;
   display: grid; //    date | ColorTag | description | category | amount
   grid-template-columns:
-    minmax(33px, max-content) 5px minmax(60px, 1fr) minmax(0, max-content)
-    74px;
+    minmax(33px, max-content) 5px minmax(70px, 1fr) minmax(0, max-content)
+    67px;
   align-items: center; // content in der Zeile vertikal zentriert
   gap: 0.5rem;
+
+  background-color: #232323;
+  border-radius: 20px;
+  padding: 0.75rem;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 `;
 
 const ListItem = styled.li`
@@ -576,7 +641,7 @@ const StyledLink = styled(Link)`
   display: contents; // date, ColorTag, description, category, amount -> grid
 
   p {
-    font-size: 0.8rem;
+    font-size: 0.755rem;
   }
 
   p.date {
