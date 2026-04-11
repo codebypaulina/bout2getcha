@@ -1,16 +1,18 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
+
 import DatePicker from "@/components/DatePicker";
 import Navbar from "@/components/Navbar";
 import ChartIcon from "@/public/icons/chart.svg";
 import PrevIcon from "@/public/icons/previous.svg";
 import NextIcon from "@/public/icons/next.svg";
 
+import useSessionStorageState from "@/hooks/useSessionStorageState";
 import useDateFilter from "@/hooks/useDateFilter";
 import {
   formatDateString,
@@ -31,11 +33,8 @@ const ResponsivePie = dynamic(
 
 export default function CategoriesPage() {
   const { isReady, query, replace } = useRouter();
-  const type = query.type; // von FormAddCategory für type-filter
-
-  // *** [ STATES ]
-  const [isChartOpen, setIsChartOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState("Expense");
+  const queryType =
+    query.type === "Income" || query.type === "Expense" ? query.type : null; // von FormAddCategory für type-filter
 
   // *** [ AUTH ]
   const { data: session } = useSession();
@@ -50,59 +49,26 @@ export default function CategoriesPage() {
   );
 
   // *** [ SYNC ] **************************************************************************
-  // *** [ 1. chart-state ] ****************************************************************
-  // *** [session storage abrufen]
+  // *** [ 1. chart-state ]: session storage ***********************************************
+  // default: closed  ||  in storage: wenn open
+  const [isChartOpen, setIsChartOpen] = useSessionStorageState(
+    userId ? `u:${userId}:categories:isChartOpen` : null,
+    false
+  );
+
+  // *** [ 2. type-filter ]: session storage / url *****************************************
+  // default: expense  ||  in storage: wenn income  ||  aus storage: wenn kein query von FormAddCategory
+  const [typeFilter, setTypeFilter] = useSessionStorageState(
+    userId ? `u:${userId}:categories:typeFilter` : null,
+    "Expense"
+  );
+
+  // aus url: wenn query
   useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:categories:isChartOpen`;
-    const storedChartState = sessionStorage.getItem(key);
-    if (storedChartState) setIsChartOpen(true);
-  }, [userId]);
-
-  // *** [session storage speichern]: bei Änderung (= open)
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:categories:isChartOpen`;
-
-    if (isChartOpen) {
-      sessionStorage.setItem(key, "true");
-    } else {
-      sessionStorage.removeItem(key);
-    }
-  }, [userId, isChartOpen]);
-
-  // *** [ 2. type-filter ] ****************************************************************
-  // *** [aus url abrufen]: wenn query von FormAddCategory
-  useEffect(() => {
-    if (!isReady) return;
-    if (type === "Income" || type === "Expense") {
-      setTypeFilter(type); // type in url: in filter
-      replace("/categories", undefined, { shallow: true }); // url wieder /categories, nichts maskieren, kein remount
-    }
-  }, [isReady, type, replace]);
-
-  // *** [session storage abrufen]: wenn kein query
-  useEffect(() => {
-    if (!isReady) return;
-    if (!userId) return;
-    if (type === "Income" || type === "Expense") return; // type in url: abbrechen, nicht aus storage
-
-    const key = `u:${userId}:categories:typeFilter`;
-    const storedTypeFilter = sessionStorage.getItem(key);
-    if (storedTypeFilter === "Income") setTypeFilter("Income"); // income in storage: in filter
-  }, [isReady, userId, type]);
-
-  // *** [session storage speichern]: nur wenn income
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:categories:typeFilter`;
-
-    if (typeFilter === "Income") {
-      sessionStorage.setItem(key, "Income");
-    } else {
-      sessionStorage.removeItem(key);
-    }
-  }, [userId, typeFilter]);
+    if (!isReady || !queryType) return;
+    setTypeFilter(queryType);
+    replace("/categories", undefined, { shallow: true }); // url wieder /categories, nichts maskieren, kein remount
+  }, [isReady, queryType, setTypeFilter, replace]);
 
   // *** [ 3. date-filter ]: state + picker + session storage ******************************
   const {
@@ -124,21 +90,8 @@ export default function CategoriesPage() {
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
   if (!categories || !transactions) return <h3>Loading ...</h3>;
 
-  if (transactions?.length) {
-    const categoryShapes = transactions.map((transaction) => ({
-      typeofCategory: typeof transaction.category,
-      hasId:
-        transaction.category &&
-        typeof transaction.category === "object" &&
-        "_id" in transaction.category,
-      sample: transaction.category,
-    }));
-
-    console.log("category shapes:", categoryShapes);
-  }
-
   // *** [ DERIVED DATA ] ******************************************************************
-  // *** [ 1. date ] ***********************************************************************
+  // *** [ 1. date metadata ] **************************************************************
   const transactionTimes = transactions.map((transaction) =>
     new Date(transaction.date).getTime()
   ); // alle vorhandenen dates als Zeitwerte
@@ -152,7 +105,7 @@ export default function CategoriesPage() {
       ? new Date(Math.max(...transactionTimes))
       : null; // neuste vorhandene tx
 
-  // *** [ 2. range ] **********************************************************************
+  // *** [ 2. date range metadata ] ********************************************************
   const dateFilterLabel = `${formatDateLabel(dateFilter.from)} - ${formatDateLabel(dateFilter.to)}`;
 
   // *** [default range]: für RangeButton
@@ -193,7 +146,7 @@ export default function CategoriesPage() {
   const isPrevRangeDisabled = isCrossMonthRange || !prevValidRange;
   const isNextRangeDisabled = isCrossMonthRange || !nextValidRange;
 
-  // *** [ 3. transactions ]: filtern ******************************************************
+  // *** [ 3. filtered base data ] *********************************************************
   const { startTime: activeRangeStartTime, endTime: activeRangeEndTime } =
     getRangeBounds(dateFilter.from, dateFilter.to); // Beginn + Ende active date range
 
@@ -205,17 +158,23 @@ export default function CategoriesPage() {
     ); // nur active date range
   });
 
-  // *** [ 4. categories ] *****************************************************************
-  // *** [mit totals]
-  const categoriesWithTotals = categories.map((category) => {
-    const totalAmount = filteredTransactions
-      .filter((transaction) => transaction.category._id === category._id)
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  // *** [ 4. aggregated totals ] **********************************************************
+  const totalByCategoryId = {}; // total pro category
 
-    return { ...category, totalAmount };
+  // amount zu total: 1x durch alle aktuell sichtbaren transactions
+  filteredTransactions.forEach((transaction) => {
+    const categoryId = transaction.category._id.toString();
+    totalByCategoryId[categoryId] =
+      (totalByCategoryId[categoryId] || 0) + transaction.amount;
   });
 
-  // *** [filtern + sortieren]
+  // total zu category: 1x durch alle categories
+  const categoriesWithTotals = categories.map((category) => {
+    const categoryId = category._id.toString();
+    return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 }; // category + totalByCategoryId
+  });
+
+  // categories filtern + sortieren
   const sortedActiveCategories = categoriesWithTotals
     .filter((category) => category.type === typeFilter) // nur active type-filter
     .sort((a, b) => {
@@ -235,8 +194,7 @@ export default function CategoriesPage() {
     sessionStorage.setItem(navKey, JSON.stringify(navIds));
   }
 
-  // *** [ 6. chart ] **********************************************************************
-  // *** [chart-data]
+  // *** [ 6. chart-data ] *****************************************************************
   const chartData = sortedActiveCategories
     .filter((category) => category.totalAmount > 0)
     .map((category) => ({
@@ -249,40 +207,37 @@ export default function CategoriesPage() {
   const hasEnoughChartData = chartData.length > 0; // für ChartButton
 
   // *** [value balance-container]: Summe angezeigter categories
-  const totalValue = sortedActiveCategories.reduce(
+  const totalCategoryAmount = sortedActiveCategories.reduce(
     (sum, category) => sum + category.totalAmount,
     0
   );
 
   // *** [tooltip %]
   function getChartPercentage(value) {
-    if (!totalValue) return 0;
-    return Math.round((value / totalValue) * 100);
+    if (!totalCategoryAmount) return 0;
+    return Math.round((value / totalCategoryAmount) * 100);
   }
 
   // *** [ HANDLERS ] **********************************************************************
-  // *** [ chart ]
   function toggleChart() {
     setIsChartOpen((prevState) => !prevState);
   }
 
-  // *** [ type ]
   function toggleTypeFilter() {
     setTypeFilter((prevState) =>
       prevState === "Expense" ? "Income" : "Expense"
     );
   }
 
-  // *** [ DateNav < > ]
   function goToPrevMonth() {
     if (!prevValidRange) return;
     updateDateFilter(prevValidRange.start, prevValidRange.end);
-  }
+  } // DateNav < >
 
   function goToNextMonth() {
     if (!nextValidRange) return;
     updateDateFilter(nextValidRange.start, nextValidRange.end);
-  }
+  } // DateNav < >
 
   // ***************************************************************************************
   // ***************************************************************************************
@@ -381,7 +336,7 @@ export default function CategoriesPage() {
               </p>
 
               <p className="value">
-                {totalValue.toLocaleString("de-DE", {
+                {totalCategoryAmount.toLocaleString("de-DE", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}{" "}

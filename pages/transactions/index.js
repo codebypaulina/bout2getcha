@@ -1,9 +1,16 @@
-import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
+
+import DatePicker from "@/components/DatePicker";
+import Navbar from "@/components/Navbar";
+import ChartIcon from "@/public/icons/chart.svg";
+import PrevIcon from "@/public/icons/previous.svg";
+import NextIcon from "@/public/icons/next.svg";
+
+import useSessionStorageState from "@/hooks/useSessionStorageState";
 import useDateFilter from "@/hooks/useDateFilter";
 import {
   formatDateLabel,
@@ -11,11 +18,6 @@ import {
   getRangeBounds,
   findClosestValidRange,
 } from "@/utils/dateFilter";
-import DatePicker from "@/components/DatePicker";
-import Navbar from "@/components/Navbar";
-import ChartIcon from "@/public/icons/chart.svg";
-import PrevIcon from "@/public/icons/previous.svg";
-import NextIcon from "@/public/icons/next.svg";
 
 // dynamisch, sonst ES Module error (auch bei aktuellster next.js-Version)
 const ResponsivePie = dynamic(
@@ -24,10 +26,6 @@ const ResponsivePie = dynamic(
 );
 
 export default function TransactionsPage() {
-  // *** [ STATES ]
-  const [isChartOpen, setIsChartOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState(null);
-
   // *** [ AUTH ]
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
@@ -41,49 +39,19 @@ export default function TransactionsPage() {
   );
 
   // *** [ SYNC ] **************************************************************************
-  // *** [ 1. chart-state ] ****************************************************************
-  // *** [session storage abrufen]
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:transactions:isChartOpen`;
-    const storedChartState = sessionStorage.getItem(key);
-    if (storedChartState) setIsChartOpen(true);
-  }, [userId]);
+  // *** [ 1. chart-state ]: session storage ***********************************************
+  // default: closed  ||  in storage: wenn open
+  const [isChartOpen, setIsChartOpen] = useSessionStorageState(
+    userId ? `u:${userId}:transactions:isChartOpen` : null,
+    false
+  );
 
-  // *** [session storage speichern]: bei Änderung (= open)
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:transactions:isChartOpen`;
-
-    if (isChartOpen) {
-      sessionStorage.setItem(key, "true");
-    } else {
-      sessionStorage.removeItem(key);
-    }
-  }, [userId, isChartOpen]);
-
-  // *** [ 2. type-filter ] ****************************************************************
-  // *** [session storage abrufen]
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:transactions:typeFilter`;
-    const storedTypeFilter = sessionStorage.getItem(key);
-    if (storedTypeFilter !== "Income" && storedTypeFilter !== "Expense") return;
-
-    setTypeFilter(storedTypeFilter);
-  }, [userId]);
-
-  // *** [session storage speichern]
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:transactions:typeFilter`;
-
-    if (typeFilter) {
-      sessionStorage.setItem(key, typeFilter);
-    } else {
-      sessionStorage.removeItem(key);
-    }
-  }, [userId, typeFilter]);
+  // *** [ 2. type-filter ]: session storage ***********************************************
+  // default: kein filter  ||  in storage: wenn expense / income
+  const [typeFilter, setTypeFilter] = useSessionStorageState(
+    userId ? `u:${userId}:transactions:typeFilter` : null,
+    null
+  );
 
   // *** [ 3. date-filter ]: state + picker + session storage ******************************
   const {
@@ -105,21 +73,8 @@ export default function TransactionsPage() {
   if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>;
   if (!transactions || !categories) return <h3>Loading ...</h3>;
 
-  if (transactions?.length) {
-    const categoryShapes = transactions.map((transaction) => ({
-      typeofCategory: typeof transaction.category,
-      hasId:
-        transaction.category &&
-        typeof transaction.category === "object" &&
-        "_id" in transaction.category,
-      sample: transaction.category,
-    }));
-
-    console.log("category shapes:", categoryShapes);
-  }
-
   // *** [ DERIVED DATA ] ******************************************************************
-  // *** [ 1. date ] ***********************************************************************
+  // *** [ 1. date metadata ] **************************************************************
   const transactionTimes = transactions.map((transaction) =>
     new Date(transaction.date).getTime()
   ); // alle vorhandenen dates als Zeitwerte
@@ -133,7 +88,7 @@ export default function TransactionsPage() {
       ? new Date(Math.max(...transactionTimes))
       : null; // neuste vorhandene tx
 
-  // *** [ 2. range ] **********************************************************************
+  // *** [ 2. date range metadata ] ********************************************************
   const dateFilterLabel = `${formatDateLabel(dateFilter.from)} - ${formatDateLabel(dateFilter.to)}`;
 
   // *** [default range]: für RangeButton
@@ -174,7 +129,7 @@ export default function TransactionsPage() {
   const isPrevRangeDisabled = isCrossMonthRange || !prevValidRange;
   const isNextRangeDisabled = isCrossMonthRange || !nextValidRange;
 
-  // *** [ 3. transactions ]: filtern + sortieren ******************************************
+  // *** [ 3. filtered base data ] *********************************************************
   const { startTime: activeRangeStartTime, endTime: activeRangeEndTime } =
     getRangeBounds(dateFilter.from, dateFilter.to); // Beginn + Ende active date range
 
@@ -185,18 +140,18 @@ export default function TransactionsPage() {
         transactionTime >= activeRangeStartTime &&
         transactionTime <= activeRangeEndTime; // nur active date range
       const matchesTypeFilter =
-        !typeFilter || transaction.category.type === typeFilter; // nur active type-filter
+        typeFilter === null || transaction.category.type === typeFilter; // nur active type-filter
 
       return isInRange && matchesTypeFilter;
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date)); // Datum absteigend
 
-  // *** [ 4. totals ] pro category + pro type *********************************************
+  // *** [ 4. aggregated totals ] pro category + pro type **********************************
   const totalByCategoryId = {}; // pro category: für categoriesWithTotals (chart-data type-filter)
   let totalIncome = 0; // pro type: für totalBalanceValue (balance-data + chart-data main view)
   let totalExpense = 0;
 
-  // *** [amount zu total]: 1x durch alle aktuell sichtbaren transactions
+  // amount zu total: 1x durch alle aktuell sichtbaren transactions
   filteredTransactions.forEach((transaction) => {
     const categoryId = transaction.category._id.toString();
     const categoryType = transaction.category.type;
@@ -214,35 +169,36 @@ export default function TransactionsPage() {
     return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 }; // category + totalByCategoryId
   });
 
-  // *** [ 5. chart ] **************************************************
-  // *** [chart-data]
-  const chartData = typeFilter
-    ? categoriesWithTotals // segments: income-/expense-categories
-        .filter(
-          (category) => category.type === typeFilter && category.totalAmount > 0
-        )
-        .map((category) => ({
-          id: category._id,
-          label: category.name,
-          value: category.totalAmount,
-          color: category.color,
-        }))
-        .sort((a, b) => b.value - a.value) // segments value absteigend
-    : // segments main view: expenses + remaining income
-      [
-        {
-          id: "Expenses",
-          label: "Expenses",
-          value: totalExpense,
-          color: "var(--expense-color)",
-        },
-        {
-          id: "Remaining Income",
-          label: "Remaining Income",
-          value: totalIncome - totalExpense,
-          color: "var(--income-color)",
-        },
-      ];
+  // *** [ 5. chart-data ] *****************************************************************
+  const chartData =
+    typeFilter !== null
+      ? categoriesWithTotals // segments: income-/expense-categories
+          .filter(
+            (category) =>
+              category.type === typeFilter && category.totalAmount > 0
+          )
+          .map((category) => ({
+            id: category._id,
+            label: category.name,
+            value: category.totalAmount,
+            color: category.color,
+          }))
+          .sort((a, b) => b.value - a.value) // segments value absteigend
+      : // segments main view: expenses + remaining income
+        [
+          {
+            id: "Expenses",
+            label: "Expenses",
+            value: totalExpense,
+            color: "var(--expense-color)",
+          },
+          {
+            id: "Remaining Income",
+            label: "Remaining Income",
+            value: totalIncome - totalExpense,
+            color: "var(--income-color)",
+          },
+        ];
 
   const hasEnoughChartData = chartData.length > 0; // für ChartButton
 
@@ -273,12 +229,10 @@ export default function TransactionsPage() {
   }
 
   // *** [ HANDLERS ] **********************************************************************
-  // *** [ chart ]
   function toggleChart() {
     setIsChartOpen((prevState) => !prevState);
   }
 
-  // *** [ type ]
   function switchTypeFilter() {
     setTypeFilter((prevState) => {
       if (prevState === null) return "Expense";
@@ -287,16 +241,15 @@ export default function TransactionsPage() {
     });
   }
 
-  // *** [ DateNav < > ]
   function goToPrevMonth() {
     if (!prevValidRange) return;
     updateDateFilter(prevValidRange.start, prevValidRange.end);
-  }
+  } // DateNav < >
 
   function goToNextMonth() {
     if (!nextValidRange) return;
     updateDateFilter(nextValidRange.start, nextValidRange.end);
-  }
+  } // DateNav < >
 
   // ***************************************************************************************
   // ***************************************************************************************

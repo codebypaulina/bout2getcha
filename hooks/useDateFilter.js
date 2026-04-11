@@ -7,7 +7,7 @@
   - handlers: open + close picker, apply + clear picker range, update date-filter
 *********************************************************************************/
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   parseDateString,
   getDefaultRange,
@@ -17,23 +17,44 @@ import {
 } from "@/utils/dateFilter";
 
 export default function useDateFilter(storageKey) {
-  const [dateFilter, setDateFilter] = useState(() => getDefaultRange());
-  const [dateFilterTemplate, setDateFilterTemplate] = useState(() =>
-    buildTemplateFromRange(getDefaultRange().from, getDefaultRange().to)
-  ); // range-Vorlage für < >
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [pickerRange, setPickerRange] = useState(() => getDefaultRange());
-  const [pickerVisibleMonth, setPickerVisibleMonth] = useState(
-    () => getDefaultRange().from
+  // *** [ default ]
+  const defaultRange = useMemo(() => getDefaultRange(), []);
+  const defaultTemplate = useMemo(
+    () => buildTemplateFromRange(defaultRange.from, defaultRange.to),
+    [defaultRange]
   );
+
+  // *** [ STATES ]
+  const [dateFilter, setDateFilter] = useState(defaultRange);
+  const [dateFilterTemplate, setDateFilterTemplate] = useState(defaultTemplate); // range-Vorlage für < >
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [pickerRange, setPickerRange] = useState(defaultRange);
+  const [pickerVisibleMonth, setPickerVisibleMonth] = useState(
+    defaultRange.from
+  );
+  const skipNextWrite = useRef(true);
 
   // *** [ SYNC ] ******************************************************************
   // *** [ date filter: session storage abrufen ]
   useEffect(() => {
-    if (!storageKey) return; // `u:${userId}:transactions:dateFilter` // `u:${userId}:categories:dateFilter`
+    skipNextWrite.current = true;
+
+    function resetToDefaultRange() {
+      setDateFilter(defaultRange);
+      setDateFilterTemplate(defaultTemplate);
+    }
+
+    // storageKey: `u:${userId}:transactions:dateFilter` // `u:${userId}:categories:dateFilter`
+    if (!storageKey) {
+      resetToDefaultRange();
+      return; // kein key: default
+    }
 
     const storedDateFilter = sessionStorage.getItem(storageKey);
-    if (!storedDateFilter) return;
+    if (!storedDateFilter) {
+      resetToDefaultRange();
+      return;
+    } // key ohne Wert: default
 
     try {
       const parsedDateFilter = JSON.parse(storedDateFilter);
@@ -46,23 +67,28 @@ export default function useDateFilter(storageKey) {
         storedFrom.getTime() > storedTo.getTime()
       ) {
         sessionStorage.removeItem(storageKey);
+        resetToDefaultRange();
         return;
-      }
+      } // key mit ungültigem Wert: default
 
       setDateFilter({ from: storedFrom, to: storedTo });
       setDateFilterTemplate(
         parseStoredTemplate(parsedDateFilter, storedFrom, storedTo)
-      );
+      ); // key vorhanden + gültig: in state
     } catch {
       sessionStorage.removeItem(storageKey);
+      resetToDefaultRange();
     }
-  }, [storageKey]);
+  }, [storageKey, defaultRange, defaultTemplate]);
 
-  // *** [ date filter: session storage speichern ]: wenn nicht default range
+  // *** [ date filter: session storage speichern ]
   useEffect(() => {
     if (!storageKey) return;
+    if (skipNextWrite.current) {
+      skipNextWrite.current = false;
+      return;
+    }
 
-    const defaultRange = getDefaultRange();
     const isDefaultRange =
       dateFilter.from.getTime() === defaultRange.from.getTime() &&
       dateFilter.to.getTime() === defaultRange.to.getTime();
@@ -70,13 +96,13 @@ export default function useDateFilter(storageKey) {
     if (isDefaultRange) {
       sessionStorage.removeItem(storageKey);
       return;
-    }
+    } // default range: nicht speichern
 
     sessionStorage.setItem(
       storageKey,
       JSON.stringify(buildDateFilterForStorage(dateFilter, dateFilterTemplate))
-    );
-  }, [storageKey, dateFilter, dateFilterTemplate]);
+    ); // nicht default range: speichern
+  }, [storageKey, defaultRange, dateFilter, dateFilterTemplate]);
 
   // *** [ picker range: aus date filter ]
   useEffect(() => {
@@ -119,7 +145,6 @@ export default function useDateFilter(storageKey) {
   }
 
   function clearPickerRange() {
-    const defaultRange = getDefaultRange();
     setPickerRange(defaultRange);
     setPickerVisibleMonth(defaultRange.from);
   }
