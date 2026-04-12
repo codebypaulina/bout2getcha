@@ -11,6 +11,14 @@ import Navbar from "@/components/Navbar";
 import ChartIcon from "@/public/icons/chart.svg";
 import PrevIcon from "@/public/icons/previous.svg";
 import NextIcon from "@/public/icons/next.svg";
+import {
+  FilterSection,
+  ChartButton,
+  DateNav,
+  ArrowButton,
+  RangeButton,
+  TypeButton,
+} from "@/components/ui/filterSection.styles";
 
 import useSessionStorageState from "@/hooks/useSessionStorageState";
 import useDateFilter from "@/hooks/useDateFilter";
@@ -240,6 +248,10 @@ export default function CategoriesPage() {
   } // DateNav < >
 
   // ***************************************************************************************
+  const typeButtonColor =
+    typeFilter === "Expense" ? "var(--expense-color)" : "var(--income-color)";
+
+  // ***************************************************************************************
   // ***************************************************************************************
 
   return (
@@ -291,7 +303,7 @@ export default function CategoriesPage() {
             type="button"
             aria-label="Toggle category type"
             onClick={toggleTypeFilter}
-            $typeFilter={typeFilter}
+            $backgroundColor={typeButtonColor}
           />
         </FilterSection>
 
@@ -376,126 +388,12 @@ export default function CategoriesPage() {
 
 const ContentContainer = styled.div`
   padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 350px; // Breite DateNav, list + ChartSection
+  max-width: 350px; // Breite FilterSection + list
   margin: 0 auto; // content horizontal zentriert
 
   h1 {
     text-align: center;
     margin-bottom: 1.5rem;
-  }
-`;
-
-const FilterSection = styled.div`
-  margin-bottom: 1.5rem;
-  background-color: #232323;
-  border-radius: 20px;
-  padding: 10px 12px;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
-
-  display: flex; // items nebeneinander
-  justify-content: space-between; // verteilt
-  align-items: center; // vertikal zentriert
-`;
-
-const ChartButton = styled.button`
-  border: none;
-  background: transparent;
-  color: var(--button-background-color);
-  line-height: 0; // unten bündiger
-  margin-bottom: 1px; // bündig
-  cursor: pointer;
-
-  svg {
-    width: 22px;
-    height: 22px;
-    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1)); // ohne Zwischenräume
-  }
-
-  &:hover {
-    transform: scale(1.07);
-  }
-
-  &.active {
-    color: var(--button-active-color);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
-  }
-`;
-
-const DateNav = styled.div`
-  display: flex; // buttons nebeneinander
-  align-items: center; // vertikal zentriert
-  gap: 0.4rem;
-`;
-
-const ArrowButton = styled.button`
-  border: none;
-  border-radius: 50%;
-  width: 22px;
-  height: 22px;
-  background-color: var(--button-background-color);
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
-
-  svg {
-    height: 10px;
-    width: 10px;
-    stroke: var(--button-text-color);
-  }
-  .prev {
-    margin-right: 2px;
-  }
-  .next {
-    margin-left: 2px;
-  }
-
-  &:hover {
-    transform: scale(1.07);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
-  }
-`;
-
-const RangeButton = styled.button`
-  border: none;
-  border-radius: 20px;
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 4px 8px;
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
-
-  &:hover {
-    transform: scale(1.02);
-  }
-
-  &.active {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
-  }
-`;
-
-const TypeButton = styled.button`
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
-
-  background-color: ${({ $typeFilter }) =>
-    $typeFilter === "Expense" ? "var(--expense-color)" : "var(--income-color)"};
-
-  &:hover {
-    transform: scale(1.07);
   }
 `;
 

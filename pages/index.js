@@ -155,11 +155,23 @@ export default function HomePage() {
     color: category.color,
   }));
 
-  // *** [display-section]: Summe angezeigter categories
+  // *** [total expense box]
+  // aktueller Monat
+  const currentMonthLabel = new Intl.DateTimeFormat("de-DE", {
+    month: "long",
+    year: "numeric",
+  }).format(now);
+
+  // Summe angezeigter categories
   const totalExpense = visibleCategories.reduce(
     (sum, category) => sum + category.totalAmount,
     0
-  );
+  ); // amount
+
+  const totelExpenseLabel = totalExpense.toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }); // label
 
   // *** [tooltip %]
   function getChartPercentage(value) {
@@ -187,6 +199,23 @@ export default function HomePage() {
       <ContentContainer>
         <h1>Expenses</h1>
 
+        <FilterSection>
+          <ChartButton
+            type="button"
+            aria-label="Toggle chart"
+            className={isChartOpen && chartData.length > 0 ? "active" : ""}
+            disabled={chartData.length === 0}
+            onClick={toggleChart}
+          >
+            <ChartIcon />
+          </ChartButton>
+
+          <TotalExpenseBox>
+            <span className="month">{currentMonthLabel}</span>
+            <span className="amount">{totelExpenseLabel} €</span>
+          </TotalExpenseBox>
+        </FilterSection>
+
         {isChartOpen && chartData.length > 0 && (
           <PieWrapper>
             <ResponsivePie
@@ -209,23 +238,6 @@ export default function HomePage() {
             />
           </PieWrapper>
         )}
-
-        <DisplaySection>
-          <IconWrapperChart
-            onClick={toggleChart}
-            className={isChartOpen ? "active" : ""}
-          >
-            <ChartIcon />
-          </IconWrapperChart>
-
-          <p>
-            {totalExpense.toLocaleString("de-DE", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{" "}
-            €
-          </p>
-        </DisplaySection>
 
         <StyledList>
           {sortedCategories.map((category) => (
@@ -283,51 +295,65 @@ const ContentContainer = styled.div`
   }
 `;
 
+const FilterSection = styled.div`
+  margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: 50px 1fr 50px; // TotalExpenseBox horizontal zentriert
+  align-items: center; // TotalExpenseBox vertikal zentriert
+`;
+
+export const ChartButton = styled.button`
+  border: none;
+  border-radius: 30px;
+  background: #232323;
+  color: var(--button-background-color);
+  line-height: 0;
+  height: 45px;
+  width: 50px;
+  padding: 0.7rem 1rem;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
+  cursor: pointer;
+
+  svg {
+    width: 21px;
+    height: 21px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1));
+
+    &:hover {
+      transform: scale(1.07);
+    }
+  }
+
+  &.active {
+    color: var(--button-active-color);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+`;
+
+const TotalExpenseBox = styled.div`
+  display: flex;
+  flex-direction: column; // untereinander
+  align-items: center; // horizontal zentriert
+  color: var(--secondary-text-color);
+
+  .month {
+    font-size: 0.8rem;
+  }
+
+  .amount {
+    font-size: 1rem;
+    font-weight: bold;
+  }
+`;
+
 const PieWrapper = styled.div`
   height: 150px;
   width: 150px;
   margin: 0 auto 1rem auto; // horizontal zentriert, Abstand DisplaySection
-`;
-
-const DisplaySection = styled.div`
-  display: flex; // icon + totalExpense nebeneinander
-  justify-content: space-between; // icon links, totalExpense rechts
-  max-width: 285px; // schmaler als list
-  margin: 0 auto 1.5rem auto; // horizontal zentriert, Abstand list
-
-  p {
-    font-weight: bold;
-    font-size: 1.4rem;
-    margin-right: 2.5rem;
-  }
-`;
-
-const IconWrapperChart = styled.div`
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
-  width: 32px;
-  height: 30px;
-  border-radius: 10px;
-  display: flex; // wegen Zentrierung von svg
-  align-items: center; // vertikal zentriert
-  justify-content: center; // horizontal zentriert
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  &:hover {
-    transform: scale(1.07);
-    color: var(--primary-text-color);
-  }
-
-  &.active {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
-  }
 `;
 
 const StyledList = styled.ul`
