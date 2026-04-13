@@ -2,20 +2,14 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import styled from "styled-components";
 
 import Navbar from "@/components/Navbar";
+import ChartCard from "@/components/ChartCard";
 import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
 import { FilterBar, ChartButton } from "@/components/ui/filterBar.styles";
-
-// hier muss dynamischer Import, sonst ES Module error (auch bei aktuellster next.js-Version)
-const ResponsivePie = dynamic(
-  () => import("@nivo/pie").then((mod) => mod.ResponsivePie),
-  { ssr: false }
-);
 
 export default function HomePage() {
   const [hiddenCategories, setHiddenCategories] = useState([]);
@@ -221,26 +215,11 @@ export default function HomePage() {
         </FilterBar>
 
         {isChartOpen && chartData.length > 0 && (
-          <PieWrapper>
-            <ResponsivePie
-              data={chartData}
-              colors={{ datum: "data.color" }}
-              innerRadius={0.5} // 50 % ausgeschnitten
-              startAngle={0} // Start: oben auf 12 Uhr
-              endAngle={-360} // Ende: volle Runde gegen Uhrzeigersinn
-              padAngle={2} // Abstand zw. Segmenten
-              cornerRadius={3} // rundere Ecken von Segmenten
-              arcLinkLabelsSkipAngle={360} // ausgeblendete Linien
-              animate={false} // Segmente springen nicht
-              enableArcLabels={false} // keine Zahlen im Segment
-              tooltip={({ datum }) => (
-                <div>
-                  {datum.label}:{" "}
-                  <strong>{getChartPercentage(datum.value)} %</strong>
-                </div>
-              )}
-            />
-          </PieWrapper>
+          <ChartCard
+            data={chartData}
+            getChartPercentage={getChartPercentage}
+            hideSummary
+          />
         )}
 
         <StyledList>
@@ -324,12 +303,6 @@ const TotalExpenseBox = styled.div`
     font-size: 1rem;
     font-weight: bold;
   }
-`;
-
-const PieWrapper = styled.div`
-  height: 150px;
-  width: 150px;
-  margin: 0 auto 1rem auto; // horizontal zentriert, Abstand DisplaySection
 `;
 
 const StyledList = styled.ul`

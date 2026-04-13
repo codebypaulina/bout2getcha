@@ -1,11 +1,11 @@
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import styled from "styled-components";
 
 import DatePicker from "@/components/DatePicker";
 import Navbar from "@/components/Navbar";
+import ChartCard from "@/components/ChartCard";
 import ChartIcon from "@/public/icons/chart.svg";
 import PrevIcon from "@/public/icons/previous.svg";
 import NextIcon from "@/public/icons/next.svg";
@@ -26,12 +26,6 @@ import {
   getRangeBounds,
   findClosestValidRange,
 } from "@/utils/dateFilter";
-
-// dynamisch, sonst ES Module error (auch bei aktuellster next.js-Version)
-const ResponsivePie = dynamic(
-  () => import("@nivo/pie").then((mod) => mod.ResponsivePie),
-  { ssr: false }
-);
 
 export default function TransactionsPage() {
   // *** [ AUTH ]
@@ -335,39 +329,13 @@ export default function TransactionsPage() {
         )}
 
         {isChartOpen && hasEnoughChartData && (
-          <ChartSection>
-            <PieWrapper>
-              <ResponsivePie
-                data={chartData}
-                colors={{ datum: "data.color" }}
-                innerRadius={0.5} // 50 % ausgeschnitten
-                startAngle={0} // Start: oben auf 12 Uhr
-                endAngle={-360} // Ende: volle Runde gegen Uhrzeigersinn
-                padAngle={2} // Abstand zwischen Segmenten
-                cornerRadius={3} // rundere Ecken der Segmente
-                arcLinkLabelsSkipAngle={360} // ausgeblendete Linien
-                animate={false} // Segmente springen nicht
-                enableArcLabels={false} // keine Zahlen im Segment
-                tooltip={({ datum }) => (
-                  <div>
-                    {datum.label}:{" "}
-                    <strong>{getChartPercentage(datum.value)} %</strong>
-                  </div>
-                )}
-              />
-            </PieWrapper>
-
-            <BalanceContainer>
-              <p className="label">{totalBalanceLabel}</p>
-              <p className={`value ${totalBalanceValue < 0 ? "negative" : ""}`}>
-                {totalBalanceValue.toLocaleString("de-DE", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{" "}
-                €
-              </p>
-            </BalanceContainer>
-          </ChartSection>
+          <ChartCard
+            data={chartData}
+            getChartPercentage={getChartPercentage}
+            summaryLabel={totalBalanceLabel}
+            summaryValue={totalBalanceValue}
+            isNegativeValue={totalBalanceValue < 0}
+          />
         )}
 
         {filteredTransactions.length === 0 ? (
@@ -424,45 +392,6 @@ const ContentContainer = styled.div`
 
   .no-transaction {
     text-align: center;
-  }
-`;
-
-// ******************************************************************************
-
-const ChartSection = styled.div`
-  display: flex;
-  flex-direction: column; // PieWrapper + BalanceContainer untereinander
-  align-items: center; // horizontal zentriert
-  gap: 1rem;
-
-  background-color: #232323;
-  border-radius: 20px;
-  width: 200px;
-  padding: 1.2rem 1.2rem 1rem 1.2rem;
-  margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
-  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
-`;
-
-const PieWrapper = styled.div`
-  height: 155px;
-  width: 155px;
-  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Zwischenräume
-`;
-
-const BalanceContainer = styled.div`
-  display: flex; // label + value nebeneinander
-  gap: 0.5rem;
-
-  p.label {
-    width: 85px;
-  }
-
-  p.value {
-    font-weight: bold;
-  }
-
-  p.value.negative {
-    color: var(--expense-color);
   }
 `;
 
