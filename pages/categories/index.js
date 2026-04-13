@@ -12,13 +12,13 @@ import ChartIcon from "@/public/icons/chart.svg";
 import PrevIcon from "@/public/icons/previous.svg";
 import NextIcon from "@/public/icons/next.svg";
 import {
-  FilterSection,
+  FilterBar,
   ChartButton,
   DateNav,
   ArrowButton,
   RangeButton,
   TypeButton,
-} from "@/components/ui/filterSection.styles";
+} from "@/components/ui/filterBar.styles";
 
 import useSessionStorageState from "@/hooks/useSessionStorageState";
 import useDateFilter from "@/hooks/useDateFilter";
@@ -259,7 +259,7 @@ export default function CategoriesPage() {
       <ContentContainer>
         <h1>Categories</h1>
 
-        <FilterSection>
+        <FilterBar>
           <ChartButton
             type="button"
             aria-label="Toggle chart"
@@ -305,7 +305,7 @@ export default function CategoriesPage() {
             onClick={toggleTypeFilter}
             $backgroundColor={typeButtonColor}
           />
-        </FilterSection>
+        </FilterBar>
 
         {isDatePickerOpen && (
           <DatePicker
@@ -388,7 +388,7 @@ export default function CategoriesPage() {
 
 const ContentContainer = styled.div`
   padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 350px; // Breite FilterSection + list
+  max-width: 350px; // Breite FilterBar + list
   margin: 0 auto; // content horizontal zentriert
 
   h1 {

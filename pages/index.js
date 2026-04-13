@@ -4,10 +4,12 @@ import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import styled from "styled-components";
+
 import Navbar from "@/components/Navbar";
 import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
+import { FilterBar, ChartButton } from "@/components/ui/filterBar.styles";
 
 // hier muss dynamischer Import, sonst ES Module error (auch bei aktuellster next.js-Version)
 const ResponsivePie = dynamic(
@@ -168,7 +170,7 @@ export default function HomePage() {
     0
   ); // amount
 
-  const totelExpenseLabel = totalExpense.toLocaleString("de-DE", {
+  const totalExpenseLabel = totalExpense.toLocaleString("de-DE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }); // label
@@ -199,22 +201,24 @@ export default function HomePage() {
       <ContentContainer>
         <h1>Expenses</h1>
 
-        <FilterSection>
-          <ChartButton
-            type="button"
-            aria-label="Toggle chart"
-            className={isChartOpen && chartData.length > 0 ? "active" : ""}
-            disabled={chartData.length === 0}
-            onClick={toggleChart}
-          >
-            <ChartIcon />
-          </ChartButton>
+        <FilterBar>
+          <HomeFilterBarContent>
+            <ChartButton
+              type="button"
+              aria-label="Toggle chart"
+              className={isChartOpen && chartData.length > 0 ? "active" : ""}
+              disabled={chartData.length === 0}
+              onClick={toggleChart}
+            >
+              <ChartIcon />
+            </ChartButton>
 
-          <TotalExpenseBox>
-            <span className="month">{currentMonthLabel}</span>
-            <span className="amount">{totelExpenseLabel} €</span>
-          </TotalExpenseBox>
-        </FilterSection>
+            <TotalExpenseBox>
+              <span className="month">{currentMonthLabel}</span>
+              <span className="amount">{totalExpenseLabel} €</span>
+            </TotalExpenseBox>
+          </HomeFilterBarContent>
+        </FilterBar>
 
         {isChartOpen && chartData.length > 0 && (
           <PieWrapper>
@@ -295,46 +299,18 @@ const ContentContainer = styled.div`
   }
 `;
 
-const FilterSection = styled.div`
-  margin-bottom: 1.5rem;
-  display: grid;
-  grid-template-columns: 50px 1fr 50px; // TotalExpenseBox horizontal zentriert
+const HomeFilterBarContent = styled.div`
+  position: relative; // neuer Bezugspunkt für TotalExpenseBox
+  width: 100%; // wie FilterBar (für Zentrierung von TotalExpenseBox)
+  display: flex; // ChartButton + TotalExpenseBox nebeneinander
   align-items: center; // TotalExpenseBox vertikal zentriert
 `;
 
-export const ChartButton = styled.button`
-  border: none;
-  border-radius: 30px;
-  background: #232323;
-  color: var(--button-background-color);
-  line-height: 0;
-  height: 45px;
-  width: 50px;
-  padding: 0.7rem 1rem;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
-  cursor: pointer;
-
-  svg {
-    width: 21px;
-    height: 21px;
-    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1));
-
-    &:hover {
-      transform: scale(1.07);
-    }
-  }
-
-  &.active {
-    color: var(--button-active-color);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
-  }
-`;
-
 const TotalExpenseBox = styled.div`
+  position: absolute; // rel zu HomeFilterBarContent (ChartButton bleibt links)
+  left: 50%; // Zentrierung
+  transform: translateX(-50%); // Zentrierung
+
   display: flex;
   flex-direction: column; // untereinander
   align-items: center; // horizontal zentriert

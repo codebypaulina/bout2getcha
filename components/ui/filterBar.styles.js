@@ -1,6 +1,6 @@
 import styled from "styled-components";
 
-export const FilterSection = styled.div`
+export const FilterBar = styled.div`
   margin-bottom: 1.5rem;
   background-color: #232323;
   border-radius: 30px;
