@@ -14,11 +14,13 @@ import { FilterBar, ChartButton } from "@/components/ui/filterBar.styles";
 export default function HomePage() {
   const [hiddenCategories, setHiddenCategories] = useState([]);
   const [isChartOpen, setIsChartOpen] = useState(false);
+  const [hoveredCategoryId, setHoveredCategoryId] = useState(null); // category- + segment-hover
 
-  const { data: session } = useSession(); // auth
+  // *** [ AUTH ]
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // user-ID (für local + session storage / data-fetch)
 
-  // *** [ data-fetch ]
+  // *** [ DATA-FETCH ]
   const { data: categories, error: errorCategories } = useSWR(
     userId ? `/api/categories?u=${userId}` : null
   );
@@ -219,6 +221,10 @@ export default function HomePage() {
             data={chartData}
             getChartPercentage={getChartPercentage}
             hideSummary
+            // für category- + segment-hover:
+            activeId={hoveredCategoryId}
+            onSliceEnter={setHoveredCategoryId}
+            onSliceLeave={() => setHoveredCategoryId(null)}
           />
         )}
 
@@ -231,7 +237,10 @@ export default function HomePage() {
               <StyledLink
                 href={`/categories/${category._id}?from=/&navKey=${encodeURIComponent(navKey)}`} // "?from/": Herkunft = HomePage (nach category-delete) // "&navKey=...": ID-Reihenfolge (< > nav)
                 onClick={storeCatNavSnapshot}
-                $isHidden={hiddenCategories.includes(category._id)}
+                // für category- + segment-hover:
+                $isHighlighted={hoveredCategoryId === category._id}
+                onMouseEnter={() => setHoveredCategoryId(category._id)}
+                onMouseLeave={() => setHoveredCategoryId(null)}
               >
                 <ColorTag
                   $categoryColor={category.color}
@@ -330,9 +339,16 @@ const StyledLink = styled(Link)`
   border-radius: 20px;
   padding: 0 1rem; // Abstand Rand
 
+  transform: ${(props) =>
+    props.$isHighlighted ? "scale(1.02)" : "none"}; // hover segment im pie
+
   p {
     font-size: 1rem;
-  }
+    color: ${(props) =>
+      props.$isHighlighted
+        ? "var(--primary-text-color)"
+        : "var(--secondary-text-color)"};
+  } // hover segment im pie
 
   p.amount {
     margin-left: auto; // rechts
@@ -346,7 +362,7 @@ const StyledLink = styled(Link)`
     p {
       color: var(--primary-text-color);
     }
-  }
+  } // hover list item
 `;
 
 const IconWrapperEye = styled.div`

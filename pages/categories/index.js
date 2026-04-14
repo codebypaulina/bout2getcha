@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import useSWR from "swr";
@@ -30,12 +30,6 @@ import {
   findClosestValidRange,
 } from "@/utils/dateFilter";
 
-// hier muss dynamischer Import, sonst ES Module error (auch bei aktuellster next.js-Version)
-// const ResponsivePie = dynamic(
-//   () => import("@nivo/pie").then((mod) => mod.ResponsivePie),
-//   { ssr: false }
-// );
-
 // ***************************************************************************************
 // ***************************************************************************************
 
@@ -43,6 +37,8 @@ export default function CategoriesPage() {
   const { isReady, query, replace } = useRouter();
   const queryType =
     query.type === "Income" || query.type === "Expense" ? query.type : null; // von FormAddCategory für type-filter
+
+  const [hoveredCategoryId, setHoveredCategoryId] = useState(null); // category- + segment-hover
 
   // *** [ AUTH ]
   const { data: session } = useSession();
@@ -327,12 +323,23 @@ export default function CategoriesPage() {
               typeFilter === "Expense" ? "Total Expense" : "Total Income"
             }
             summaryValue={totalCategoryAmount}
+            // für category- + segment-hover:
+            activeId={hoveredCategoryId}
+            onSliceEnter={setHoveredCategoryId}
+            onSliceLeave={() => setHoveredCategoryId(null)}
           />
         )}
 
         <StyledList>
           {sortedActiveCategories.map((category) => (
-            <ListItem key={category._id} $empty={category.totalAmount <= 0}>
+            <ListItem
+              key={category._id}
+              $empty={category.totalAmount <= 0}
+              // für category- + segment-hover:
+              $isHighlighted={hoveredCategoryId === category._id}
+              onMouseEnter={() => setHoveredCategoryId(category._id)}
+              onMouseLeave={() => setHoveredCategoryId(null)}
+            >
               <StyledLink
                 href={`/categories/${category._id}?from=/categories&dateFrom=${encodeURIComponent(formatDateString(dateFilter.from))}&dateTo=${encodeURIComponent(formatDateString(dateFilter.to))}&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft für nach category-delete // "&dateFrom/To": active date range // "&navKey": ID-Reihenfolge (< > nav)
                 onClick={storeCatNavSnapshot}
@@ -371,41 +378,6 @@ const ContentContainer = styled.div`
 
 // ******************************************************************************
 
-// const ChartSection = styled.div`
-//   display: flex;
-//   flex-direction: column; // PieWrapper + BalanceContainer untereinander
-//   align-items: center; // horizontal zentriert
-//   gap: 1rem;
-
-//   background-color: #232323;
-//   border-radius: 20px;
-//   width: 200px;
-//   padding: 1.2rem 1.2rem 1rem 1.2rem;
-//   margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
-//   box-shadow: 0 0 15px rgba(0, 0, 0, 1);
-// `;
-
-// const PieWrapper = styled.div`
-//   height: 155px;
-//   width: 155px;
-//   filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Zwischenräume
-// `;
-
-// const BalanceContainer = styled.div`
-//   display: flex; // label + value nebeneinander
-//   gap: 0.5rem;
-
-//   p.label {
-//     width: 85px;
-//   }
-
-//   p.value {
-//     font-weight: bold;
-//   }
-// `;
-
-// ******************************************************************************
-
 const StyledList = styled.ul`
   list-style-type: none;
 `;
@@ -419,13 +391,23 @@ const ListItem = styled.li`
   opacity: ${(props) =>
     props.$empty ? 0.2 : 1}; // dunkler bei totalAmount <= 0
 
+  transform: ${(props) =>
+    props.$isHighlighted ? "scale(1.02)" : "none"}; // hover segment im pie
+
+  p {
+    color: ${(props) =>
+      props.$isHighlighted
+        ? "var(--primary-text-color)"
+        : "var(--secondary-text-color)"};
+  } // hover segment im pie
+
   &:hover {
     transform: scale(1.02);
 
     p {
       color: var(--primary-text-color);
     }
-  }
+  } // hover list item
 `;
 
 const StyledLink = styled(Link)`

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import Link from "next/link";
@@ -28,6 +29,10 @@ import {
 } from "@/utils/dateFilter";
 
 export default function TransactionsPage() {
+  const [hoverSource, setHoverSource] = useState(null); // null | "list" | "pie"
+  const [hoveredTxId, setHoveredTxId] = useState(null);
+  const [hoveredCategoryId, setHoveredCategoryId] = useState(null);
+
   // *** [ AUTH ]
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
@@ -203,6 +208,7 @@ export default function TransactionsPage() {
         ];
 
   const hasEnoughChartData = chartData.length > 0; // für ChartButton
+  const typeFilterActive = typeFilter !== null; // für transaction- + segment-hover (nur bei type-filter)
 
   // *** [balance-data]
   const totalBalanceLabel =
@@ -252,6 +258,51 @@ export default function TransactionsPage() {
     if (!nextValidRange) return;
     updateDateFilter(nextValidRange.start, nextValidRange.end);
   } // DateNav < >
+
+  // *** [ transaction- + segment-hover ] *****************************************************
+  function clearHover() {
+    setHoverSource(null);
+    setHoveredTxId(null);
+    setHoveredCategoryId(null);
+  }
+
+  function handleSliceEnter(categoryId) {
+    if (!typeFilterActive) return;
+    setHoverSource("pie");
+    setHoveredTxId(null); // alle tx dieser category in list highlighten
+    setHoveredCategoryId(categoryId);
+  }
+
+  function handleSliceLeave() {
+    if (!typeFilterActive) return;
+    clearHover();
+  }
+
+  function handleTxEnter(transaction) {
+    if (!typeFilterActive) return;
+    setHoverSource("list");
+    setHoveredTxId(transaction._id); // nur diese tx in list highlighten
+    setHoveredCategoryId(transaction.category._id);
+  }
+
+  function handleTxLeave() {
+    if (!typeFilterActive) return;
+    clearHover();
+  }
+
+  function isTxHighlighted(transaction) {
+    if (!typeFilterActive) return false;
+
+    if (hoverSource === "list") {
+      return hoveredTxId === transaction._id;
+    }
+
+    if (hoverSource === "pie") {
+      return hoveredCategoryId === transaction.category._id;
+    }
+
+    return false;
+  }
 
   // ***************************************************************************************
   const typeButtonColor =
@@ -335,6 +386,10 @@ export default function TransactionsPage() {
             summaryLabel={totalBalanceLabel}
             summaryValue={totalBalanceValue}
             isNegativeValue={totalBalanceValue < 0}
+            // für transaction- + segment-hover:
+            activeId={typeFilterActive ? hoveredCategoryId : null} // nicht in main view
+            onSliceEnter={handleSliceEnter}
+            onSliceLeave={handleSliceLeave}
           />
         )}
 
@@ -344,7 +399,13 @@ export default function TransactionsPage() {
           <StyledList>
             {filteredTransactions.map((transaction) => (
               <ListItem key={transaction._id}>
-                <StyledLink href={`/transactions/${transaction._id}`}>
+                <StyledLink
+                  href={`/transactions/${transaction._id}`}
+                  // für transaction- + segment-hover:
+                  $isHighlighted={isTxHighlighted(transaction)}
+                  onMouseEnter={() => handleTxEnter(transaction)}
+                  onMouseLeave={handleTxLeave}
+                >
                   <p className="date">
                     {new Date(transaction.date).toLocaleDateString("de-DE", {
                       day: "2-digit",
@@ -357,6 +418,7 @@ export default function TransactionsPage() {
                     $typeFilter={typeFilter}
                     $categoryType={transaction.category.type}
                     $categoryColor={transaction.category.color}
+                    $isHighlighted={isTxHighlighted(transaction)}
                   />
 
                   <p className="description">{transaction.description}</p>
@@ -422,6 +484,11 @@ const StyledLink = styled(Link)`
 
   p {
     font-size: 0.755rem;
+    color: ${(props) =>
+      props.$isHighlighted
+        ? "var(--primary-text-color)"
+        : "var(--secondary-text-color)"}; // hover segment im pie
+    transform: ${(props) => (props.$isHighlighted ? "scale(1.03)" : "none")};
   }
 
   p.date {
@@ -437,7 +504,8 @@ const StyledLink = styled(Link)`
 
   p.category {
     font-size: 0.6rem;
-    opacity: 0.6;
+    opacity: ${(props) =>
+      props.$isHighlighted ? 0.7 : 0.6}; // hover segment im pie
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -453,7 +521,7 @@ const StyledLink = styled(Link)`
     p {
       transform: scale(1.03);
       color: var(--primary-text-color);
-    }
+    } // hover list item
 
     p.description {
       transform-origin: left center; // sonst zu arg links
@@ -473,6 +541,9 @@ const ColorTag = styled.span`
   width: 5px;
   height: 5px;
   border-radius: 50%;
+
+  transform: ${(props) =>
+    props.$isHighlighted ? "scale(1.2)" : "none"}; // hover segment im pie
 
   background-color: ${(props) =>
     props.$typeFilter

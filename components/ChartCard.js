@@ -7,6 +7,13 @@ const ResponsivePie = dynamic(
   { ssr: false }
 );
 
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+} // für geringere opacity
+
 export default function ChartCard({
   data,
   getChartPercentage,
@@ -14,12 +21,28 @@ export default function ChartCard({
   summaryValue,
   isNegativeValue, // für TransactionsPage
   hideSummary, // für HomePage
+
+  // für pie + list (hover):
+  activeId,
+  onSliceEnter,
+  onSliceLeave,
 }) {
+  const displayData =
+    activeId === null
+      ? data
+      : data.map((segment) => ({
+          ...segment,
+          color:
+            segment.id === activeId
+              ? segment.color // active segment: color normal
+              : hexToRgba(segment.color, 0.25), // alle anderen: geringere opacity
+        }));
+
   return (
     <Card>
       <PieWrapper>
         <ResponsivePie
-          data={data}
+          data={displayData}
           colors={{ datum: "data.color" }} // category-color / type-color
           innerRadius={0.5} // 50 % ausgeschnitten
           startAngle={0} // Start: oben auf 12 Uhr
@@ -35,6 +58,10 @@ export default function ChartCard({
               <strong>{getChartPercentage(datum.value)} %</strong>
             </div>
           )}
+          // für category- + segment-hover:
+          activeId={activeId}
+          onMouseEnter={(datum) => onSliceEnter?.(datum.id)}
+          onMouseLeave={() => onSliceLeave?.()}
         />
       </PieWrapper>
 
@@ -59,11 +86,11 @@ const Card = styled.div`
   display: flex;
   flex-direction: column; // PieWrapper + SummaryRow untereinander
   align-items: center; // horizontal zentriert
-  gap: 1rem;
+  gap: 0.85rem;
 
   background-color: #232323;
-  border-radius: 20px;
-  width: 200px;
+  border-radius: 30px; // wie FilterBar
+  max-width: 350px; // wie FilterBar + list
   padding: 1.2rem;
   margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
   box-shadow: 0 0 15px rgba(0, 0, 0, 1);
@@ -77,7 +104,7 @@ const PieWrapper = styled.div`
 
 const SummaryRow = styled.div`
   display: grid;
-  grid-template-columns: 85px 85px;
+  grid-template-columns: 85px 80px;
 `;
 
 const SummaryLabel = styled.p`
@@ -85,7 +112,7 @@ const SummaryLabel = styled.p`
 `;
 
 const SummaryValue = styled.p`
-  width: 85px;
+  width: 80px;
   text-align: right;
   font-weight: bold;
   color: ${({ $isNegative }) =>
