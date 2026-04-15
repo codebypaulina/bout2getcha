@@ -11,6 +11,15 @@ import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
 import { FilterBar, ChartButton } from "@/components/ui/filterBar.styles";
 
+// ***************************************************************************************
+function formatCurrency(amount) {
+  return amount.toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+// ***************************************************************************************
+
 export default function HomePage() {
   const [hiddenCategories, setHiddenCategories] = useState([]);
   const [isChartOpen, setIsChartOpen] = useState(false);
@@ -154,31 +163,30 @@ export default function HomePage() {
   }));
 
   // *** [total expense box]
-  // aktueller Monat
   const currentMonthLabel = new Intl.DateTimeFormat("de-DE", {
     month: "long",
     year: "numeric",
-  }).format(now);
+  }).format(now); // aktueller Monat
 
-  // Summe angezeigter categories
   const totalExpense = visibleCategories.reduce(
     (sum, category) => sum + category.totalAmount,
     0
-  ); // amount
+  ); // Summe angezeigter categories
 
-  const totalExpenseLabel = totalExpense.toLocaleString("de-DE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }); // label
-
-  // *** [tooltip %]
+  // *** [ HELPERS ] ***********************************************************************
   function getChartPercentage(value) {
     if (!totalExpense) return 0;
     return Math.round((value / totalExpense) * 100);
+  } // für tooltip % in pie
+
+  function getCategoryHref(categoryId) {
+    const navKeyQuery = encodeURIComponent(navKey);
+    return `/categories/${categoryId}?from=/&navKey=${navKeyQuery}`;
+    // "?from=/": Herkunft = HomePage für nach category-delete
+    // "&navKey": ID-Reihenfolge (< > nav)
   }
 
-  // ***************************************************************************************
-
+  // *** [ HANDLERS ] **********************************************************************
   function toggleChart() {
     setIsChartOpen((prevState) => !prevState);
   }
@@ -211,7 +219,7 @@ export default function HomePage() {
 
             <TotalExpenseBox>
               <span className="month">{currentMonthLabel}</span>
-              <span className="amount">{totalExpenseLabel} €</span>
+              <span className="amount">{formatCurrency(totalExpense)} €</span>
             </TotalExpenseBox>
           </HomeFilterBarContent>
         </FilterBar>
@@ -228,47 +236,61 @@ export default function HomePage() {
           />
         )}
 
-        <StyledList>
-          {sortedCategories.map((category) => (
-            <ListItem
-              key={category._id}
-              $isHidden={hiddenCategories.includes(category._id)}
-            >
-              <StyledLink
-                href={`/categories/${category._id}?from=/&navKey=${encodeURIComponent(navKey)}`} // "?from/": Herkunft = HomePage (nach category-delete) // "&navKey=...": ID-Reihenfolge (< > nav)
-                onClick={storeCatNavSnapshot}
-                // für category- + segment-hover:
-                $isHighlighted={hoveredCategoryId === category._id}
-                onMouseEnter={() => setHoveredCategoryId(category._id)}
-                onMouseLeave={() => setHoveredCategoryId(null)}
-              >
-                <ColorTag
-                  $categoryColor={category.color}
-                  $isHidden={hiddenCategories.includes(category._id)}
-                />
+        {sortedCategories.length === 0 ? (
+          <p className="no-expenses">No expenses yet this month.</p>
+        ) : (
+          <CategoryList>
+            {sortedCategories.map((category) => {
+              const isHidden = hiddenCategories.includes(category._id);
+              const isHighlighted = hoveredCategoryId === category._id;
+              const href = getCategoryHref(category._id);
 
-                <p>{category.name}</p>
-                <p className="amount">
-                  {category.totalAmount.toLocaleString("de-DE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  €
-                </p>
-              </StyledLink>
+              return (
+                <ListItem key={category._id} $isHidden={isHidden}>
+                  <CategoryLink
+                    href={href}
+                    onClick={storeCatNavSnapshot}
+                    // für category- + segment-hover:
+                    $isHighlighted={isHighlighted}
+                    onMouseEnter={() => setHoveredCategoryId(category._id)}
+                    onMouseLeave={() => setHoveredCategoryId(null)}
+                  >
+                    <ColorTag
+                      $categoryColor={category.color}
+                      $isHidden={isHidden}
+                      $isHighlighted={isHighlighted}
+                    />
 
-              {hiddenCategories.includes(category._id) ? (
-                <IconWrapperEye onClick={() => toggleVisibility(category._id)}>
-                  <EyeSlashIcon />
-                </IconWrapperEye>
-              ) : (
-                <IconWrapperEye onClick={() => toggleVisibility(category._id)}>
-                  <EyeIcon />
-                </IconWrapperEye>
-              )}
-            </ListItem>
-          ))}
-        </StyledList>
+                    <p className="name">{category.name}</p>
+                    <p className="amount">
+                      {formatCurrency(category.totalAmount)} €
+                    </p>
+                  </CategoryLink>
+
+                  {isHidden ? (
+                    <EyeButton
+                      type="button"
+                      aria-label="Show category"
+                      title="Show category"
+                      onClick={() => toggleVisibility(category._id)}
+                    >
+                      <EyeSlashIcon />
+                    </EyeButton>
+                  ) : (
+                    <EyeButton
+                      type="button"
+                      aria-label="Hide category"
+                      title="Hide category"
+                      onClick={() => toggleVisibility(category._id)}
+                    >
+                      <EyeIcon />
+                    </EyeButton>
+                  )}
+                </ListItem>
+              );
+            })}
+          </CategoryList>
+        )}
       </ContentContainer>
 
       <Navbar />
@@ -278,14 +300,20 @@ export default function HomePage() {
 
 const ContentContainer = styled.div`
   padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 350px; // Breite von list
+  max-width: 350px; // Breite FilterBar + list
   margin: 0 auto; // content horizontal zentriert
 
   h1 {
     text-align: center;
     margin-bottom: 1.5rem;
   }
+
+  p.no-expenses {
+    text-align: center;
+  }
 `;
+
+// ******************************************************************************
 
 const HomeFilterBarContent = styled.div`
   position: relative; // neuer Bezugspunkt für TotalExpenseBox
@@ -314,69 +342,68 @@ const TotalExpenseBox = styled.div`
   }
 `;
 
-const StyledList = styled.ul`
+// ******************************************************************************
+
+const CategoryList = styled.ul`
   list-style-type: none;
 `;
 
 const ListItem = styled.li`
-  display: flex; // link + icon nebeneinander
-  justify-content: center; // horizontal zentriert
-  margin-bottom: 0.75rem; // Abstand zw. ListItems
-  gap: 1rem; // Abstand link + icon
-
-  opacity: ${(props) => (props.$isHidden ? 0.2 : 1)};
+  margin-bottom: 0.75rem; // Abstand ListItems
+  opacity: ${({ $isHidden }) => ($isHidden ? 0.2 : 1)}; // ausgegraut
+  display: flex; // link + eye nebeneinander
+  gap: 1rem; // Abstand link + eye
 `;
 
-const StyledLink = styled(Link)`
+const CategoryLink = styled(Link)`
   text-decoration: none;
-  display: flex; // items nebeneinander
-  align-items: center; // items vertikal zentriert
-  gap: 0.5rem; // Abstand items
-
   background-color: var(--list-item-background);
+  border-radius: 30px;
   height: 2rem;
   width: 100%; // link füllt Platz in list-Breite
-  border-radius: 20px;
   padding: 0 1rem; // Abstand Rand
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+  transform: ${({ $isHighlighted }) =>
+    $isHighlighted ? "scale(1.02)" : "none"};
 
-  transform: ${(props) =>
-    props.$isHighlighted ? "scale(1.02)" : "none"}; // hover segment im pie
+  display: flex; // items nebeneinander
+  align-items: center; // vertikal
+  gap: 0.5rem; // Abstand items
 
-  p {
+  p.name,
+  p.amount {
     font-size: 1rem;
-    color: ${(props) =>
-      props.$isHighlighted
+    color: ${({ $isHighlighted }) =>
+      $isHighlighted
         ? "var(--primary-text-color)"
         : "var(--secondary-text-color)"};
-  } // hover segment im pie
+  }
 
   p.amount {
     margin-left: auto; // rechts
     font-weight: bold;
     white-space: nowrap;
   }
-
-  &:hover {
-    transform: scale(1.02);
-
-    p {
-      color: var(--primary-text-color);
-    }
-  } // hover list item
 `;
 
-const IconWrapperEye = styled.div`
-  display: flex; // wegen Zentrierung von svg
-  align-items: center; // vertikal zentriert
-  justify-content: center; // horizontal zentriert
+const EyeButton = styled.button`
+  border: none;
+  background: transparent;
   cursor: pointer;
+
+  display: flex; // für Zentrierung von svg
+  align-items: center; // vertikal
+  justify-content: center; // horizontal
 
   svg {
     width: 20px;
     height: 20px;
+    color: var(--secondary-text-color);
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1));
 
     &:hover {
       transform: scale(1.2);
+      color: var(--primary-text-color);
     }
   }
 `;
@@ -385,7 +412,8 @@ const ColorTag = styled.span`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-
-  background-color: ${(props) =>
-    props.$isHidden ? "#5a5a5a" : props.$categoryColor};
+  background-color: ${({ $isHidden, $categoryColor }) =>
+    $isHidden ? "#5a5a5a" : $categoryColor};
+  transform: ${({ $isHighlighted }) =>
+    $isHighlighted ? "scale(1.2)" : "none"};
 `;

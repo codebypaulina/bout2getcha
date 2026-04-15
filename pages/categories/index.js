@@ -31,6 +31,12 @@ import {
 } from "@/utils/dateFilter";
 
 // ***************************************************************************************
+function formatCurrency(amount) {
+  return amount.toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 // ***************************************************************************************
 
 export default function CategoriesPage() {
@@ -179,7 +185,7 @@ export default function CategoriesPage() {
   });
 
   // categories filtern + sortieren
-  const sortedActiveCategories = categoriesWithTotals
+  const listedCategories = categoriesWithTotals
     .filter((category) => category.type === typeFilter) // nur active type-filter
     .sort((a, b) => {
       if (b.totalAmount !== a.totalAmount) {
@@ -191,7 +197,7 @@ export default function CategoriesPage() {
   // *** [ 5. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
   const navKey = `u:${userId}:catNav:/categories:${typeFilter}`; // sessionStorage-key
-  const navIds = sortedActiveCategories.map((category) => category._id); // ID-array
+  const navIds = listedCategories.map((category) => category._id); // ID-array
 
   // *** [snapshot]: in sessionStorage speichern (für < > nav in CategoryDetailsPage)
   function storeCatNavSnapshot() {
@@ -199,7 +205,7 @@ export default function CategoriesPage() {
   }
 
   // *** [ 6. chart-data ] *****************************************************************
-  const chartData = sortedActiveCategories
+  const chartData = listedCategories
     .filter((category) => category.totalAmount > 0)
     .map((category) => ({
       id: category._id,
@@ -210,16 +216,30 @@ export default function CategoriesPage() {
 
   const hasEnoughChartData = chartData.length > 0; // für ChartButton
 
-  // *** [value balance-container]: Summe angezeigter categories
-  const totalCategoryAmount = sortedActiveCategories.reduce(
+  const listedCategoriesTotal = listedCategories.reduce(
     (sum, category) => sum + category.totalAmount,
     0
-  );
+  ); // für ChartCard
 
-  // *** [tooltip %]
+  // *** [ 7. type-button ] ****************************************************************
+  const typeButtonColor =
+    typeFilter === "Expense" ? "var(--expense-color)" : "var(--income-color)";
+
+  // *** [ HELPERS ] ***********************************************************************
   function getChartPercentage(value) {
-    if (!totalCategoryAmount) return 0;
-    return Math.round((value / totalCategoryAmount) * 100);
+    if (!listedCategoriesTotal) return 0;
+    return Math.round((value / listedCategoriesTotal) * 100);
+  } // für tooltip % in pie
+
+  function getCategoryHref(categoryId) {
+    const dateFromQuery = encodeURIComponent(formatDateString(dateFilter.from));
+    const dateToQuery = encodeURIComponent(formatDateString(dateFilter.to));
+    const navKeyQuery = encodeURIComponent(navKey);
+
+    return `/categories/${categoryId}?from=/categories&dateFrom=${dateFromQuery}&dateTo=${dateToQuery}&navKey=${navKeyQuery}`;
+    // "?from=/categories": Herkunft für nach category-delete
+    // "&dateFrom/To": active date range
+    // "&navKey": ID-Reihenfolge (< > nav)
   }
 
   // *** [ HANDLERS ] **********************************************************************
@@ -242,10 +262,6 @@ export default function CategoriesPage() {
     if (!nextValidRange) return;
     updateDateFilter(nextValidRange.start, nextValidRange.end);
   } // DateNav < >
-
-  // ***************************************************************************************
-  const typeButtonColor =
-    typeFilter === "Expense" ? "var(--expense-color)" : "var(--income-color)";
 
   // ***************************************************************************************
   // ***************************************************************************************
@@ -322,7 +338,7 @@ export default function CategoriesPage() {
             summaryLabel={
               typeFilter === "Expense" ? "Total Expense" : "Total Income"
             }
-            summaryValue={totalCategoryAmount}
+            summaryValue={listedCategoriesTotal}
             // für category- + segment-hover:
             activeId={hoveredCategoryId}
             onSliceEnter={setHoveredCategoryId}
@@ -330,34 +346,40 @@ export default function CategoriesPage() {
           />
         )}
 
-        <StyledList>
-          {sortedActiveCategories.map((category) => (
-            <ListItem
-              key={category._id}
-              $empty={category.totalAmount <= 0}
-              // für category- + segment-hover:
-              $isHighlighted={hoveredCategoryId === category._id}
-              onMouseEnter={() => setHoveredCategoryId(category._id)}
-              onMouseLeave={() => setHoveredCategoryId(null)}
-            >
-              <StyledLink
-                href={`/categories/${category._id}?from=/categories&dateFrom=${encodeURIComponent(formatDateString(dateFilter.from))}&dateTo=${encodeURIComponent(formatDateString(dateFilter.to))}&navKey=${encodeURIComponent(navKey)}`} // "?from/categories": Herkunft für nach category-delete // "&dateFrom/To": active date range // "&navKey": ID-Reihenfolge (< > nav)
-                onClick={storeCatNavSnapshot}
-              >
-                <ColorTag $categoryColor={category.color} />
+        {listedCategories.length === 0 ? (
+          <p className="no-category">No categories yet. Add some.</p>
+        ) : (
+          <CategoryList>
+            {listedCategories.map((category) => {
+              const isEmpty = category.totalAmount <= 0;
+              const isHighlighted = hoveredCategoryId === category._id;
+              const href = getCategoryHref(category._id);
 
-                <p>{category.name}</p>
-                <p className="amount">
-                  {category.totalAmount.toLocaleString("de-DE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  €
-                </p>
-              </StyledLink>
-            </ListItem>
-          ))}
-        </StyledList>
+              return (
+                <ListItem key={category._id} $isEmpty={isEmpty}>
+                  <CategoryLink
+                    href={href}
+                    onClick={storeCatNavSnapshot}
+                    // für category- + segment-hover:
+                    $isHighlighted={isHighlighted}
+                    onMouseEnter={() => setHoveredCategoryId(category._id)}
+                    onMouseLeave={() => setHoveredCategoryId(null)}
+                  >
+                    <ColorTag
+                      $categoryColor={category.color}
+                      $isHighlighted={isHighlighted}
+                    />
+
+                    <p className="name">{category.name}</p>
+                    <p className="amount">
+                      {formatCurrency(category.totalAmount)} €
+                    </p>
+                  </CategoryLink>
+                </ListItem>
+              );
+            })}
+          </CategoryList>
+        )}
       </ContentContainer>
 
       <Navbar />
@@ -374,53 +396,45 @@ const ContentContainer = styled.div`
     text-align: center;
     margin-bottom: 1.5rem;
   }
+
+  p.no-category {
+    text-align: center;
+  }
 `;
 
 // ******************************************************************************
 
-const StyledList = styled.ul`
+const CategoryList = styled.ul`
   list-style-type: none;
 `;
 
 const ListItem = styled.li`
-  background-color: var(--list-item-background);
-  border-radius: 20px;
-  margin-bottom: 0.5rem; // Abstand zw. ListItems
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
-
-  opacity: ${(props) =>
-    props.$empty ? 0.2 : 1}; // dunkler bei totalAmount <= 0
-
-  transform: ${(props) =>
-    props.$isHighlighted ? "scale(1.02)" : "none"}; // hover segment im pie
-
-  p {
-    color: ${(props) =>
-      props.$isHighlighted
-        ? "var(--primary-text-color)"
-        : "var(--secondary-text-color)"};
-  } // hover segment im pie
-
-  &:hover {
-    transform: scale(1.02);
-
-    p {
-      color: var(--primary-text-color);
-    }
-  } // hover list item
+  margin-bottom: 0.5rem; // Abstand ListItems
+  opacity: ${({ $isEmpty }) => ($isEmpty ? 0.2 : 1)}; // ausgegraut
 `;
 
-const StyledLink = styled(Link)`
+const CategoryLink = styled(Link)`
   text-decoration: none;
+  background-color: var(--list-item-background);
+  border-radius: 30px;
+  height: 2rem;
+  width: 100%; // link füllt Platz in list-Breite
+  padding: 0 1rem; // Abstand Rand
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+  transform: ${({ $isHighlighted }) =>
+    $isHighlighted ? "scale(1.02)" : "none"};
+
   display: flex; // items nebeneinander
-  align-items: center; // items vertikal zentriert
+  align-items: center; // vertikal
   gap: 0.5rem; // Abstand items
 
-  height: 2rem;
-  padding: 0 1rem; // Abstand Rand
-
-  p {
+  p.name,
+  p.amount {
     font-size: 1rem;
+    color: ${({ $isHighlighted }) =>
+      $isHighlighted
+        ? "var(--primary-text-color)"
+        : "var(--secondary-text-color)"};
   }
 
   p.amount {
@@ -434,6 +448,7 @@ const ColorTag = styled.span`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-
-  background-color: ${(props) => props.$categoryColor};
+  background-color: ${({ $categoryColor }) => $categoryColor};
+  transform: ${({ $isHighlighted }) =>
+    $isHighlighted ? "scale(1.2)" : "none"};
 `;
