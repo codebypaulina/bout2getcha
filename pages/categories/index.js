@@ -5,6 +5,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import styled from "styled-components";
 
+import TopBar from "@/components/TopBar";
 import DatePicker from "@/components/DatePicker";
 import Navbar from "@/components/Navbar";
 import ChartCard from "@/components/ChartCard";
@@ -214,7 +215,7 @@ export default function CategoriesPage() {
       color: category.color,
     }));
 
-  const hasEnoughChartData = chartData.length > 0; // für ChartButton
+  const hasEnoughChartData = chartData.length > 0; // für ChartButton + ChartCard
 
   const listedCategoriesTotal = listedCategories.reduce(
     (sum, category) => sum + category.totalAmount,
@@ -268,6 +269,8 @@ export default function CategoriesPage() {
 
   return (
     <>
+      <TopBar />
+
       <ContentContainer>
         <h1>Categories</h1>
 
@@ -388,7 +391,7 @@ export default function CategoriesPage() {
 }
 
 const ContentContainer = styled.div`
-  padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
+  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / Navbar 57px)
   max-width: 350px; // Breite FilterBar + list
   margin: 0 auto; // content horizontal zentriert
 

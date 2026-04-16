@@ -4,6 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import styled from "styled-components";
 
+import TopBar from "@/components/TopBar";
 import DatePicker from "@/components/DatePicker";
 import Navbar from "@/components/Navbar";
 import ChartCard from "@/components/ChartCard";
@@ -27,6 +28,15 @@ import {
   getRangeBounds,
   findClosestValidRange,
 } from "@/utils/dateFilter";
+
+// ***************************************************************************************
+function formatCurrency(amount) {
+  return amount.toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+// ***************************************************************************************
 
 export default function TransactionsPage() {
   const [hoverSource, setHoverSource] = useState(null); // null | "list" | "pie"
@@ -316,6 +326,8 @@ export default function TransactionsPage() {
   // ***************************************************************************************
   return (
     <>
+      <TopBar />
+
       <ContentContainer>
         <h1>Transactions</h1>
 
@@ -396,10 +408,10 @@ export default function TransactionsPage() {
         {filteredTransactions.length === 0 ? (
           <p className="no-transaction">No transactions in this date range.</p>
         ) : (
-          <StyledList>
+          <TransactionList>
             {filteredTransactions.map((transaction) => (
               <ListItem key={transaction._id}>
-                <StyledLink
+                <TransactionLink
                   href={`/transactions/${transaction._id}`}
                   // für transaction- + segment-hover:
                   $isHighlighted={isTxHighlighted(transaction)}
@@ -424,16 +436,12 @@ export default function TransactionsPage() {
                   <p className="description">{transaction.description}</p>
                   <p className="category">{transaction.category.name}</p>
                   <p className="amount">
-                    {transaction.amount.toLocaleString("de-DE", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    €
+                    {formatCurrency(transaction.amount)} €
                   </p>
-                </StyledLink>
+                </TransactionLink>
               </ListItem>
             ))}
-          </StyledList>
+          </TransactionList>
         )}
       </ContentContainer>
 
@@ -443,7 +451,7 @@ export default function TransactionsPage() {
 }
 
 const ContentContainer = styled.div`
-  padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
+  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / Navbar 57px)
   max-width: 350px; // Breite FilterBar + list
   margin: 0 auto; // content horizontal zentriert
 
@@ -459,36 +467,37 @@ const ContentContainer = styled.div`
 
 // ******************************************************************************
 
-const StyledList = styled.ul`
+const TransactionList = styled.ul`
   list-style-type: none;
+  background-color: #232323; // wie FilterBar
+  border-radius: 20px;
+  padding: 0.75rem; // Abstand Rand
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+
   display: grid; //    date | ColorTag | description | category | amount
   grid-template-columns:
-    minmax(33px, max-content) 5px minmax(70px, 1fr) minmax(0, max-content)
+    minmax(33px, max-content) 5px minmax(70px, 1fr) minmax(0, 40px)
     67px;
   align-items: center; // content in der Zeile vertikal zentriert
   gap: 0.5rem;
-
-  background-color: #232323;
-  border-radius: 20px;
-  padding: 0.75rem;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 `;
 
 const ListItem = styled.li`
-  display: contents; // childs direkte grid-items von StyledList
+  display: contents; // childs direkte grid-items von TransactionList
 `;
 
-const StyledLink = styled(Link)`
+const TransactionLink = styled(Link)`
   text-decoration: none;
   display: contents; // date, ColorTag, description, category, amount -> grid
 
   p {
     font-size: 0.755rem;
-    color: ${(props) =>
-      props.$isHighlighted
+    color: ${({ $isHighlighted }) =>
+      $isHighlighted
         ? "var(--primary-text-color)"
-        : "var(--secondary-text-color)"}; // hover segment im pie
-    transform: ${(props) => (props.$isHighlighted ? "scale(1.03)" : "none")};
+        : "var(--secondary-text-color)"};
+    transform: ${({ $isHighlighted }) =>
+      $isHighlighted ? "scale(1.03)" : "none"};
   }
 
   p.date {
@@ -504,8 +513,7 @@ const StyledLink = styled(Link)`
 
   p.category {
     font-size: 0.6rem;
-    opacity: ${(props) =>
-      props.$isHighlighted ? 0.7 : 0.6}; // hover segment im pie
+    opacity: ${({ $isHighlighted }) => ($isHighlighted ? 0.7 : 0.6)};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -521,7 +529,7 @@ const StyledLink = styled(Link)`
     p {
       transform: scale(1.03);
       color: var(--primary-text-color);
-    } // hover list item
+    }
 
     p.description {
       transform-origin: left center; // sonst zu arg links
@@ -534,21 +542,19 @@ const StyledLink = styled(Link)`
     span {
       transform: scale(1.2);
     }
-  }
+  } // hover list item
 `;
 
 const ColorTag = styled.span`
   width: 5px;
   height: 5px;
   border-radius: 50%;
-
-  transform: ${(props) =>
-    props.$isHighlighted ? "scale(1.2)" : "none"}; // hover segment im pie
-
-  background-color: ${(props) =>
-    props.$typeFilter
-      ? props.$categoryColor // bei type-filter: category color
-      : props.$categoryType === "Income" // bei main view: type color
+  background-color: ${({ $typeFilter, $categoryColor, $categoryType }) =>
+    $typeFilter
+      ? $categoryColor // type-filter: category-color
+      : $categoryType === "Income" // main view: type-color
         ? "var(--income-color)"
         : "var(--expense-color)"};
+  transform: ${({ $isHighlighted }) =>
+    $isHighlighted ? "scale(1.2)" : "none"};
 `;

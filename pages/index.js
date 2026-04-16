@@ -4,6 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import styled from "styled-components";
 
+import TopBar from "@/components/TopBar";
 import Navbar from "@/components/Navbar";
 import ChartCard from "@/components/ChartCard";
 import EyeIcon from "@/public/icons/eye.svg";
@@ -162,6 +163,8 @@ export default function HomePage() {
     color: category.color,
   }));
 
+  const hasEnoughChartData = chartData.length > 0; // für ChartButton + ChartCard
+
   // *** [total expense box]
   const currentMonthLabel = new Intl.DateTimeFormat("de-DE", {
     month: "long",
@@ -202,6 +205,8 @@ export default function HomePage() {
 
   return (
     <>
+      <TopBar />
+
       <ContentContainer>
         <h1>Expenses</h1>
 
@@ -210,8 +215,8 @@ export default function HomePage() {
             <ChartButton
               type="button"
               aria-label="Toggle chart"
-              className={isChartOpen && chartData.length > 0 ? "active" : ""}
-              disabled={chartData.length === 0}
+              className={isChartOpen && hasEnoughChartData ? "active" : ""}
+              disabled={!hasEnoughChartData}
               onClick={toggleChart}
             >
               <ChartIcon />
@@ -224,7 +229,7 @@ export default function HomePage() {
           </HomeFilterBarContent>
         </FilterBar>
 
-        {isChartOpen && chartData.length > 0 && (
+        {isChartOpen && hasEnoughChartData && (
           <ChartCard
             data={chartData}
             getChartPercentage={getChartPercentage}
@@ -299,7 +304,7 @@ export default function HomePage() {
 }
 
 const ContentContainer = styled.div`
-  padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
+  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / Navbar 57px)
   max-width: 350px; // Breite FilterBar + list
   margin: 0 auto; // content horizontal zentriert
 

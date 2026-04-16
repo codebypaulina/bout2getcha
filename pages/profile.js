@@ -3,6 +3,8 @@ import { useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { mutate } from "swr";
 import styled from "styled-components";
+
+import TopBar from "@/components/TopBar";
 import LoginSection from "@/components/LoginSection";
 import Navbar from "@/components/Navbar";
 
@@ -41,19 +43,19 @@ export default function ProfilePage() {
 
   return (
     <>
+      <TopBar />
       <ContentContainer>
-        <h1>Profile</h1>
+        {session ? <h1>Profile</h1> : <h1>gotcha</h1>}
 
         <LoginSection callbackUrl={callbackUrl} />
       </ContentContainer>
-
-      {session && <Navbar />}
+      <Navbar />
     </>
   );
 }
 
 const ContentContainer = styled.div`
-  padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
+  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / Navbar 57px)
   max-width: 350px; // Breite von list
   margin: 0 auto; // content horizontal zentriert
 

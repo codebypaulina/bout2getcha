@@ -1,6 +1,8 @@
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import styled from "styled-components";
+
 import HomeIcon from "../public/icons/home.svg";
 import TransactionsIcon from "../public/icons/transactions.svg";
 import AddIcon from "../public/icons/add.svg";
@@ -9,6 +11,11 @@ import ProfileIcon from "../public/icons/profile.svg";
 
 export default function Navbar() {
   const router = useRouter();
+  const { data: session } = useSession();
+
+  if (!session) {
+    return <Wrapper />;
+  } // wenn ausgeloggt, keine actions
 
   return (
     <Wrapper>
@@ -75,6 +82,8 @@ const Wrapper = styled.nav`
   position: fixed;
   bottom: 0;
   width: 100%;
+  height: 57px; // größer als TopBar (50px)
+  background-color: var(--button-background-color);
 
   ul {
     list-style: none;

@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import styled from "styled-components";
+
+import TopBar from "@/components/TopBar";
 import Navbar from "@/components/Navbar";
 import FormAddTransaction from "@/components/FormAddTransaction";
 import FormAddCategory from "@/components/FormAddCategory";
@@ -41,6 +43,7 @@ export default function AddingPage() {
   // *** [ selection view ]
   return (
     <>
+      <TopBar />
       <ContentContainer>
         <h1>Add</h1>
 
@@ -60,11 +63,11 @@ export default function AddingPage() {
 }
 
 const ContentContainer = styled.div`
-  height: calc(100vh - var(--navbar-height, 65px)); // wrapper wie viewport
-  display: flex; // wegen Zentrierung
-  flex-direction: column; // content untereinander
-  align-items: center; // content vertikal zentriert
-  justify-content: center; // content horizontal zentriert
+  height: calc(100vh - 50px - 57px); // wie viewport (TopBar 50px / Navbar 57px)
+  display: flex; // content nebeneinander
+  flex-direction: column; // untereinander
+  align-items: center; // horizontal
+  justify-content: center; // vertikal
 
   h1 {
     margin-bottom: 2rem;
