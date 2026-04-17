@@ -7,11 +7,8 @@ import styled from "styled-components";
 
 import TopBar from "@/components/TopBar";
 import DatePicker from "@/components/DatePicker";
-import Navbar from "@/components/Navbar";
 import ChartCard from "@/components/ChartCard";
-import ChartIcon from "@/public/icons/chart.svg";
-import PrevIcon from "@/public/icons/previous.svg";
-import NextIcon from "@/public/icons/next.svg";
+import BottomNav from "@/components/BottomNav";
 import {
   FilterBar,
   ChartButton,
@@ -19,9 +16,13 @@ import {
   ArrowButton,
   RangeButton,
   TypeButton,
-} from "@/components/ui/filterBar.styles";
+} from "@/components/filterBar.styles";
+import ChartIcon from "@/public/icons/chart.svg";
+import PrevIcon from "@/public/icons/previous.svg";
+import NextIcon from "@/public/icons/next.svg";
 
 import useSessionStorageState from "@/hooks/useSessionStorageState";
+import useTopBarTitle from "@/hooks/useTopBarTitle";
 import useDateFilter from "@/hooks/useDateFilter";
 import {
   formatDateString,
@@ -30,15 +31,7 @@ import {
   getRangeBounds,
   findClosestValidRange,
 } from "@/utils/dateFilter";
-
-// ***************************************************************************************
-function formatCurrency(amount) {
-  return amount.toLocaleString("de-DE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-// ***************************************************************************************
+import { formatCurrency } from "@/utils/helpers";
 
 export default function CategoriesPage() {
   const { isReady, query, replace } = useRouter();
@@ -96,6 +89,10 @@ export default function CategoriesPage() {
     applyPickerRange,
     clearPickerRange,
   } = useDateFilter(userId ? `u:${userId}:categories:dateFilter` : null);
+
+  // *** [ 4. page-title ]: TopBar *********************************************************
+  const pageTitle = "Categories";
+  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
 
   // *** [ GUARDS ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
@@ -269,10 +266,10 @@ export default function CategoriesPage() {
 
   return (
     <>
-      <TopBar />
+      <TopBar title={pageTitle} showTitle={showTopBarTitle} />
 
       <ContentContainer>
-        <h1>Categories</h1>
+        <h1 ref={pageTitleRef}>{pageTitle}</h1>
 
         <FilterBar>
           <ChartButton
@@ -385,13 +382,13 @@ export default function CategoriesPage() {
         )}
       </ContentContainer>
 
-      <Navbar />
+      <BottomNav />
     </>
   );
 }
 
 const ContentContainer = styled.div`
-  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / Navbar 57px)
+  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / BottomNav 57px)
   max-width: 350px; // Breite FilterBar + list
   margin: 0 auto; // content horizontal zentriert
 

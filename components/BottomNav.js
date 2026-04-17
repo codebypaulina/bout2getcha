@@ -9,7 +9,7 @@ import AddIcon from "../public/icons/add.svg";
 import CategoriesIcon from "../public/icons/categories.svg";
 import ProfileIcon from "../public/icons/profile.svg";
 
-export default function Navbar() {
+export default function BottomNav() {
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -20,7 +20,7 @@ export default function Navbar() {
   return (
     <Wrapper>
       <ul>
-        <NavbarItem $isActive={router.pathname === "/"}>
+        <NavItem $isActive={router.pathname === "/"}>
           <StyledLink
             href="/"
             aria-label="Home"
@@ -28,9 +28,9 @@ export default function Navbar() {
           >
             <HomeIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
 
-        <NavbarItem $isActive={router.pathname === "/transactions"}>
+        <NavItem $isActive={router.pathname === "/transactions"}>
           <StyledLink
             href="/transactions"
             aria-label="Transactions"
@@ -40,9 +40,9 @@ export default function Navbar() {
           >
             <TransactionsIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
 
-        <NavbarItem $isActive={router.pathname === "/adding"}>
+        <NavItem $isActive={router.pathname === "/adding"}>
           <StyledLink
             href="/adding"
             aria-label="Add transaction or category"
@@ -50,9 +50,9 @@ export default function Navbar() {
           >
             <AddIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
 
-        <NavbarItem $isActive={router.pathname === "/categories"}>
+        <NavItem $isActive={router.pathname === "/categories"}>
           <StyledLink
             href="/categories"
             aria-label="Categories"
@@ -62,9 +62,9 @@ export default function Navbar() {
           >
             <CategoriesIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
 
-        <NavbarItem $isActive={router.pathname === "/profile"}>
+        <NavItem $isActive={router.pathname === "/profile"}>
           <StyledLink
             href="/profile"
             aria-label="Profile"
@@ -72,7 +72,7 @@ export default function Navbar() {
           >
             <ProfileIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
       </ul>
     </Wrapper>
   );
@@ -91,7 +91,7 @@ const Wrapper = styled.nav`
   }
 `;
 
-const NavbarItem = styled.li`
+const NavItem = styled.li`
   padding: 1rem;
   flex: 1; // ausgefüllt, keine Lücken
   background-color: ${({ $isActive }) =>

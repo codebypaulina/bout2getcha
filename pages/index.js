@@ -5,21 +5,16 @@ import Link from "next/link";
 import styled from "styled-components";
 
 import TopBar from "@/components/TopBar";
-import Navbar from "@/components/Navbar";
 import ChartCard from "@/components/ChartCard";
+import BottomNav from "@/components/BottomNav";
+import { FilterBar, ChartButton } from "@/components/filterBar.styles";
+
 import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
-import { FilterBar, ChartButton } from "@/components/ui/filterBar.styles";
 
-// ***************************************************************************************
-function formatCurrency(amount) {
-  return amount.toLocaleString("de-DE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-// ***************************************************************************************
+import useTopBarTitle from "@/hooks/useTopBarTitle";
+import { formatCurrency } from "@/utils/helpers";
 
 export default function HomePage() {
   const [hiddenCategories, setHiddenCategories] = useState([]);
@@ -38,7 +33,8 @@ export default function HomePage() {
     userId ? `/api/transactions?u=${userId}` : null
   );
 
-  // *** [ LOCAL STORAGE ] hidden categories ***********************************************
+  // *** [ SYNC ] **************************************************************************
+  // *** [ 1. hidden categories ]: local storage *******************************************
   // *** [abrufen]
   useEffect(() => {
     if (!userId) return;
@@ -68,7 +64,7 @@ export default function HomePage() {
     }
   }, [userId, hiddenCategories]);
 
-  // *** [ SESSION STORAGE ] chart-state ***************************************************
+  // *** [ 2. chart-state ]: session storage ***********************************************
   // *** [abrufen]
   useEffect(() => {
     if (!userId) return;
@@ -88,6 +84,10 @@ export default function HomePage() {
       sessionStorage.removeItem(key);
     }
   }, [userId, isChartOpen]);
+
+  // *** [ 3. page-title ]: TopBar *********************************************************
+  const pageTitle = "Expenses";
+  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
 
   // *** [ guards ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
@@ -205,10 +205,10 @@ export default function HomePage() {
 
   return (
     <>
-      <TopBar />
+      <TopBar title={pageTitle} showTitle={showTopBarTitle} />
 
       <ContentContainer>
-        <h1>Expenses</h1>
+        <h1 ref={pageTitleRef}>{pageTitle}</h1>
 
         <FilterBar>
           <HomeFilterBarContent>
@@ -298,13 +298,13 @@ export default function HomePage() {
         )}
       </ContentContainer>
 
-      <Navbar />
+      <BottomNav />
     </>
   );
 }
 
 const ContentContainer = styled.div`
-  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / Navbar 57px)
+  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / BottomNav 57px)
   max-width: 350px; // Breite FilterBar + list
   margin: 0 auto; // content horizontal zentriert
 

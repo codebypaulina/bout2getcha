@@ -4,9 +4,10 @@ import { useRouter } from "next/router";
 import styled from "styled-components";
 
 import TopBar from "@/components/TopBar";
-import Navbar from "@/components/Navbar";
+import BottomNav from "@/components/BottomNav";
 import FormAddTransaction from "@/components/FormAddTransaction";
 import FormAddCategory from "@/components/FormAddCategory";
+import useTopBarTitle from "@/hooks/useTopBarTitle";
 
 export default function AddingPage() {
   const router = useRouter();
@@ -14,6 +15,11 @@ export default function AddingPage() {
   const [selection, setSelection] = useState(null); // selection view / FormAddTransaction / FormAddCategory
   const resetSelection = () => setSelection(null); // für closeForm (selection view)
 
+  // *** [ PAGE TITLE ]: TopBar ************************************************************
+  const pageTitle = "Add";
+  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
+
+  // *** [ SELECTION ] *********************************************************************
   // *** [ preselection: transaction ]: wenn category-query (von CategoryDetailsPage)
   useEffect(() => {
     if (!router.isReady) return;
@@ -43,41 +49,35 @@ export default function AddingPage() {
   // *** [ selection view ]
   return (
     <>
-      <TopBar />
+      <TopBar title={pageTitle} showTitle={showTopBarTitle} />
       <ContentContainer>
-        <h1>Add</h1>
+        <h1 ref={pageTitleRef}>{pageTitle}</h1>
 
         <button type="button" onClick={() => setSelection("transaction")}>
           Transaction
         </button>
 
-        <p>or</p>
-
         <button type="button" onClick={() => setSelection("category")}>
           Category
         </button>
       </ContentContainer>
-      <Navbar />
+      <BottomNav />
     </>
   );
 }
 
 const ContentContainer = styled.div`
-  height: calc(100vh - 50px - 57px); // wie viewport (TopBar 50px / Navbar 57px)
+  height: calc(
+    100vh - 50px - 57px
+  ); // wie viewport (TopBar 50px / BottomNav 57px)
   display: flex; // content nebeneinander
   flex-direction: column; // untereinander
   align-items: center; // horizontal
   justify-content: center; // vertikal
+  gap: 1rem;
 
   h1 {
-    margin-bottom: 2rem;
-  }
-
-  p {
-    font-size: 1.85rem;
-    font-weight: bold;
-    color: var(--primary-text-color);
-    margin: 0.2rem 0 0.7rem 0;
+    margin-bottom: 1rem;
   }
 
   button {
@@ -93,7 +93,7 @@ const ContentContainer = styled.div`
     box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
     &:hover {
-      transform: scale(1.07);
+      transform: scale(1.03);
       color: var(--primary-text-color);
     }
   }

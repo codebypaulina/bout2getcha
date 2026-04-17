@@ -6,7 +6,8 @@ import styled from "styled-components";
 
 import TopBar from "@/components/TopBar";
 import LoginSection from "@/components/LoginSection";
-import Navbar from "@/components/Navbar";
+import BottomNav from "@/components/BottomNav";
+import useTopBarTitle from "@/hooks/useTopBarTitle";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -14,12 +15,17 @@ export default function ProfilePage() {
   const { data: session } = useSession();
   const userId = session?.user?.userId;
 
+  // *** [ PAGE TITLE ]: TopBar **************************************************
+  const pageTitle = session ? "Profile" : "gotcha";
+  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
+
+  // *** [ LOGIN REDIRECT ] ******************************************************
   const callbackUrl =
     typeof router.query.callbackUrl === "string" && router.query.callbackUrl
       ? router.query.callbackUrl // vorhanden: nach Login dahin
       : "/"; // sonst: HomePage
 
-  // bootstrap seeding (default categories + transactions)
+  // *** [ BOOTSTRAP SEEDING ]: default categories + transactions ****************
   useEffect(() => {
     if (!userId) return;
 
@@ -43,19 +49,19 @@ export default function ProfilePage() {
 
   return (
     <>
-      <TopBar />
+      <TopBar title={pageTitle} showTitle={showTopBarTitle} />
       <ContentContainer>
-        {session ? <h1>Profile</h1> : <h1>gotcha</h1>}
+        <h1 ref={pageTitleRef}>{pageTitle}</h1>
 
         <LoginSection callbackUrl={callbackUrl} />
       </ContentContainer>
-      <Navbar />
+      <BottomNav />
     </>
   );
 }
 
 const ContentContainer = styled.div`
-  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / Navbar 57px)
+  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / BottomNav 57px)
   max-width: 350px; // Breite von list
   margin: 0 auto; // content horizontal zentriert
 
