@@ -82,8 +82,8 @@ export default function DatePicker({
 
 const Overlay = styled.div`
   position: fixed;
-  inset: 0; // gesamter viewport
-  background: rgba(0, 0, 0, 0.8); // abgedunkelt
+  inset: 0; // füllt gesamten viewport
+  background: rgba(0, 0, 0, 0.9); // abgedunkelt
   z-index: 9; // über page, unter wrapper
 `;
 

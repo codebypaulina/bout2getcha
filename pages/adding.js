@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import styled from "styled-components";
 
-import TopBar from "@/components/TopBar";
-import BottomNav from "@/components/BottomNav";
+import MainPageLayout from "@/components/MainPageLayout";
 import FormAddTransaction from "@/components/FormAddTransaction";
 import FormAddCategory from "@/components/FormAddCategory";
 import useTopBarTitle from "@/hooks/useTopBarTitle";
@@ -48,8 +47,7 @@ export default function AddingPage() {
 
   // *** [ selection view ]
   return (
-    <>
-      <TopBar title={pageTitle} showTitle={showTopBarTitle} />
+    <MainPageLayout title={pageTitle} showTitle={showTopBarTitle}>
       <ContentContainer>
         <h1 ref={pageTitleRef}>{pageTitle}</h1>
 
@@ -61,15 +59,12 @@ export default function AddingPage() {
           Category
         </button>
       </ContentContainer>
-      <BottomNav />
-    </>
+    </MainPageLayout>
   );
 }
 
 const ContentContainer = styled.div`
-  height: calc(
-    100vh - 50px - 57px
-  ); // wie viewport (TopBar 50px / BottomNav 57px)
+  height: calc(100vh - 5rem - 5rem); // padding PageContent (TopBar + BottomNav)
   display: flex; // content nebeneinander
   flex-direction: column; // untereinander
   align-items: center; // horizontal

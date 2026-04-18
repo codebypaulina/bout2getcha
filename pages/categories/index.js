@@ -5,10 +5,9 @@ import useSWR from "swr";
 import Link from "next/link";
 import styled from "styled-components";
 
-import TopBar from "@/components/TopBar";
+import MainPageLayout from "@/components/MainPageLayout";
 import DatePicker from "@/components/DatePicker";
 import ChartCard from "@/components/ChartCard";
-import BottomNav from "@/components/BottomNav";
 import {
   FilterBar,
   ChartButton,
@@ -265,9 +264,7 @@ export default function CategoriesPage() {
   // ***************************************************************************************
 
   return (
-    <>
-      <TopBar title={pageTitle} showTitle={showTopBarTitle} />
-
+    <MainPageLayout title={pageTitle} showTitle={showTopBarTitle}>
       <ContentContainer>
         <h1 ref={pageTitleRef}>{pageTitle}</h1>
 
@@ -381,15 +378,13 @@ export default function CategoriesPage() {
           </CategoryList>
         )}
       </ContentContainer>
-
-      <BottomNav />
-    </>
+    </MainPageLayout>
   );
 }
 
 const ContentContainer = styled.div`
-  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / BottomNav 57px)
-  max-width: 350px; // Breite FilterBar + list
+  // padding: 5rem 20px; // Abstand Bildschirmrand (TopBar + BottomNav: 57px)
+  max-width: 350px; // Breite FilterBar, ChartCard + list
   margin: 0 auto; // content horizontal zentriert
 
   h1 {

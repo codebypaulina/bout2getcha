@@ -14,16 +14,25 @@ export default createGlobalStyle`
 
     --income-color: #B4E5A2;
     --expense-color: #FF9393;
-
     --list-item-background: #323232;
     
-    --base-font-size: 16px; // Basis mobile Geräte   
+    --base-font-size: 16px; // Basis mobile Geräte
+
+    // für DesktopShell + AppViewport:
+    --app-max-width: 430px;
+    --desktop-shell-background-color: #333333; 
   }
 
   *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+  }
+
+  // für DesktopShell + AppViewport:
+  html, body, #__next {
+    min-height: 100%;
+    width: 100%;
   }
 
   body {

@@ -75,7 +75,7 @@ export default function DeleteConfirmModal({
 const Overlay = styled.div`
   position: fixed;
   inset: 0; // füllt gesamten viewport
-  background: rgba(0, 0, 0, 0.6); // abgedunkelt
+  background: rgba(0, 0, 0, 0.9); // abgedunkelt
   z-index: 9; // über form, unter Modal
 `;
 

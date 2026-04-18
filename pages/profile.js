@@ -4,9 +4,8 @@ import { useEffect } from "react";
 import { mutate } from "swr";
 import styled from "styled-components";
 
-import TopBar from "@/components/TopBar";
+import MainPageLayout from "@/components/MainPageLayout";
 import LoginSection from "@/components/LoginSection";
-import BottomNav from "@/components/BottomNav";
 import useTopBarTitle from "@/hooks/useTopBarTitle";
 
 export default function ProfilePage() {
@@ -48,20 +47,18 @@ export default function ProfilePage() {
   }, [userId]);
 
   return (
-    <>
-      <TopBar title={pageTitle} showTitle={showTopBarTitle} />
+    <MainPageLayout title={pageTitle} showTitle={showTopBarTitle}>
       <ContentContainer>
         <h1 ref={pageTitleRef}>{pageTitle}</h1>
 
         <LoginSection callbackUrl={callbackUrl} />
       </ContentContainer>
-      <BottomNav />
-    </>
+    </MainPageLayout>
   );
 }
 
 const ContentContainer = styled.div`
-  padding: 4rem 20px 5rem 20px; // Abstand Bildschirmrand (TopBar 50px / BottomNav 57px)
+  // padding: 5rem 20px; // Abstand Bildschirmrand (TopBar + BottomNav: 57px)
   max-width: 350px; // Breite von list
   margin: 0 auto; // content horizontal zentriert
 
