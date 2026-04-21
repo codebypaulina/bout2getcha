@@ -3,20 +3,16 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import styled from "styled-components";
 
-import MainPageLayout from "@/components/MainPageLayout";
+import PageShell from "@/components/layout/PageShell";
 import FormAddTransaction from "@/components/FormAddTransaction";
 import FormAddCategory from "@/components/FormAddCategory";
-import useTopBarTitle from "@/hooks/useTopBarTitle";
 
 export default function AddingPage() {
-  const router = useRouter();
+  const pageTitle = "Add";
 
+  const router = useRouter();
   const [selection, setSelection] = useState(null); // selection view / FormAddTransaction / FormAddCategory
   const resetSelection = () => setSelection(null); // für closeForm (selection view)
-
-  // *** [ PAGE TITLE ]: TopBar ************************************************************
-  const pageTitle = "Add";
-  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
 
   // *** [ SELECTION ] *********************************************************************
   // *** [ preselection: transaction ]: wenn category-query (von CategoryDetailsPage)
@@ -47,9 +43,9 @@ export default function AddingPage() {
 
   // *** [ selection view ]
   return (
-    <MainPageLayout title={pageTitle} showTitle={showTopBarTitle}>
+    <PageShell title={pageTitle} showPageTitle={false}>
       <ContentContainer>
-        <h1 ref={pageTitleRef}>{pageTitle}</h1>
+        <h1>{pageTitle}</h1>
 
         <button type="button" onClick={() => setSelection("transaction")}>
           Transaction
@@ -59,12 +55,12 @@ export default function AddingPage() {
           Category
         </button>
       </ContentContainer>
-    </MainPageLayout>
+    </PageShell>
   );
 }
 
 const ContentContainer = styled.div`
-  height: calc(100vh - 5rem - 5rem); // padding PageContent (TopBar + BottomNav)
+  height: 100%;
   display: flex; // content nebeneinander
   flex-direction: column; // untereinander
   align-items: center; // horizontal

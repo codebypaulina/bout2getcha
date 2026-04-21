@@ -4,7 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import styled from "styled-components";
 
-import MainPageLayout from "@/components/MainPageLayout";
+import PageShell from "@/components/layout/PageShell";
 import ChartCard from "@/components/ChartCard";
 import { FilterBar, ChartButton } from "@/components/filterBar.styles";
 
@@ -12,10 +12,11 @@ import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
 
-import useTopBarTitle from "@/hooks/useTopBarTitle";
 import { formatCurrency } from "@/utils/helpers";
 
 export default function HomePage() {
+  const pageTitle = "Expenses";
+
   const [hiddenCategories, setHiddenCategories] = useState([]);
   const [isChartOpen, setIsChartOpen] = useState(false);
   const [hoveredCategoryId, setHoveredCategoryId] = useState(null); // category- + segment-hover
@@ -83,10 +84,6 @@ export default function HomePage() {
       sessionStorage.removeItem(key);
     }
   }, [userId, isChartOpen]);
-
-  // *** [ 3. page-title ]: TopBar *********************************************************
-  const pageTitle = "Expenses";
-  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
 
   // *** [ guards ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
@@ -203,117 +200,96 @@ export default function HomePage() {
   }
 
   return (
-    <MainPageLayout title={pageTitle} showTitle={showTopBarTitle}>
-      <ContentContainer>
-        <h1 ref={pageTitleRef}>{pageTitle}</h1>
+    <PageShell title={pageTitle}>
+      <FilterBar>
+        <HomeFilterBarContent>
+          <ChartButton
+            type="button"
+            aria-label="Toggle chart"
+            className={isChartOpen && hasEnoughChartData ? "active" : ""}
+            disabled={!hasEnoughChartData}
+            onClick={toggleChart}
+          >
+            <ChartIcon />
+          </ChartButton>
 
-        <FilterBar>
-          <HomeFilterBarContent>
-            <ChartButton
-              type="button"
-              aria-label="Toggle chart"
-              className={isChartOpen && hasEnoughChartData ? "active" : ""}
-              disabled={!hasEnoughChartData}
-              onClick={toggleChart}
-            >
-              <ChartIcon />
-            </ChartButton>
+          <TotalExpenseBox>
+            <span className="month">{currentMonthLabel}</span>
+            <span className="amount">{formatCurrency(totalExpense)} €</span>
+          </TotalExpenseBox>
+        </HomeFilterBarContent>
+      </FilterBar>
 
-            <TotalExpenseBox>
-              <span className="month">{currentMonthLabel}</span>
-              <span className="amount">{formatCurrency(totalExpense)} €</span>
-            </TotalExpenseBox>
-          </HomeFilterBarContent>
-        </FilterBar>
+      {isChartOpen && hasEnoughChartData && (
+        <ChartCard
+          data={chartData}
+          getChartPercentage={getChartPercentage}
+          hideSummary
+          // für category- + segment-hover:
+          activeId={hoveredCategoryId}
+          onSliceEnter={setHoveredCategoryId}
+          onSliceLeave={() => setHoveredCategoryId(null)}
+        />
+      )}
 
-        {isChartOpen && hasEnoughChartData && (
-          <ChartCard
-            data={chartData}
-            getChartPercentage={getChartPercentage}
-            hideSummary
-            // für category- + segment-hover:
-            activeId={hoveredCategoryId}
-            onSliceEnter={setHoveredCategoryId}
-            onSliceLeave={() => setHoveredCategoryId(null)}
-          />
-        )}
+      {sortedCategories.length === 0 ? (
+        <p className="empty-state">No expenses yet this month.</p>
+      ) : (
+        <ul>
+          {sortedCategories.map((category) => {
+            const isHidden = hiddenCategories.includes(category._id);
+            const isHighlighted = hoveredCategoryId === category._id;
+            const href = getCategoryHref(category._id);
 
-        {sortedCategories.length === 0 ? (
-          <p className="no-expenses">No expenses yet this month.</p>
-        ) : (
-          <CategoryList>
-            {sortedCategories.map((category) => {
-              const isHidden = hiddenCategories.includes(category._id);
-              const isHighlighted = hoveredCategoryId === category._id;
-              const href = getCategoryHref(category._id);
-
-              return (
-                <ListItem key={category._id} $isHidden={isHidden}>
-                  <CategoryLink
-                    href={href}
-                    onClick={storeCatNavSnapshot}
-                    // für category- + segment-hover:
+            return (
+              <ListItem key={category._id} $isHidden={isHidden}>
+                <CategoryLink
+                  href={href}
+                  onClick={storeCatNavSnapshot}
+                  // für category- + segment-hover:
+                  $isHighlighted={isHighlighted}
+                  onMouseEnter={() => setHoveredCategoryId(category._id)}
+                  onMouseLeave={() => setHoveredCategoryId(null)}
+                >
+                  <ColorTag
+                    $categoryColor={category.color}
+                    $isHidden={isHidden}
                     $isHighlighted={isHighlighted}
-                    onMouseEnter={() => setHoveredCategoryId(category._id)}
-                    onMouseLeave={() => setHoveredCategoryId(null)}
+                  />
+
+                  <p className="name">{category.name}</p>
+                  <p className="amount">
+                    {formatCurrency(category.totalAmount)} €
+                  </p>
+                </CategoryLink>
+
+                {isHidden ? (
+                  <EyeButton
+                    type="button"
+                    aria-label="Show category"
+                    title="Show category"
+                    onClick={() => toggleVisibility(category._id)}
                   >
-                    <ColorTag
-                      $categoryColor={category.color}
-                      $isHidden={isHidden}
-                      $isHighlighted={isHighlighted}
-                    />
-
-                    <p className="name">{category.name}</p>
-                    <p className="amount">
-                      {formatCurrency(category.totalAmount)} €
-                    </p>
-                  </CategoryLink>
-
-                  {isHidden ? (
-                    <EyeButton
-                      type="button"
-                      aria-label="Show category"
-                      title="Show category"
-                      onClick={() => toggleVisibility(category._id)}
-                    >
-                      <EyeSlashIcon />
-                    </EyeButton>
-                  ) : (
-                    <EyeButton
-                      type="button"
-                      aria-label="Hide category"
-                      title="Hide category"
-                      onClick={() => toggleVisibility(category._id)}
-                    >
-                      <EyeIcon />
-                    </EyeButton>
-                  )}
-                </ListItem>
-              );
-            })}
-          </CategoryList>
-        )}
-      </ContentContainer>
-    </MainPageLayout>
+                    <EyeSlashIcon />
+                  </EyeButton>
+                ) : (
+                  <EyeButton
+                    type="button"
+                    aria-label="Hide category"
+                    title="Hide category"
+                    onClick={() => toggleVisibility(category._id)}
+                  >
+                    <EyeIcon />
+                  </EyeButton>
+                )}
+              </ListItem>
+            );
+          })}
+        </ul>
+      )}
+    </PageShell>
   );
 }
-
-const ContentContainer = styled.div`
-  // padding: 5rem 20px; // Abstand Bildschirmrand (TopBar + BottomNav: 57px)
-  max-width: 350px; // Breite FilterBar, ChartCard + list
-  margin: 0 auto; // content horizontal zentriert
-
-  h1 {
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
-
-  p.no-expenses {
-    text-align: center;
-  }
-`;
-
-// ******************************************************************************
 
 const HomeFilterBarContent = styled.div`
   position: relative; // neuer Bezugspunkt für TotalExpenseBox
@@ -343,10 +319,6 @@ const TotalExpenseBox = styled.div`
 `;
 
 // ******************************************************************************
-
-const CategoryList = styled.ul`
-  list-style-type: none;
-`;
 
 const ListItem = styled.li`
   margin-bottom: 0.75rem; // Abstand ListItems

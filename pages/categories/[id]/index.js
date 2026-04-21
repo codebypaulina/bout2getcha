@@ -4,79 +4,17 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
 import Link from "next/link";
+
 import CloseIcon from "/public/icons/close.svg";
 import SettingsIcon from "/public/icons/settings.svg";
 import PrevIcon from "/public/icons/previous.svg";
 import NextIcon from "/public/icons/next.svg";
 import AddIcon from "/public/icons/addNEU.svg";
-
-// *** [ HELPERS ]: date ******************************************************************
-// *** ["YYYY-MM-DD" -> new Date(YYYY, MM, DD)]: für dateFrom / dateTo (activeDateRange aus url)
-function parseDateParam(value) {
-  if (typeof value !== "string") return null;
-
-  const [yearString, monthString, dayString] = value.split("-");
-  const year = Number(yearString);
-  const monthIndex = Number(monthString) - 1;
-  const day = Number(dayString);
-
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(monthIndex) ||
-    !Number.isInteger(day) ||
-    monthIndex < 0 ||
-    monthIndex > 11 ||
-    day < 1 ||
-    day > 31
-  ) {
-    return null;
-  }
-
-  const date = new Date(year, monthIndex, day);
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== monthIndex ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-
-  return date; // new Date(2026, 2, 1)
-}
-
-// *** [aktueller Monat]
-function startOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1); // 1. Tag
-}
-function endOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0); // letzter Tag
-}
-
-// *** [range-Tagesgrenzen]
-function getRangeBounds(startDate, endDate) {
-  return {
-    startTime: new Date(
-      startDate.getFullYear(),
-      startDate.getMonth(),
-      startDate.getDate(),
-      0,
-      0,
-      0,
-      0
-    ).getTime(), // Starttag um 00:00:00
-
-    endTime: new Date(
-      endDate.getFullYear(),
-      endDate.getMonth(),
-      endDate.getDate(),
-      23,
-      59,
-      59,
-      999
-    ).getTime(), // Endtag um 23:59:59
-  };
-}
+import {
+  parseDateString,
+  getDefaultRange,
+  getRangeBounds,
+} from "@/utils/dateFilter";
 
 export default function CategoryDetailsPage() {
   const router = useRouter();
@@ -182,16 +120,16 @@ export default function CategoryDetailsPage() {
 
   // *** [ ABGELEITETE DATEN ] *************************************************************
   // *** [ 1. active date range ]: aus url *************************************************
-  const parsedDateFrom = parseDateParam(dateFrom);
-  const parsedDateTo = parseDateParam(dateTo);
-  const today = new Date();
+  const parsedDateFrom = parseDateString(dateFrom);
+  const parsedDateTo = parseDateString(dateTo);
+  const defaultRange = getDefaultRange();
 
   const activeDateRange =
     parsedDateFrom &&
     parsedDateTo &&
     parsedDateFrom.getTime() <= parsedDateTo.getTime()
       ? getRangeBounds(parsedDateFrom, parsedDateTo)
-      : getRangeBounds(startOfMonth(today), endOfMonth(today)); // sonst aktueller Monat
+      : getRangeBounds(defaultRange.from, defaultRange.to); // sonst aktueller Monat
 
   // *** [ 2. transactions ] ***************************************************************
   const filteredTransactions = transactions
@@ -268,7 +206,7 @@ export default function CategoryDetailsPage() {
       </NavRow>
 
       {filteredTransactions.length === 0 ? (
-        <p className="no-transaction">No transactions in this category yet.</p>
+        <p className="empty-state">No transactions in this category yet.</p>
       ) : (
         <ul>
           {filteredTransactions.map((transaction) => (
@@ -309,17 +247,13 @@ export default function CategoryDetailsPage() {
   );
 }
 
-const ContentContainer = styled.div`
+const ContentContainer = styled.main`
   padding: 2rem; // Abstand Bildschirmrand
   margin: 0 auto; // horizontal zentriert
-  max-width: 450px;
+  max-width: var(--app-max-width);
 
-  .no-transaction {
+  .empty-state {
     text-align: center;
-  }
-
-  ul {
-    list-style: none;
   }
 `;
 
@@ -407,7 +341,7 @@ const SettingsButton = styled.button`
 const NavRow = styled.div`
   display: flex; // buttons nebeneinander
   justify-content: space-between; // prev links, next rechts
-  margin-bottom: 1rem; // Abstand list / no-transaction
+  margin-bottom: 1rem; // Abstand list / empty-state
 `;
 
 const NavButton = styled.button`
@@ -451,7 +385,7 @@ const AddButton = styled.button`
   cursor: pointer;
 
   display: block; // wegen Zentrierung
-  margin: 1rem auto 0; // Abstand list / no-transaction + zentriert
+  margin: 1rem auto 0; // Abstand list / empty-state + zentriert
 
   svg {
     width: 23px;

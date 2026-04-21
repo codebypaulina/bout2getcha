@@ -4,7 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import styled from "styled-components";
 
-import MainPageLayout from "@/components/MainPageLayout";
+import PageShell from "@/components/layout/PageShell";
 import DatePicker from "@/components/DatePicker";
 import ChartCard from "@/components/ChartCard";
 import {
@@ -20,7 +20,6 @@ import PrevIcon from "@/public/icons/previous.svg";
 import NextIcon from "@/public/icons/next.svg";
 
 import useSessionStorageState from "@/hooks/useSessionStorageState";
-import useTopBarTitle from "@/hooks/useTopBarTitle";
 import useDateFilter from "@/hooks/useDateFilter";
 import {
   formatDateLabel,
@@ -31,6 +30,8 @@ import {
 import { formatCurrency } from "@/utils/helpers";
 
 export default function TransactionsPage() {
+  const pageTitle = "Transactions";
+
   const [hoverSource, setHoverSource] = useState(null); // null | "list" | "pie"
   const [hoveredTxId, setHoveredTxId] = useState(null);
   const [hoveredCategoryId, setHoveredCategoryId] = useState(null);
@@ -77,10 +78,6 @@ export default function TransactionsPage() {
     applyPickerRange,
     clearPickerRange,
   } = useDateFilter(userId ? `u:${userId}:transactions:dateFilter` : null);
-
-  // *** [ 4. page-title ]: TopBar *********************************************************
-  const pageTitle = "Transactions";
-  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
 
   // *** [ GUARDS ] ************************************************************************
   if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>;
@@ -321,146 +318,122 @@ export default function TransactionsPage() {
   // ***************************************************************************************
   // ***************************************************************************************
   return (
-    <MainPageLayout title={pageTitle} showTitle={showTopBarTitle}>
-      <ContentContainer>
-        <h1 ref={pageTitleRef}>{pageTitle}</h1>
+    <PageShell title={pageTitle}>
+      <FilterBar>
+        <ChartButton
+          type="button"
+          aria-label="Toggle chart"
+          className={isChartOpen && hasEnoughChartData ? "active" : ""}
+          disabled={!hasEnoughChartData}
+          onClick={toggleChart}
+        >
+          <ChartIcon />
+        </ChartButton>
 
-        <FilterBar>
-          <ChartButton
+        <DateNav>
+          <ArrowButton
             type="button"
-            aria-label="Toggle chart"
-            className={isChartOpen && hasEnoughChartData ? "active" : ""}
-            disabled={!hasEnoughChartData}
-            onClick={toggleChart}
+            aria-label="Go to previous month"
+            disabled={isPrevRangeDisabled}
+            onClick={goToPrevMonth}
           >
-            <ChartIcon />
-          </ChartButton>
+            <PrevIcon className="prev" />
+          </ArrowButton>
 
-          <DateNav>
-            <ArrowButton
-              type="button"
-              aria-label="Go to previous month"
-              disabled={isPrevRangeDisabled}
-              onClick={goToPrevMonth}
-            >
-              <PrevIcon className="prev" />
-            </ArrowButton>
-
-            <RangeButton
-              type="button"
-              aria-label="Change date range"
-              onClick={openPicker}
-              className={isDefaultRange ? "" : "active"}
-            >
-              {dateFilterLabel}
-            </RangeButton>
-
-            <ArrowButton
-              type="button"
-              aria-label="Go to next month"
-              disabled={isNextRangeDisabled}
-              onClick={goToNextMonth}
-            >
-              <NextIcon className="next" />
-            </ArrowButton>
-          </DateNav>
-
-          <TypeButton
+          <RangeButton
             type="button"
-            aria-label="Filter transactions by type"
-            onClick={switchTypeFilter}
-            $backgroundColor={typeButtonColor}
-          />
-        </FilterBar>
+            aria-label="Change date range"
+            onClick={openPicker}
+            className={isDefaultRange ? "" : "active"}
+          >
+            {dateFilterLabel}
+          </RangeButton>
 
-        {isDatePickerOpen && (
-          <DatePicker
-            pickerRange={pickerRange}
-            setPickerRange={setPickerRange}
-            pickerVisibleMonth={pickerVisibleMonth}
-            setPickerVisibleMonth={setPickerVisibleMonth}
-            applyPickerRange={applyPickerRange}
-            clearPickerRange={clearPickerRange}
-            closePicker={closePicker}
-          />
-        )}
+          <ArrowButton
+            type="button"
+            aria-label="Go to next month"
+            disabled={isNextRangeDisabled}
+            onClick={goToNextMonth}
+          >
+            <NextIcon className="next" />
+          </ArrowButton>
+        </DateNav>
 
-        {isChartOpen && hasEnoughChartData && (
-          <ChartCard
-            data={chartData}
-            getChartPercentage={getChartPercentage}
-            summaryLabel={totalBalanceLabel}
-            summaryValue={totalBalanceValue}
-            isNegativeValue={totalBalanceValue < 0}
-            // für transaction- + segment-hover:
-            activeId={typeFilterActive ? hoveredCategoryId : null} // nicht in main view
-            onSliceEnter={handleSliceEnter}
-            onSliceLeave={handleSliceLeave}
-          />
-        )}
+        <TypeButton
+          type="button"
+          aria-label="Filter transactions by type"
+          onClick={switchTypeFilter}
+          $backgroundColor={typeButtonColor}
+        />
+      </FilterBar>
 
-        {filteredTransactions.length === 0 ? (
-          <p className="no-transaction">No transactions in this date range.</p>
-        ) : (
-          <TransactionList>
-            {filteredTransactions.map((transaction) => (
-              <ListItem key={transaction._id}>
-                <TransactionLink
-                  href={`/transactions/${transaction._id}`}
-                  // für transaction- + segment-hover:
+      {isDatePickerOpen && (
+        <DatePicker
+          pickerRange={pickerRange}
+          setPickerRange={setPickerRange}
+          pickerVisibleMonth={pickerVisibleMonth}
+          setPickerVisibleMonth={setPickerVisibleMonth}
+          applyPickerRange={applyPickerRange}
+          clearPickerRange={clearPickerRange}
+          closePicker={closePicker}
+        />
+      )}
+
+      {isChartOpen && hasEnoughChartData && (
+        <ChartCard
+          data={chartData}
+          getChartPercentage={getChartPercentage}
+          summaryLabel={totalBalanceLabel}
+          summaryValue={totalBalanceValue}
+          isNegativeValue={totalBalanceValue < 0}
+          // für transaction- + segment-hover:
+          activeId={typeFilterActive ? hoveredCategoryId : null} // nicht in main view
+          onSliceEnter={handleSliceEnter}
+          onSliceLeave={handleSliceLeave}
+        />
+      )}
+
+      {filteredTransactions.length === 0 ? (
+        <p className="empty-state">No transactions in this date range.</p>
+      ) : (
+        <TransactionList>
+          {filteredTransactions.map((transaction) => (
+            <ListItem key={transaction._id}>
+              <TransactionLink
+                href={`/transactions/${transaction._id}`}
+                // für transaction- + segment-hover:
+                $isHighlighted={isTxHighlighted(transaction)}
+                onMouseEnter={() => handleTxEnter(transaction)}
+                onMouseLeave={handleTxLeave}
+              >
+                <p className="date">
+                  {new Date(transaction.date).toLocaleDateString("de-DE", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
+                </p>
+
+                <ColorTag
+                  $typeFilter={typeFilter}
+                  $categoryType={transaction.category.type}
+                  $categoryColor={transaction.category.color}
                   $isHighlighted={isTxHighlighted(transaction)}
-                  onMouseEnter={() => handleTxEnter(transaction)}
-                  onMouseLeave={handleTxLeave}
-                >
-                  <p className="date">
-                    {new Date(transaction.date).toLocaleDateString("de-DE", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
-                  </p>
+                />
 
-                  <ColorTag
-                    $typeFilter={typeFilter}
-                    $categoryType={transaction.category.type}
-                    $categoryColor={transaction.category.color}
-                    $isHighlighted={isTxHighlighted(transaction)}
-                  />
-
-                  <p className="description">{transaction.description}</p>
-                  <p className="category">{transaction.category.name}</p>
-                  <p className="amount">
-                    {formatCurrency(transaction.amount)} €
-                  </p>
-                </TransactionLink>
-              </ListItem>
-            ))}
-          </TransactionList>
-        )}
-      </ContentContainer>
-    </MainPageLayout>
+                <p className="description">{transaction.description}</p>
+                <p className="category">{transaction.category.name}</p>
+                <p className="amount">{formatCurrency(transaction.amount)} €</p>
+              </TransactionLink>
+            </ListItem>
+          ))}
+        </TransactionList>
+      )}
+    </PageShell>
   );
 }
 
-const ContentContainer = styled.div`
-  // padding: 5rem 20px; // Abstand Bildschirmrand (TopBar + BottomNav: 57px)
-  max-width: 350px; // Breite FilterBar, ChartCard + list
-  margin: 0 auto; // content horizontal zentriert
-
-  h1 {
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
-
-  .no-transaction {
-    text-align: center;
-  }
-`;
-
-// ******************************************************************************
-
 const TransactionList = styled.ul`
-  list-style-type: none;
   background-color: #232323; // wie FilterBar
   border-radius: 20px;
   padding: 0.75rem; // Abstand Rand

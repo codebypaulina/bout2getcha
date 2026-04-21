@@ -2,25 +2,33 @@ import { createGlobalStyle } from "styled-components";
 
 export default createGlobalStyle`
   :root {
+    /* [COLORS]: surfaces + text */
     --background-color: #1a1a1a;
+    --desktop-shell-background-color: #333333; /* außerhalb App */
+    --list-item-background: #323232;
+
     --primary-text-color: #ffffff;
     --secondary-text-color: #cccccc;
 
-    --button-background-color: #333333; // nicht aktiv
-    --button-text-color: #cccccc; // nicht aktiv
+    /* [COLORS]: buttons */
+    --button-background-color: #333333;
+    --button-text-color: #cccccc;
     --button-active-text-color: #333333;
-    --button-active-color: #e0e0e0; // aktiv
-    --button-hover-color: #444444; // hover
+    --button-active-color: #e0e0e0;
+    --button-hover-color: #444444;
 
-    --income-color: #B4E5A2;
-    --expense-color: #FF9393;
-    --list-item-background: #323232;
-    
-    --base-font-size: 16px; // Basis mobile Geräte
+    /* [COLORS]: semantic */
+    --income-color: #b4e5a2;
+    --expense-color: #ff9393;
 
-    // für DesktopShell + AppViewport:
-    --app-max-width: 430px;
-    --desktop-shell-background-color: #333333; 
+    /* [TYPOGRAPHY] */
+    --base-font-size: 16px;
+    --font-family-base: system-ui, sans-serif;
+
+    /* [LAYOUT] */
+    --app-max-width: 450px; /* max App-Fläche auf Desktop */
+    --topbar-height: 57px;
+    --bottomnav-height: 57px;
   }
 
   *, *::before, *::after {
@@ -29,19 +37,17 @@ export default createGlobalStyle`
     padding: 0;
   }
 
-  // für DesktopShell + AppViewport:
   html, body, #__next {
-    min-height: 100%;
+    height: 100%;
     width: 100%;
   }
 
   body {
     margin: 0;
     padding: 0;
-    font-family: system-ui;
-    background-color: var(--background-color);
-    color: var(--primary-text-color);
-    font-size: var(--base-font-size); // Basis
+    font-family: var(--font-family-base);
+    font-size: var(--base-font-size);
+    color: var(--secondary-text-color);
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -65,56 +71,11 @@ export default createGlobalStyle`
     font-size: 1.125rem;
   }
 
-  /***********************************************************************/
-
-  
-  /****************** NOCH NICHT ***************
-   *********************************************
-   
-  @media (min-width: 768px) {
-    :root {
-      --base-font-size: 18px; // Tablet
-    }
-
-    h1 {
-      font-size: 2rem;
-    }
-
-    h2 {
-      font-size: 1.75rem;
-    }
-
-    h3 {
-      font-size: 1.5rem;
-    }
-
-    p {
-      font-size: 1rem;
-    }
+  button, input, textarea, select {
+    font: inherit;
   }
 
-  @media (min-width: 1024px) {
-    :root {
-      --base-font-size: 20px; // Desktop
-    }
-
-    h1 {
-      font-size: 2.5rem;
-    }
-
-    h2 {
-      font-size: 2rem;
-    }
-
-    h3 {
-      font-size: 1.75rem;
-    }
-
-    p {
-      font-size: 1.125rem;
-    }
+  ul {
+    list-style: none;
   }
-  
-  **********************************************
-  ****************** NOCH NICHT ****************/
 `;

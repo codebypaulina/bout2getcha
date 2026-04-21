@@ -79,15 +79,7 @@ export default function BottomNav() {
 }
 
 const Wrapper = styled.nav`
-  position: fixed;
-  bottom: 0;
-  left: 50%; // linker Startpunkt (horizontale Mitte von viewport)
-  transform: translateX(-50%); // 1/2 von eigener Breite zurück
-  z-index: 2; // sonst unter PageContent
-
-  width: 100%; // volle verfügbare Breite  (mobile)
-  max-width: var(--app-max-width); // maximale Breite  (desktop)
-  height: 57px; // wie TopBar
+  height: var(--bottomnav-height); // wie TopBar
   background-color: var(--button-background-color);
 
   ul {

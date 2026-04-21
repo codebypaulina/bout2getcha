@@ -8,51 +8,44 @@ export default function App({
   pageProps: { session, ...pageProps },
 }) {
   return (
-    <>
-      <SWRConfig
-        value={{
-          fetcher: async (...args) => {
-            const response = await fetch(...args);
-            if (!response.ok) {
-              throw new Error(`Request with ${JSON.stringify(args)} failed.`);
-            }
-            return await response.json();
-          },
-        }}
-      >
-        <SessionProvider session={session}>
-          <GlobalStyle />
+    <SWRConfig
+      value={{
+        fetcher: async (...args) => {
+          const response = await fetch(...args);
+          if (!response.ok) {
+            throw new Error(`Request with ${JSON.stringify(args)} failed.`);
+          }
+          return await response.json();
+        },
+      }}
+    >
+      <SessionProvider session={session}>
+        <GlobalStyle />
 
-          <DesktopShell>
-            <AppViewport>
-              <Component {...pageProps} />
-            </AppViewport>
-          </DesktopShell>
-        </SessionProvider>
-      </SWRConfig>
-    </>
+        <DesktopShell>
+          <AppViewport>
+            <Component {...pageProps} />
+          </AppViewport>
+        </DesktopShell>
+      </SessionProvider>
+    </SWRConfig>
   );
 }
 
-// *** [ äußerer Vollbild-Wrapper ]   (Außenhintergrund + App zentriert)
+// *** [ außerhalb App-Fläche ]: background grau, App zentriert
 const DesktopShell = styled.div`
-  min-height: 100dvh; // mind. so hoch wie viewport
+  height: 100dvh; // wie viewport
   width: 100%; // volle verfügbare Breite
-  background-color: var(--desktop-shell-background-color); // außerhalb App
-  // background-color innerhalb App in PageBackgroundSurface
+  background-color: var(--desktop-shell-background-color);
 
   display: flex; // für Zentrierung von AppViewport
   justify-content: center; // horizontal
+  overflow: hidden; // kein scroll außerhalb App-Fläche
 `;
 
-// *** [ innere App-Fläche ]   (begrenzte Breite)
+// *** [ innere App-Fläche ]:  Breite mobile voll, desktop begrenzt
 const AppViewport = styled.div`
-  min-height: 100dvh;
+  height: 100%; // wie DesktopShell
   width: 100%; // volle verfügbare Breite  (mobile)
   max-width: var(--app-max-width); // maximale Breite  (desktop)
-
-  @media (min-width: 431px) {
-    // [app-max-width: 430px]
-    border-radius: 30px; // runde Ecken (in pages ohne TopBar + BottomNav)
-  }
 `;

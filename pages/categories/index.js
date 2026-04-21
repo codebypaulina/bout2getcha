@@ -5,7 +5,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import styled from "styled-components";
 
-import MainPageLayout from "@/components/MainPageLayout";
+import PageShell from "@/components/layout/PageShell";
 import DatePicker from "@/components/DatePicker";
 import ChartCard from "@/components/ChartCard";
 import {
@@ -21,7 +21,6 @@ import PrevIcon from "@/public/icons/previous.svg";
 import NextIcon from "@/public/icons/next.svg";
 
 import useSessionStorageState from "@/hooks/useSessionStorageState";
-import useTopBarTitle from "@/hooks/useTopBarTitle";
 import useDateFilter from "@/hooks/useDateFilter";
 import {
   formatDateString,
@@ -33,6 +32,8 @@ import {
 import { formatCurrency } from "@/utils/helpers";
 
 export default function CategoriesPage() {
+  const pageTitle = "Categories";
+
   const { isReady, query, replace } = useRouter();
   const queryType =
     query.type === "Income" || query.type === "Expense" ? query.type : null; // von FormAddCategory für type-filter
@@ -88,10 +89,6 @@ export default function CategoriesPage() {
     applyPickerRange,
     clearPickerRange,
   } = useDateFilter(userId ? `u:${userId}:categories:dateFilter` : null);
-
-  // *** [ 4. page-title ]: TopBar *********************************************************
-  const pageTitle = "Categories";
-  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
 
   // *** [ GUARDS ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
@@ -264,144 +261,119 @@ export default function CategoriesPage() {
   // ***************************************************************************************
 
   return (
-    <MainPageLayout title={pageTitle} showTitle={showTopBarTitle}>
-      <ContentContainer>
-        <h1 ref={pageTitleRef}>{pageTitle}</h1>
+    <PageShell title={pageTitle}>
+      <FilterBar>
+        <ChartButton
+          type="button"
+          aria-label="Toggle chart"
+          className={isChartOpen && hasEnoughChartData ? "active" : ""}
+          disabled={!hasEnoughChartData}
+          onClick={toggleChart}
+        >
+          <ChartIcon />
+        </ChartButton>
 
-        <FilterBar>
-          <ChartButton
+        <DateNav>
+          <ArrowButton
             type="button"
-            aria-label="Toggle chart"
-            className={isChartOpen && hasEnoughChartData ? "active" : ""}
-            disabled={!hasEnoughChartData}
-            onClick={toggleChart}
+            aria-label="Go to previous month"
+            disabled={isPrevRangeDisabled}
+            onClick={goToPrevMonth}
           >
-            <ChartIcon />
-          </ChartButton>
+            <PrevIcon className="prev" />
+          </ArrowButton>
 
-          <DateNav>
-            <ArrowButton
-              type="button"
-              aria-label="Go to previous month"
-              disabled={isPrevRangeDisabled}
-              onClick={goToPrevMonth}
-            >
-              <PrevIcon className="prev" />
-            </ArrowButton>
-
-            <RangeButton
-              type="button"
-              aria-label="Change date range"
-              onClick={openPicker}
-              className={isDefaultRange ? "" : "active"}
-            >
-              {dateFilterLabel}
-            </RangeButton>
-
-            <ArrowButton
-              type="button"
-              aria-label="Go to next month"
-              disabled={isNextRangeDisabled}
-              onClick={goToNextMonth}
-            >
-              <NextIcon className="next" />
-            </ArrowButton>
-          </DateNav>
-
-          <TypeButton
+          <RangeButton
             type="button"
-            aria-label="Toggle category type"
-            onClick={toggleTypeFilter}
-            $backgroundColor={typeButtonColor}
-          />
-        </FilterBar>
+            aria-label="Change date range"
+            onClick={openPicker}
+            className={isDefaultRange ? "" : "active"}
+          >
+            {dateFilterLabel}
+          </RangeButton>
 
-        {isDatePickerOpen && (
-          <DatePicker
-            pickerRange={pickerRange}
-            setPickerRange={setPickerRange}
-            pickerVisibleMonth={pickerVisibleMonth}
-            setPickerVisibleMonth={setPickerVisibleMonth}
-            applyPickerRange={applyPickerRange}
-            clearPickerRange={clearPickerRange}
-            closePicker={closePicker}
-          />
-        )}
+          <ArrowButton
+            type="button"
+            aria-label="Go to next month"
+            disabled={isNextRangeDisabled}
+            onClick={goToNextMonth}
+          >
+            <NextIcon className="next" />
+          </ArrowButton>
+        </DateNav>
 
-        {isChartOpen && hasEnoughChartData && (
-          <ChartCard
-            data={chartData}
-            getChartPercentage={getChartPercentage}
-            summaryLabel={
-              typeFilter === "Expense" ? "Total Expense" : "Total Income"
-            }
-            summaryValue={listedCategoriesTotal}
-            // für category- + segment-hover:
-            activeId={hoveredCategoryId}
-            onSliceEnter={setHoveredCategoryId}
-            onSliceLeave={() => setHoveredCategoryId(null)}
-          />
-        )}
+        <TypeButton
+          type="button"
+          aria-label="Toggle category type"
+          onClick={toggleTypeFilter}
+          $backgroundColor={typeButtonColor}
+        />
+      </FilterBar>
 
-        {listedCategories.length === 0 ? (
-          <p className="no-category">No categories yet. Add some.</p>
-        ) : (
-          <CategoryList>
-            {listedCategories.map((category) => {
-              const isEmpty = category.totalAmount <= 0;
-              const isHighlighted = hoveredCategoryId === category._id;
-              const href = getCategoryHref(category._id);
+      {isDatePickerOpen && (
+        <DatePicker
+          pickerRange={pickerRange}
+          setPickerRange={setPickerRange}
+          pickerVisibleMonth={pickerVisibleMonth}
+          setPickerVisibleMonth={setPickerVisibleMonth}
+          applyPickerRange={applyPickerRange}
+          clearPickerRange={clearPickerRange}
+          closePicker={closePicker}
+        />
+      )}
 
-              return (
-                <ListItem key={category._id} $isEmpty={isEmpty}>
-                  <CategoryLink
-                    href={href}
-                    onClick={storeCatNavSnapshot}
-                    // für category- + segment-hover:
+      {isChartOpen && hasEnoughChartData && (
+        <ChartCard
+          data={chartData}
+          getChartPercentage={getChartPercentage}
+          summaryLabel={
+            typeFilter === "Expense" ? "Total Expense" : "Total Income"
+          }
+          summaryValue={listedCategoriesTotal}
+          // für category- + segment-hover:
+          activeId={hoveredCategoryId}
+          onSliceEnter={setHoveredCategoryId}
+          onSliceLeave={() => setHoveredCategoryId(null)}
+        />
+      )}
+
+      {listedCategories.length === 0 ? (
+        <p className="empty-state">No categories yet. Add some.</p>
+      ) : (
+        <ul>
+          {listedCategories.map((category) => {
+            const isEmpty = category.totalAmount <= 0;
+            const isHighlighted = hoveredCategoryId === category._id;
+            const href = getCategoryHref(category._id);
+
+            return (
+              <ListItem key={category._id} $isEmpty={isEmpty}>
+                <CategoryLink
+                  href={href}
+                  onClick={storeCatNavSnapshot}
+                  // für category- + segment-hover:
+                  $isHighlighted={isHighlighted}
+                  onMouseEnter={() => setHoveredCategoryId(category._id)}
+                  onMouseLeave={() => setHoveredCategoryId(null)}
+                >
+                  <ColorTag
+                    $categoryColor={category.color}
                     $isHighlighted={isHighlighted}
-                    onMouseEnter={() => setHoveredCategoryId(category._id)}
-                    onMouseLeave={() => setHoveredCategoryId(null)}
-                  >
-                    <ColorTag
-                      $categoryColor={category.color}
-                      $isHighlighted={isHighlighted}
-                    />
+                  />
 
-                    <p className="name">{category.name}</p>
-                    <p className="amount">
-                      {formatCurrency(category.totalAmount)} €
-                    </p>
-                  </CategoryLink>
-                </ListItem>
-              );
-            })}
-          </CategoryList>
-        )}
-      </ContentContainer>
-    </MainPageLayout>
+                  <p className="name">{category.name}</p>
+                  <p className="amount">
+                    {formatCurrency(category.totalAmount)} €
+                  </p>
+                </CategoryLink>
+              </ListItem>
+            );
+          })}
+        </ul>
+      )}
+    </PageShell>
   );
 }
-
-const ContentContainer = styled.div`
-  // padding: 5rem 20px; // Abstand Bildschirmrand (TopBar + BottomNav: 57px)
-  max-width: 350px; // Breite FilterBar, ChartCard + list
-  margin: 0 auto; // content horizontal zentriert
-
-  h1 {
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
-
-  p.no-category {
-    text-align: center;
-  }
-`;
-
-// ******************************************************************************
-
-const CategoryList = styled.ul`
-  list-style-type: none;
-`;
 
 const ListItem = styled.li`
   margin-bottom: 0.5rem; // Abstand ListItems

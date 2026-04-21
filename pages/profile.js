@@ -2,11 +2,9 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { mutate } from "swr";
-import styled from "styled-components";
 
-import MainPageLayout from "@/components/MainPageLayout";
+import PageShell from "@/components/layout/PageShell";
 import LoginSection from "@/components/LoginSection";
-import useTopBarTitle from "@/hooks/useTopBarTitle";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -14,9 +12,7 @@ export default function ProfilePage() {
   const { data: session } = useSession();
   const userId = session?.user?.userId;
 
-  // *** [ PAGE TITLE ]: TopBar **************************************************
   const pageTitle = session ? "Profile" : "gotcha";
-  const { pageTitleRef, showTopBarTitle } = useTopBarTitle();
 
   // *** [ LOGIN REDIRECT ] ******************************************************
   const callbackUrl =
@@ -47,23 +43,8 @@ export default function ProfilePage() {
   }, [userId]);
 
   return (
-    <MainPageLayout title={pageTitle} showTitle={showTopBarTitle}>
-      <ContentContainer>
-        <h1 ref={pageTitleRef}>{pageTitle}</h1>
-
-        <LoginSection callbackUrl={callbackUrl} />
-      </ContentContainer>
-    </MainPageLayout>
+    <PageShell title={pageTitle}>
+      <LoginSection callbackUrl={callbackUrl} />
+    </PageShell>
   );
 }
-
-const ContentContainer = styled.div`
-  // padding: 5rem 20px; // Abstand Bildschirmrand (TopBar + BottomNav: 57px)
-  max-width: 350px; // Breite von list
-  margin: 0 auto; // content horizontal zentriert
-
-  h1 {
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
-`;

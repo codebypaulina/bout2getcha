@@ -90,7 +90,6 @@ const Card = styled.div`
 
   background-color: #232323;
   border-radius: 30px; // wie FilterBar
-  max-width: 350px; // wie FilterBar + list
   padding: 1.2rem;
   margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
   box-shadow: 0 0 15px rgba(0, 0, 0, 1);
