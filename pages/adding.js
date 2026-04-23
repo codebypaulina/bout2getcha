@@ -1,6 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useState } from "react";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
@@ -10,52 +9,31 @@ import FormAddCategory from "@/components/FormAddCategory";
 export default function AddingPage() {
   const pageTitle = "Add";
 
-  const router = useRouter();
-  const [selection, setSelection] = useState(null); // selection view / FormAddTransaction / FormAddCategory
-  const resetSelection = () => setSelection(null); // für closeForm (selection view)
+  const [activeForm, setActiveForm] = useState(null);
+  const closeForm = () => setActiveForm(null);
 
-  // *** [ SELECTION ] *********************************************************************
-  // *** [ preselection: transaction ]: wenn category-query (von CategoryDetailsPage)
-  useEffect(() => {
-    if (!router.isReady) return;
-    if (!router.query.category) return;
-    setSelection("transaction"); // FormAddTransaction, statt selection view
-  }, [router.isReady, router.query.category]);
-
-  // *** [ close FormAddTransaction ]
-  function closeForm() {
-    if (router.query.category) {
-      router.back(); // wenn category-query, zurück zu CategoryDetailsPage
-    } else {
-      resetSelection(); // sonst zurück zu selection view
-    }
-  }
-
-  // *** [ selection: transaction ]
-  if (selection === "transaction") {
-    return <FormAddTransaction onCancel={closeForm} onSuccess={closeForm} />;
-  }
-
-  // *** [ selection: category ]
-  if (selection === "category") {
-    return <FormAddCategory onCancel={resetSelection} />; // zurück zu selection view
-  }
-
-  // *** [ selection view ]
   return (
-    <PageShell title={pageTitle} showPageTitle={false}>
-      <ContentContainer>
-        <h1>{pageTitle}</h1>
+    <>
+      <PageShell title={pageTitle} showPageTitle={false}>
+        <ContentContainer>
+          <h1>{pageTitle}</h1>
 
-        <button type="button" onClick={() => setSelection("transaction")}>
-          Transaction
-        </button>
+          <button type="button" onClick={() => setActiveForm("transaction")}>
+            Transaction
+          </button>
 
-        <button type="button" onClick={() => setSelection("category")}>
-          Category
-        </button>
-      </ContentContainer>
-    </PageShell>
+          <button type="button" onClick={() => setActiveForm("category")}>
+            Category
+          </button>
+        </ContentContainer>
+      </PageShell>
+
+      {activeForm === "transaction" && (
+        <FormAddTransaction initialCategoryId="" closeForm={closeForm} />
+      )}
+
+      {activeForm === "category" && <FormAddCategory closeForm={closeForm} />}
+    </>
   );
 }
 

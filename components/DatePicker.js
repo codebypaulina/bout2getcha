@@ -1,9 +1,11 @@
-import { useEffect } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import styled from "styled-components";
+
 import PrevIcon from "@/public/icons/previous.svg";
 import NextIcon from "@/public/icons/next.svg";
+import { Overlay, fixedCenteredStyles } from "./modal.styles";
+import useEscapeClose from "@/hooks/useEscapeClose";
 
 // https://daypicker.dev/docs/styling
 // https://github.com/gpbl/react-day-picker/blob/main/src/style.css
@@ -17,15 +19,7 @@ export default function DatePicker({
   clearPickerRange,
   closePicker,
 }) {
-  // *** [ ESC-listener ] *******************************************
-  useEffect(() => {
-    function handleKeyDown(event) {
-      if (event.key === "Escape") closePicker();
-    }
-
-    window.addEventListener("keydown", handleKeyDown); // aktivieren
-    return () => window.removeEventListener("keydown", handleKeyDown); // beim Schließen entfernen
-  }, [closePicker]);
+  useEscapeClose(true, closePicker); // ESC-listener
 
   // ****************************************************************
 
@@ -80,28 +74,17 @@ export default function DatePicker({
   );
 }
 
-const Overlay = styled.div`
-  position: fixed;
-  inset: 0; // füllt gesamten viewport
-  background: rgba(0, 0, 0, 0.9); // abgedunkelt
-  z-index: 9; // über page, unter wrapper
-`;
-
 const Wrapper = styled.div`
+  ${fixedCenteredStyles}; // über overlay + zentriert
+
   background-color: var(--background-color);
-  border-radius: 25px;
-  padding: 1.55rem 1.2rem 1.7rem 1.2rem;
+  border-radius: 30px;
+  padding: 1.75rem 1.25rem 1.85rem 1.25rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
   display: flex;
   flex-direction: column;
   align-items: center;
-
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%); // zentriert
-  z-index: 10; // über overlay
 
   // *** [ DayPicker ] ***********************************************
   .rdp-root {
@@ -127,7 +110,7 @@ const Wrapper = styled.div`
 
   // *** [ label ]
   .rdp-month_caption {
-    color: var(--secondary-text-color);
+    color: var(--primary-text-color);
     font-size: 1.3rem;
     width: 160px;
   }
@@ -137,7 +120,7 @@ const Wrapper = styled.div`
     font-size: 1rem;
     font-weight: 600;
     color: var(--primary-text-color);
-    padding: 1.75rem 0 0.5rem 0; // Abstand Monat + Zahlen
+    padding: 1.5rem 0 0.5rem 0; // Abstand Monat + Zahlen
   }
 
   // *** [ Zahlen ] **************************************************
@@ -194,10 +177,10 @@ const Wrapper = styled.div`
 `;
 
 const NavButton = styled.button`
+  width: 25px;
+  height: 25px;
   border: none;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
   background-color: var(--button-background-color);
   cursor: pointer;
   box-shadow: 0 0 15px rgba(0, 0, 0, 1);
@@ -207,37 +190,36 @@ const NavButton = styled.button`
     width: 10px;
     stroke: var(--button-text-color);
   }
-  svg.prev {
-    margin-right: 2px;
-  }
-  svg.next {
-    margin-left: 2px;
-  }
 
   &:hover {
     transform: scale(1.07);
+
+    svg {
+      stroke: var(--primary-text-color);
+    }
   }
 `;
 
 const Actions = styled.div`
   display: flex;
-  gap: 1rem;
-  margin-top: 1.25rem; // Abstand Kalender
+  gap: 1.5rem;
+  margin-top: 1.5rem; // Abstand Kalender
 
   button {
+    width: 80px;
+    height: 35px;
+    border: none;
+    border-radius: 30px;
     background-color: var(--button-background-color);
     color: var(--button-text-color);
-    border: none;
-    width: 70px;
-    height: 35px;
-    border-radius: 20px;
-    font-size: 1rem;
+    font-size: 1.15rem;
     font-weight: bold;
     cursor: pointer;
     box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 
     &:hover {
-      transform: scale(1.04);
+      transform: scale(1.05);
+      color: var(--primary-text-color);
     }
   }
 `;

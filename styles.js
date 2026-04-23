@@ -17,6 +17,10 @@ export default createGlobalStyle`
     --button-active-color: #e0e0e0;
     --button-hover-color: #444444;
 
+    --delete-modal-background-color: #ac2525;
+    --delete-button-background-color: #fa6c6c;
+    --delete-button-text-color: #ffffffd5;
+
     /* [COLORS]: semantic */
     --income-color: #b4e5a2;
     --expense-color: #ff9393;

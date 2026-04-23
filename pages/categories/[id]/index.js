@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import styled from "styled-components";
 import Link from "next/link";
 
+import FormAddTransaction from "@/components/FormAddTransaction";
 import CloseIcon from "/public/icons/close.svg";
 import SettingsIcon from "/public/icons/settings.svg";
 import PrevIcon from "/public/icons/previous.svg";
@@ -20,16 +21,20 @@ export default function CategoryDetailsPage() {
   const router = useRouter();
   const { id, from, dateFrom, dateTo, navKey } = router.query;
 
-  const { data: session } = useSession(); // auth
+  // *** [ AUTH ]
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
 
-  // *** [ data-fetch ]
+  // *** [ DATA-FETCH ]
   const { data: category, error: errorCategory } = useSWR(
     id && userId ? `/api/categories/${id}?u=${userId}` : null
   );
   const { data: transactions, error: errorTransactions } = useSWR(
     userId ? `/api/transactions?u=${userId}` : null
   );
+
+  // *** [ STATE ]
+  const [isFormAddTxOpen, setIsFormAddTxOpen] = useState(false);
 
   // *** [ < > nav ] ***********************************************************************
   // *** [ state ]: snapshot ID-Reihenfolge category-list
@@ -239,10 +244,17 @@ export default function CategoryDetailsPage() {
         type="button"
         aria-label="Add transaction"
         title="Add"
-        onClick={() => router.push(`/adding?category=${id}`)}
+        onClick={() => setIsFormAddTxOpen(true)}
       >
         <AddIcon />
       </AddButton>
+
+      {isFormAddTxOpen && (
+        <FormAddTransaction
+          initialCategoryId={id}
+          closeForm={() => setIsFormAddTxOpen(false)}
+        />
+      )}
     </ContentContainer>
   );
 }

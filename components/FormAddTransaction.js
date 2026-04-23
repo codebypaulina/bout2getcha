@@ -1,23 +1,27 @@
 import useSWR from "swr";
-import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
+
 import CloseIcon from "@/public/icons/close.svg";
+import { Overlay, fixedCenteredStyles } from "./modal.styles";
+import useEscapeClose from "@/hooks/useEscapeClose";
 
-export default function FormAddTransaction({ onCancel, onSuccess }) {
-  const router = useRouter();
-  const { category: queryCategoryId } = router.query;
-
-  const { data: session } = useSession(); // auth
+export default function FormAddTransaction({
+  initialCategoryId = "", // CategoryDetailsPage
+  closeForm, // AddingPage + CategoryDetailsPage
+}) {
+  // *** [ AUTH ]
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
 
+  // *** [ DATA-FETCH ]
   const { data: categories, error } = useSWR(
     userId ? `/api/categories?u=${userId}` : null
-  ); // data-fetch
+  );
 
-  // *** [ states ]
-  const [currentCategoryId, setCurrentCategoryId] = useState(""); // ID für dropdown
+  // *** [ STATES ]
+  const [currentCategoryId, setCurrentCategoryId] = useState(initialCategoryId); // ID für dropdown
   const [typeFilter, setTypeFilter] = useState("Expense"); // type für dropdown-filter + ColorTag
   const [lastSelectedCategoryIdByType, setLastSelectedCategoryIdByType] =
     useState({
@@ -25,15 +29,8 @@ export default function FormAddTransaction({ onCancel, onSuccess }) {
       Income: "",
     }); // zuletzt ausgewählte ID je type für dropdown-memory
 
-  // *** [ sync states ]
-  // *** [1. aktuelle category]: aus url (ID preselected aus CategoryDetailsPage)
-  useEffect(() => {
-    if (!router.isReady) return;
-    if (!queryCategoryId) return;
-    setCurrentCategoryId(queryCategoryId);
-  }, [router.isReady, queryCategoryId]);
-
-  // *** [2. type-filter & memory]: aus aktueller category (für preselection)
+  // *** [ SYNC ] **************************************************************************
+  // *** [1. type-filter + memory]: aus aktueller category
   useEffect(() => {
     if (!categories) return;
     if (!currentCategoryId) return;
@@ -50,11 +47,14 @@ export default function FormAddTransaction({ onCancel, onSuccess }) {
     }));
   }, [categories, currentCategoryId]);
 
-  // *** [ guards ]
+  // *** [ 2. ESC-listener ]
+  useEscapeClose(true, closeForm);
+
+  // *** [ GUARDS ] ************************************************************************
   if (error) return <h3>Failed to load data</h3>;
   if (!categories) return <h3>Loading ...</h3>;
 
-  // *** [ abgeleitete Daten ] *************************************************************
+  // *** [ DERIVED DATA ] ******************************************************************
   // *** [categories sortieren]: A-Z (für dropdown)
   // undefined: user-locale // sensitivity: case- & accent-insensitive
   const sortedCategories = [...categories].sort((a, b) =>
@@ -66,7 +66,7 @@ export default function FormAddTransaction({ onCancel, onSuccess }) {
     (category) => category.type === typeFilter
   );
 
-  // *** [ category-select ] ***************************************************************
+  // *** [ HANDLERS ] **********************************************************************
   function handleCategoryChange(event) {
     const selectedId = event.target.value;
     setCurrentCategoryId(selectedId); // ausgewählte ID als aktuelle category
@@ -105,7 +105,7 @@ export default function FormAddTransaction({ onCancel, onSuccess }) {
 
       if (response.ok) {
         console.log("ADDING SUCCESSFUL! (transaction)");
-        onSuccess(); // von AddingPage (selection view / CategoryDetailsPage)
+        closeForm();
       } else {
         throw new Error(
           `Failed to add new transaction (status: ${response.status})`
@@ -116,17 +116,21 @@ export default function FormAddTransaction({ onCancel, onSuccess }) {
     }
   }
 
+  // ***************************************************************************************
+
   return (
-    <PageWrapper>
+    <>
+      <Overlay onClick={closeForm} />
+
       <FormContainer onSubmit={handleSubmit}>
         <FormHeader>
-          <h1>Add</h1>
+          <h2>Transaction</h2>
 
           <CloseButton
             type="button"
             aria-label="Close form"
             title="Close"
-            onClick={onCancel} // von AddingPage (selection view / CategoryDetailsPage)
+            onClick={closeForm} // AddingPage selection view / CategoryDetailsPage
           >
             <CloseIcon />
           </CloseButton>
@@ -203,42 +207,44 @@ export default function FormAddTransaction({ onCancel, onSuccess }) {
           Save
         </button>
       </FormContainer>
-    </PageWrapper>
+    </>
   );
 }
 
-const PageWrapper = styled.div`
-  min-height: 100vh; // wrapper mind. wie viewport
-  display: flex; // wegen Zentrierung von form
-  align-items: center; // form vertikal zentriert
-  justify-content: center; // form horizontal zentriert
-`;
-
 const FormContainer = styled.form`
-  max-width: 250px;
-  background-color: var(--background-color);
-  padding: 1.5rem 2rem 2rem 2rem;
-  border-radius: 1.5rem; // abgerundete Ecken
+  ${fixedCenteredStyles}; // über overlay + zentriert
 
-  display: flex; // content vertikal
-  flex-direction: column; // content untereinander
+  width: 250px;
+  background-color: var(--background-color);
+  border-radius: 30px; // abgerundete Ecken
+  padding: 1.55rem 1.75rem 2rem 1.75rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
+  display: flex; // content vertikal
+  flex-direction: column; // untereinander
+
   label {
+    font-size: 1.15rem;
     font-weight: bold;
-    margin-bottom: 0.5rem; // Abstand zw. label & jeweiligem input
+    color: var(--primary-text-color);
+    margin: 0 0 0.55rem 0.25rem; // Abstand input
   }
 
   select,
   input[type="text"],
   input[type="number"],
   input[type="date"] {
-    border-radius: 0.5rem; // abgerundete Ecken
+    height: 1.75rem;
     border: 0.07rem solid var(--button-hover-color);
-    height: 1.5rem;
+    border-radius: 20px; // abgerundete Ecken
+    padding-left: 5px;
 
     // Firefox: wenn Feld angeklickt, kein blauer Rahmen:
     accent-color: var(--button-hover-color);
+  }
+
+  select {
+    width: 155px;
   }
 
   input[type="text"],
@@ -251,35 +257,37 @@ const FormContainer = styled.form`
   }
 
   button[type="submit"] {
-    margin-top: 2rem; // Abstand zum letzten input
     align-self: center;
+    margin-top: 1.75rem; // Abstand zum letzten input
+    padding-bottom: 2px; // text vertikal zentrierter
 
+    width: 80px;
+    height: 35px;
     border: none;
-    border-radius: 20px;
-    width: 70px;
-    height: 30px;
-    cursor: pointer;
-    font-weight: bold;
+    border-radius: 30px;
     background-color: var(--button-background-color);
     color: var(--button-text-color);
+    font-size: 1.15rem;
+    font-weight: bold;
+    cursor: pointer;
     box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
     &:hover {
-      transform: scale(1.07);
+      transform: scale(1.05);
       color: var(--primary-text-color);
     }
   }
 `;
 
 const FormHeader = styled.div`
-  display: flex; // h1 + CloseButton nebeneinander
-  align-items: center; // h1 + CloseButton vetikal zentriert
+  display: flex; // h2 + CloseButton nebeneinander
   margin-bottom: 1rem; // Abstand zum ersten label
 
-  h1 {
-    font-size: 1.5rem;
+  h2 {
     flex: 1; // nimmt restlichen Platz in FormHeader
     text-align: center;
+    font-size: 1.5rem;
+    line-height: 1;
   }
 `;
 
@@ -289,8 +297,8 @@ const CloseButton = styled.button`
   cursor: pointer;
 
   svg {
-    width: 22px;
-    height: 22px;
+    width: 25px;
+    height: 25px;
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
@@ -322,8 +330,8 @@ const CategoryGroup = styled.div`
 `;
 
 const ColorTag = styled.button`
-  width: 20px;
-  height: 20px;
+  width: 25px;
+  height: 25px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
