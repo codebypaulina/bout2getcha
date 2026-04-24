@@ -1,10 +1,11 @@
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
-import Link from "next/link";
 
+import FormEditCategory from "@/components/FormEditCategory";
+import FormEditTransaction from "@/components/FormEditTransaction";
 import FormAddTransaction from "@/components/FormAddTransaction";
 import CloseIcon from "/public/icons/close.svg";
 import SettingsIcon from "/public/icons/settings.svg";
@@ -26,22 +27,24 @@ export default function CategoryDetailsPage() {
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
 
   // *** [ DATA-FETCH ]
-  const { data: category, error: errorCategory } = useSWR(
-    id && userId ? `/api/categories/${id}?u=${userId}` : null
-  );
+  const {
+    data: category,
+    error: errorCategory,
+    mutate: mutateCategory,
+  } = useSWR(id && userId ? `/api/categories/${id}?u=${userId}` : null);
   const {
     data: transactions,
     error: errorTransactions,
-    mutate: mutateTransactions, // für FormAddTransaction (nach save cache aktualisieren)
+    mutate: mutateTransactions,
   } = useSWR(userId ? `/api/transactions?u=${userId}` : null);
 
-  // *** [ STATE ]
+  // *** [ STATES ]
+  const [navIds, setNavIds] = useState(null); // für < > nav (snapshot ID-Reihenfolge category-list)
+  const [isFormEditCatOpen, setIsFormEditCatOpen] = useState(false);
   const [isFormAddTxOpen, setIsFormAddTxOpen] = useState(false);
+  const [editingTxId, setEditingTxId] = useState(null);
 
   // *** [ < > nav ] ***********************************************************************
-  // *** [ state ]: snapshot ID-Reihenfolge category-list
-  const [navIds, setNavIds] = useState(null);
-
   // *** [ session storage ]: snapshot abrufen
   useEffect(() => {
     if (!router.isReady) return;
@@ -90,10 +93,6 @@ export default function CategoryDetailsPage() {
     router.replace(
       from ? `${from}${dateRangeQuery}` : `/categories${dateRangeQuery}` // HomePage / CategoriesPage + active date range
     );
-  }
-
-  function editCatDetails() {
-    router.push(`/categories/${id}/edit${fromQuery}`); // für FormEditCategory nach category-delete
   }
 
   const goToPrevCat = useCallback(() => {
@@ -151,6 +150,19 @@ export default function CategoryDetailsPage() {
     .filter((transaction) => transaction.category?._id === id) // nur active category
     .sort((a, b) => new Date(a.date) - new Date(b.date)); // Datum aufsteigend
 
+  // *** [ HANDLERS ] **********************************************************************
+  async function handleCatUpdated() {
+    await mutateCategory(); // header aktualisieren
+    await mutate(`/api/categories?u=${userId}`); // category-list
+    await mutateTransactions(); // transaction-list
+  }
+
+  async function handleCatDeleted() {
+    await mutate(`/api/categories?u=${userId}`);
+    await mutateTransactions();
+    closeCatDetails(); // zurück zur vorherigen Page
+  }
+
   // ***************************************************************************************
 
   return (
@@ -184,11 +196,20 @@ export default function CategoryDetailsPage() {
           type="button"
           aria-label="Edit category details"
           title="Edit"
-          onClick={editCatDetails}
+          onClick={() => setIsFormEditCatOpen(true)}
         >
           <SettingsIcon />
         </SettingsButton>
       </DetailsRow>
+
+      {isFormEditCatOpen && (
+        <FormEditCategory
+          categoryId={id}
+          onCatUpdated={handleCatUpdated}
+          onCatDeleted={handleCatDeleted}
+          closeForm={() => setIsFormEditCatOpen(false)}
+        />
+      )}
 
       <NavRow>
         <NavButton
@@ -218,7 +239,12 @@ export default function CategoryDetailsPage() {
         <ul>
           {filteredTransactions.map((transaction) => (
             <li key={transaction._id}>
-              <StyledLink href={`/transactions/${transaction._id}`}>
+              <TransactionButton
+                type="button"
+                aria-label={`Edit transaction: ${transaction.description}`}
+                title="Edit transaction"
+                onClick={() => setEditingTxId(transaction._id)}
+              >
                 <p className="date">
                   {new Date(transaction.date).toLocaleDateString("de-DE", {
                     day: "2-digit",
@@ -236,10 +262,19 @@ export default function CategoryDetailsPage() {
                   })}{" "}
                   €
                 </p>
-              </StyledLink>
+              </TransactionButton>
             </li>
           ))}
         </ul>
+      )}
+
+      {editingTxId && (
+        <FormEditTransaction
+          transactionId={editingTxId}
+          onTxUpdated={mutateTransactions}
+          onTxDeleted={mutateTransactions}
+          closeForm={() => setEditingTxId(null)}
+        />
       )}
 
       <AddButton
@@ -255,7 +290,7 @@ export default function CategoryDetailsPage() {
         <FormAddTransaction
           initialCategoryId={id}
           closeForm={() => setIsFormAddTxOpen(false)}
-          onTransactionAdded={mutateTransactions}
+          onTxAdded={mutateTransactions}
         />
       )}
     </ContentContainer>
@@ -423,8 +458,12 @@ const AddButton = styled.button`
   }
 `;
 
-const StyledLink = styled(Link)`
-  text-decoration: none;
+const TransactionButton = styled.button`
+  width: 100%; // wie ContentContainer
+  background: transparent;
+  border: none;
+  cursor: pointer;
+
   display: flex;
   gap: 1rem; // Abstand items
   padding-bottom: 0.2rem; // Abstand zw. Zeilen
@@ -435,19 +474,20 @@ const StyledLink = styled(Link)`
   }
 
   p.date {
-    overflow: hidden;
     min-width: 33px;
+    overflow: hidden;
   }
 
   p.description {
+    min-width: 60px;
+    text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 60px;
   }
 
   p.amount {
-    margin-left: auto; // rechts
     font-weight: bold;
+    margin-left: auto; // rechts
   }
 
   &:hover {

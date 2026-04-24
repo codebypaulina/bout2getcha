@@ -1,5 +1,4 @@
-import useSWR, { mutate } from "swr";
-import { useRouter } from "next/router";
+import useSWR from "swr";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
@@ -9,42 +8,43 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
 
-export default function FormEditCategory() {
-  const router = useRouter();
-  const { id, from } = router.query; // from für back navigation nach category-delete
-
-  const { data: session } = useSession(); // auth
+export default function FormEditCategory({
+  categoryId,
+  onCatUpdated,
+  onCatDeleted,
+  closeForm,
+}) {
+  // *** [ AUTH ]
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
 
+  // *** [ DATA-FETCH ]
   const { data: category, error } = useSWR(
-    id && userId ? `/api/categories/${id}?u=${userId}` : null
-  ); // data-fetch
+    categoryId && userId ? `/api/categories/${categoryId}?u=${userId}` : null
+  );
 
-  // *** [ states ]
+  // *** [ STATES ]
   const [isConfirmOpen, setIsConfirmOpen] = useState(false); // für DeleteConfirmModal
   const [categoryType, setCategoryType] = useState("");
 
-  // *** [ sync type-state ]
+  // *** [ SYNC ] **************************************************************************
+  // *** [ type-state ]
   useEffect(() => {
     if (!category?.type) return;
     setCategoryType((prev) => prev || category.type);
   }, [category?.type]);
 
   // *** [ ESC-listener ]
-  useEscapeClose(!isConfirmOpen, handleCancel);
+  useEscapeClose(!isConfirmOpen, closeForm);
 
-  // *** [ guards ]
+  // *** [ GUARDS ] ************************************************************************
   if (error) return <h3>Failed to load category</h3>;
   if (!category) return <h3>Loading ...</h3>;
 
-  // *** [ type-button ] *******************************************************************
+  // *** [ HANDLERS ] **********************************************************************
+  // *** [ type-button ]
   function toggleCategoryType() {
     setCategoryType((prev) => (prev === "Expense" ? "Income" : "Expense"));
-  }
-
-  // *** [ X-button ]
-  function handleCancel() {
-    router.back();
   }
 
   // *** [ save-button ]
@@ -54,7 +54,7 @@ export default function FormEditCategory() {
     const data = Object.fromEntries(formData);
 
     try {
-      const response = await fetch(`/api/categories/${id}`, {
+      const response = await fetch(`/api/categories/${categoryId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -62,17 +62,15 @@ export default function FormEditCategory() {
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        await onCatUpdated?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (category- + transaction-list)
+        closeForm();
+        console.log("UPDATING SUCCESSFUL! (category)");
+      } else {
         throw new Error(
           `Failed to update category (status: ${response.status})`
         );
       }
-
-      // SWR-detail-cache: revalidieren, um category.transactionCount nicht zu überschreiben
-      // -> values geupdated (CategoryDetailsPage + reopened form)
-      mutate(`/api/categories/${id}?u=${userId}`);
-      console.log("UPDATING SUCCESSFUL! (category)");
-      router.back();
     } catch (error) {
       console.error("Error updating category: ", error);
     }
@@ -91,17 +89,17 @@ export default function FormEditCategory() {
     try {
       // cascade delete
       const url = hasTransactions
-        ? `/api/categories/${id}?cascade=true` // erst enthaltene transaction(s)
-        : `/api/categories/${id}`; // nur category (leer)
+        ? `/api/categories/${categoryId}?cascade=true` // erst enthaltene transaction(s)
+        : `/api/categories/${categoryId}`; // nur category (leer)
 
       const response = await fetch(url, {
         method: "DELETE",
       });
 
       if (response.ok) {
+        setIsConfirmOpen(false); // Modal schließen
+        await onCatDeleted?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (category- + transaction-list) + back nav
         console.log("DELETING SUCCESSFUL! (category)");
-        setIsConfirmOpen(false); //  Modal schließen
-        router.push(from || "/categories"); // zurück zu from (CategoryDetailsPage), sonst zu CategoriesPage
       } else {
         throw new Error(
           `Failed to delete category (status: ${response.status})`
@@ -115,7 +113,7 @@ export default function FormEditCategory() {
 
   return (
     <>
-      <Overlay onClick={handleCancel} />
+      <Overlay onClick={closeForm} />
 
       <FormContainer onSubmit={handleSubmit}>
         <FormHeader>
@@ -125,7 +123,7 @@ export default function FormEditCategory() {
             type="button"
             aria-label="Close form"
             title="Close"
-            onClick={handleCancel}
+            onClick={closeForm} // CategoryDetailsPage
           >
             <CloseIcon />
           </CloseButton>

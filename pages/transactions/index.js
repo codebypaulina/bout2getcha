@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
-import Link from "next/link";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
@@ -15,6 +14,7 @@ import {
   RangeButton,
   TypeButton,
 } from "@/components/filterBar.styles";
+import FormEditTransaction from "@/components/FormEditTransaction";
 import ChartIcon from "@/public/icons/chart.svg";
 import PrevIcon from "@/public/icons/previous.svg";
 import NextIcon from "@/public/icons/next.svg";
@@ -32,21 +32,25 @@ import { formatCurrency } from "@/utils/helpers";
 export default function TransactionsPage() {
   const pageTitle = "Transactions";
 
-  const [hoverSource, setHoverSource] = useState(null); // null | "list" | "pie"
-  const [hoveredTxId, setHoveredTxId] = useState(null);
-  const [hoveredCategoryId, setHoveredCategoryId] = useState(null);
-
   // *** [ AUTH ]
   const { data: session } = useSession(); // auth
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
 
   // *** [ DATA-FETCH ]
-  const { data: transactions, error: errorTransactions } = useSWR(
-    userId ? `/api/transactions?u=${userId}` : null
-  );
+  const {
+    data: transactions,
+    error: errorTransactions,
+    mutate: mutateTransactions,
+  } = useSWR(userId ? `/api/transactions?u=${userId}` : null);
   const { data: categories, error: errorCategories } = useSWR(
     userId ? `/api/categories?u=${userId}` : null
   );
+
+  // *** [ STATES ]
+  const [hoverSource, setHoverSource] = useState(null); // null | "list" | "pie"
+  const [hoveredTxId, setHoveredTxId] = useState(null);
+  const [hoveredCategoryId, setHoveredCategoryId] = useState(null);
+  const [editingTxId, setEditingTxId] = useState(null);
 
   // *** [ SYNC ] **************************************************************************
   // *** [ 1. chart-state ]: session storage ***********************************************
@@ -399,8 +403,11 @@ export default function TransactionsPage() {
         <TransactionList>
           {filteredTransactions.map((transaction) => (
             <ListItem key={transaction._id}>
-              <TransactionLink
-                href={`/transactions/${transaction._id}`}
+              <TransactionButton
+                type="button"
+                aria-label={`Edit transaction: ${transaction.description}`}
+                title="Edit transaction"
+                onClick={() => setEditingTxId(transaction._id)}
                 // für transaction- + segment-hover:
                 $isHighlighted={isTxHighlighted(transaction)}
                 onMouseEnter={() => handleTxEnter(transaction)}
@@ -424,10 +431,19 @@ export default function TransactionsPage() {
                 <p className="description">{transaction.description}</p>
                 <p className="category">{transaction.category.name}</p>
                 <p className="amount">{formatCurrency(transaction.amount)} €</p>
-              </TransactionLink>
+              </TransactionButton>
             </ListItem>
           ))}
         </TransactionList>
+      )}
+
+      {editingTxId && (
+        <FormEditTransaction
+          transactionId={editingTxId}
+          onTxUpdated={mutateTransactions}
+          onTxDeleted={mutateTransactions}
+          closeForm={() => setEditingTxId(null)}
+        />
       )}
     </PageShell>
   );
@@ -441,7 +457,7 @@ const TransactionList = styled.ul`
 
   display: grid; //    date | ColorTag | description | category | amount
   grid-template-columns:
-    minmax(33px, max-content) 5px minmax(70px, 1fr) minmax(0, 40px)
+    minmax(31px, max-content) 5px minmax(70px, 1fr) minmax(0, 60px)
     67px;
   align-items: center; // content in der Zeile vertikal zentriert
   gap: 0.5rem;
@@ -451,9 +467,11 @@ const ListItem = styled.li`
   display: contents; // childs direkte grid-items von TransactionList
 `;
 
-const TransactionLink = styled(Link)`
-  text-decoration: none;
+const TransactionButton = styled.button`
   display: contents; // date, ColorTag, description, category, amount -> grid
+  background: transparent;
+  border: none;
+  cursor: pointer;
 
   p {
     font-size: 0.755rem;
@@ -471,12 +489,14 @@ const TransactionLink = styled(Link)`
   }
 
   p.description {
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   p.category {
+    text-align: left;
     font-size: 0.6rem;
     opacity: ${({ $isHighlighted }) => ($isHighlighted ? 0.7 : 0.6)};
     white-space: nowrap;
@@ -505,7 +525,7 @@ const TransactionLink = styled(Link)`
     }
 
     span {
-      transform: scale(1.2);
+      transform: scale(1.3);
     }
   } // hover list item
 `;

@@ -9,7 +9,7 @@ import useEscapeClose from "@/hooks/useEscapeClose";
 
 export default function FormAddTransaction({
   initialCategoryId = "", // CategoryDetailsPage
-  onTransactionAdded, // CategoryDetailsPage
+  onTxAdded, // CategoryDetailsPage
   closeForm, // AddingPage + CategoryDetailsPage
 }) {
   // *** [ AUTH ]
@@ -68,6 +68,7 @@ export default function FormAddTransaction({
   );
 
   // *** [ HANDLERS ] **********************************************************************
+  // *** [ category-select ]
   function handleCategoryChange(event) {
     const selectedId = event.target.value;
     setCurrentCategoryId(selectedId); // ausgewählte ID als aktuelle category
@@ -91,7 +92,6 @@ export default function FormAddTransaction({
   // *** [ save-button ]
   async function handleSubmit(event) {
     event.preventDefault();
-
     const formData = new FormData(event.target);
     const data = Object.fromEntries(formData);
 
@@ -105,9 +105,9 @@ export default function FormAddTransaction({
       });
 
       if (response.ok) {
-        console.log("ADDING SUCCESSFUL! (transaction)");
-        await onTransactionAdded?.(); // SWR-cache aktualisieren
+        await onTxAdded?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
         closeForm();
+        console.log("ADDING SUCCESSFUL! (transaction)");
       } else {
         throw new Error(
           `Failed to add new transaction (status: ${response.status})`

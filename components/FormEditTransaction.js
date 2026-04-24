@@ -1,5 +1,4 @@
-import useSWR, { mutate } from "swr";
-import { useRouter } from "next/router";
+import useSWR from "swr";
 import { useEffect, useState } from "react"; // effect + state: category-Änderung -> type-Änderung // state: ConfirmModal open/!open
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
@@ -9,23 +8,32 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
 
-export default function FormEditTransaction() {
-  const router = useRouter();
-  const { id } = router.query; // transaction-ID aus URL
-
-  const { data: session } = useSession(); // auth
+export default function FormEditTransaction({
+  transactionId,
+  onTxUpdated,
+  onTxDeleted,
+  closeForm,
+}) {
+  // *** [ AUTH ]
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
 
-  // *** [ data-fetch ]
-  const { data: transaction, error: errorTransaction } = useSWR(
-    id && userId ? `/api/transactions/${id}?u=${userId}` : null
+  // *** [ DATA-FETCH ]
+  const {
+    data: transaction,
+    error: errorTransaction,
+    mutate: mutateTransaction,
+  } = useSWR(
+    transactionId && userId
+      ? `/api/transactions/${transactionId}?u=${userId}`
+      : null
   );
   const { data: categories, error: errorCategories } = useSWR(
     userId ? `/api/categories?u=${userId}` : null
   );
 
-  // *** [ states ]
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false); // für DeleteConfirmModal
+  // *** [ STATES ]
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [currentCategoryId, setCurrentCategoryId] = useState(""); // category-state: ID für dropdown
   const [typeFilter, setTypeFilter] = useState(""); // category-state: type für dropdown-filter + ColorTag
   const [lastSelectedCategoryIdByType, setLastSelectedCategoryIdByType] =
@@ -34,7 +42,8 @@ export default function FormEditTransaction() {
       Income: "",
     }); // category-state: zuletzt ausgewählte ID je type für dropdown-memory
 
-  // *** [ sync category-states ]
+  // *** [ SYNC ] **************************************************************************
+  // *** [ category-states ]
   useEffect(() => {
     if (!transaction?.category) return;
 
@@ -49,13 +58,13 @@ export default function FormEditTransaction() {
   }, [transaction]);
 
   // *** [ ESC-listener ]
-  useEscapeClose(!isConfirmOpen, handleCancel);
+  useEscapeClose(!isConfirmOpen, closeForm);
 
-  // *** [ guards ]
+  // *** [ GUARDS ] ************************************************************************
   if (errorTransaction || errorCategories) return <h3>Failed to load data</h3>;
   if (!transaction || !categories) return <h3>Loading ...</h3>;
 
-  // *** [ abgeleitete Daten ] *************************************************************
+  // *** [ DERIVED DATA ] ******************************************************************
   // *** [categories sortieren]: A-Z (für dropdown)
   // undefined: user-locale // sensitivity: case- & accent-insensitive
   const sortedCategories = [...categories].sort((a, b) =>
@@ -67,7 +76,8 @@ export default function FormEditTransaction() {
     (category) => category.type === typeFilter
   );
 
-  // *** [ category-select ] ***************************************************************
+  // *** [ HANDLERS ] **********************************************************************
+  // *** [ category-select ]
   function handleCategoryChange(event) {
     const selectedId = event.target.value;
     const selectedCategory = categories.find(
@@ -90,11 +100,6 @@ export default function FormEditTransaction() {
     setCurrentCategoryId(lastSelectedCategoryIdByType[toggledType]);
   }
 
-  // *** [ X-button ]
-  function handleCancel() {
-    router.back();
-  }
-
   // *** [ save-button ]
   async function handleSubmit(event) {
     event.preventDefault();
@@ -102,7 +107,7 @@ export default function FormEditTransaction() {
     const data = Object.fromEntries(formData);
 
     try {
-      const response = await fetch(`/api/transactions/${id}`, {
+      const response = await fetch(`/api/transactions/${transactionId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -110,16 +115,17 @@ export default function FormEditTransaction() {
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        const updatedTransaction = await response.json();
+        await mutateTransaction(updatedTransaction, { revalidate: false }); // in form: SWR-detail-cache von tx aktualisieren (reopened)
+        await onTxUpdated?.(); // in HomePage + CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
+        closeForm();
+        console.log("UPDATING SUCCESSFUL! (transaction)");
+      } else {
         throw new Error(
           `Failed to update transaction (status: ${response.status})`
         );
       }
-
-      const updated = await response.json();
-      mutate(`/api/transactions/${id}`, updated, false); // SWR-detail-cache: mit updated values überschreiben (reopened form)
-      console.log("UPDATING SUCCESSFUL! (transaction)");
-      router.back();
     } catch (error) {
       console.error("Error updating transaction: ", error);
     }
@@ -134,14 +140,15 @@ export default function FormEditTransaction() {
   // *** [2. confirm-button]: transaction löschen
   async function handleConfirmDelete() {
     try {
-      const response = await fetch(`/api/transactions/${id}`, {
+      const response = await fetch(`/api/transactions/${transactionId}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
+        setIsConfirmOpen(false); // Modal schließen
+        await onTxDeleted?.(); // in HomePage + CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
+        closeForm();
         console.log("DELETING SUCCESSFUL! (transaction)");
-        setIsConfirmOpen(false); //  Modal schließen
-        router.back(); // zurück zur vorherigen page
       } else {
         throw new Error(
           `Failed to delete transaction (status: ${response.status})`
@@ -155,7 +162,7 @@ export default function FormEditTransaction() {
 
   return (
     <>
-      <Overlay onClick={handleCancel} />
+      <Overlay onClick={closeForm} />
 
       <FormContainer onSubmit={handleSubmit}>
         <FormHeader>
@@ -165,7 +172,7 @@ export default function FormEditTransaction() {
             type="button"
             aria-label="Close form"
             title="Close"
-            onClick={handleCancel}
+            onClick={closeForm} // TransactionsPage / CategoryDetailsPage
           >
             <CloseIcon />
           </CloseButton>

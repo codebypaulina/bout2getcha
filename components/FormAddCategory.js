@@ -36,8 +36,8 @@ export default function FormAddCategory({ closeForm }) {
       });
 
       if (response.ok) {
+        await router.push(`/categories?type=${categoryType}`); // zu CategoriesPage mit type-filter = type neuer category
         console.log("ADDING SUCCESSFUL! (category)");
-        router.push(`/categories?type=${categoryType}`); // zu CategoriesPage mit type-filter = type neuer category
       } else {
         throw new Error(
           `Failed to add new category (status: ${response.status})`
@@ -60,7 +60,7 @@ export default function FormAddCategory({ closeForm }) {
             type="button"
             aria-label="Close form"
             title="Close"
-            onClick={closeForm}
+            onClick={closeForm} // AddingPage selection view
           >
             <CloseIcon />
           </CloseButton>
