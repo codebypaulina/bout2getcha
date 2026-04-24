@@ -29,9 +29,11 @@ export default function CategoryDetailsPage() {
   const { data: category, error: errorCategory } = useSWR(
     id && userId ? `/api/categories/${id}?u=${userId}` : null
   );
-  const { data: transactions, error: errorTransactions } = useSWR(
-    userId ? `/api/transactions?u=${userId}` : null
-  );
+  const {
+    data: transactions,
+    error: errorTransactions,
+    mutate: mutateTransactions, // für FormAddTransaction (nach save cache aktualisieren)
+  } = useSWR(userId ? `/api/transactions?u=${userId}` : null);
 
   // *** [ STATE ]
   const [isFormAddTxOpen, setIsFormAddTxOpen] = useState(false);
@@ -253,6 +255,7 @@ export default function CategoryDetailsPage() {
         <FormAddTransaction
           initialCategoryId={id}
           closeForm={() => setIsFormAddTxOpen(false)}
+          onTransactionAdded={mutateTransactions}
         />
       )}
     </ContentContainer>

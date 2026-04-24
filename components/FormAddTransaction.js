@@ -9,6 +9,7 @@ import useEscapeClose from "@/hooks/useEscapeClose";
 
 export default function FormAddTransaction({
   initialCategoryId = "", // CategoryDetailsPage
+  onTransactionAdded, // CategoryDetailsPage
   closeForm, // AddingPage + CategoryDetailsPage
 }) {
   // *** [ AUTH ]
@@ -105,6 +106,7 @@ export default function FormAddTransaction({
 
       if (response.ok) {
         console.log("ADDING SUCCESSFUL! (transaction)");
+        await onTransactionAdded?.(); // SWR-cache aktualisieren
         closeForm();
       } else {
         throw new Error(
