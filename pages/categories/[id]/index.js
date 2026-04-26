@@ -4,13 +4,15 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
 
-import FormEditCategory from "@/components/FormEditCategory";
+import PageShell from "@/components/layout/PageShell";
 import FormEditTransaction from "@/components/FormEditTransaction";
 import FormAddTransaction from "@/components/FormAddTransaction";
+import DeleteConfirmModal from "@/components/DeleteConfirmModal";
+
 import CloseIcon from "/public/icons/close.svg";
-import SettingsIcon from "/public/icons/settings.svg";
 import PrevIcon from "/public/icons/previous.svg";
 import NextIcon from "/public/icons/next.svg";
+import TrashIcon from "/public/icons/trash.svg";
 import AddIcon from "/public/icons/addNEU.svg";
 import {
   parseDateString,
@@ -40,9 +42,22 @@ export default function CategoryDetailsPage() {
 
   // *** [ STATES ]
   const [navIds, setNavIds] = useState(null); // für < > nav (snapshot ID-Reihenfolge category-list)
-  const [isFormEditCatOpen, setIsFormEditCatOpen] = useState(false);
+
   const [isFormAddTxOpen, setIsFormAddTxOpen] = useState(false);
   const [editingTxId, setEditingTxId] = useState(null);
+
+  const [isEditingCatName, setIsEditingCatName] = useState(false);
+  const [catName, setCatName] = useState("");
+  const [catNameError, setCatNameError] = useState("");
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+
+  // *** [ SYNC ] **************************************************************************
+  // *** [ category name ]: bei Änderung ***************************************************
+  useEffect(() => {
+    if (!category?.name) return;
+    setCatName(category.name);
+    setCatNameError("");
+  }, [category?.name]);
 
   // *** [ < > nav ] ***********************************************************************
   // *** [ session storage ]: snapshot abrufen
@@ -112,6 +127,13 @@ export default function CategoryDetailsPage() {
   // *** [ keyboard nav ] ******************************************************************
   useEffect(() => {
     function handleKeyDown(event) {
+      const isEditableElement =
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target.isContentEditable;
+
+      if (isEditableElement) return; // nur, wenn nicht in NameInput
+
       if (event.key === "ArrowLeft") goToPrevCat();
       if (event.key === "ArrowRight") goToNextCat();
     }
@@ -120,11 +142,11 @@ export default function CategoryDetailsPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevCat, goToNextCat]);
 
-  // *** [ guards ] ************************************************************************
+  // *** [ GUARDS ] ************************************************************************
   if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
   if (!category || !transactions) return <h3>Loading ...</h3>;
 
-  // *** [ ABGELEITETE DATEN ] *************************************************************
+  // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. active date range ]: aus url *************************************************
   const parsedDateFrom = parseDateString(dateFrom);
   const parsedDateTo = parseDateString(dateTo);
@@ -151,156 +173,310 @@ export default function CategoryDetailsPage() {
     .sort((a, b) => new Date(a.date) - new Date(b.date)); // Datum aufsteigend
 
   // *** [ HANDLERS ] **********************************************************************
-  async function handleCatUpdated() {
-    await mutateCategory(); // header aktualisieren
-    await mutate(`/api/categories?u=${userId}`); // category-list
-    await mutateTransactions(); // transaction-list
+  async function updateCategory(updatedFields) {
+    try {
+      const response = await fetch(`/api/categories/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedFields),
+      });
+
+      if (response.ok) {
+        await mutateCategory(); // header aktualisieren
+        await mutate(`/api/categories?u=${userId}`); // category-list
+        await mutateTransactions(); // transaction-list
+      } else {
+        throw new Error(
+          `Failed to update category (status: ${response.status})`
+        );
+      }
+    } catch (error) {
+      console.error("Error updating category: ", error);
+      throw error;
+    }
   }
 
-  async function handleCatDeleted() {
-    await mutate(`/api/categories?u=${userId}`);
-    await mutateTransactions();
-    closeCatDetails(); // zurück zur vorherigen Page
+  // *** [ type-button ]
+  async function handleTypeChange() {
+    const newType = category.type === "Expense" ? "Income" : "Expense";
+    await updateCategory({ type: newType });
+  }
+
+  // *** [ color-input ]
+  async function handleColorChange(event) {
+    await updateCategory({ color: event.target.value });
+  }
+
+  // *** [ name-input ] *************************
+  function startCatNameEditing() {
+    setCatName(category.name);
+    setCatNameError("");
+    setIsEditingCatName(true);
+  }
+
+  function cancelCatNameEditing() {
+    setCatName(category.name);
+    setCatNameError("");
+    setIsEditingCatName(false);
+  }
+
+  async function saveCatName() {
+    const trimmedName = catName.trim();
+
+    if (!trimmedName) {
+      setCatNameError("Name is required.");
+      setIsEditingCatName(true);
+      return;
+    }
+
+    if (trimmedName === category.name) {
+      setCatNameError("");
+      setIsEditingCatName(false);
+      return;
+    }
+
+    try {
+      await updateCategory({ name: trimmedName });
+      setCatNameError("");
+      setIsEditingCatName(false);
+    } catch (error) {
+      setCatNameError("Could not save name.");
+      setIsEditingCatName(true);
+    }
+  }
+
+  function handleCatNameKeyDown(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveCatName();
+    }
+
+    if (event.key === "Escape") {
+      cancelCatNameEditing();
+    }
+  }
+
+  // *** [ delete ] *****************************
+  async function handleCatDelete() {
+    const hasTransactions = category.transactionCount > 0; // Anzahl tx aus API
+
+    try {
+      // cascade delete
+      const url = hasTransactions
+        ? `/api/categories/${id}?cascade=true` // erst enthaltene transaction(s)
+        : `/api/categories/${id}`; // nur category (leer)
+
+      const response = await fetch(url, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setIsConfirmDeleteOpen(false); // Modal schließen
+        await mutate(`/api/categories?u=${userId}`); // category-list aktualisieren
+        await mutateTransactions(); // transaction-list
+        closeCatDetails(); // zurück zur vorherigen page
+        console.log("DELETING SUCCESSFUL! (category)");
+      } else {
+        throw new Error(
+          `Failed to delete category (status: ${response.status})`
+        );
+      }
+    } catch (error) {
+      console.error("Error deleting category: ", error);
+      setIsConfirmDeleteOpen(false); // Modal schließen, damit user nicht festhängt
+    }
   }
 
   // ***************************************************************************************
 
   return (
-    <ContentContainer>
-      <ContentHeader>
-        <h1>Category Details</h1>
+    <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+      <ContentContainer>
+        <ContentHeader>
+          <h1>Category Details</h1>
 
-        <CloseButton
-          type="button"
-          aria-label="Close category details"
-          title="Close"
-          onClick={closeCatDetails}
-        >
-          <CloseIcon />
-        </CloseButton>
-      </ContentHeader>
+          <CloseButton
+            type="button"
+            aria-label="Close category details"
+            title="Close"
+            onClick={closeCatDetails}
+          >
+            <CloseIcon />
+          </CloseButton>
+        </ContentHeader>
 
-      <DetailsRow>
-        <ColorTag
-          color={
-            category.type === "Income"
-              ? "var(--income-color)"
-              : "var(--expense-color)"
-          }
-        />
-        <ColorTag color={category.color} />
+        <NameNavRow>
+          <NavButton
+            type="button"
+            aria-label="Previous category"
+            title="Previous"
+            disabled={!prevId}
+            onClick={goToPrevCat}
+          >
+            <PrevIcon className="prev" />
+          </NavButton>
 
-        <h2>{category.name}</h2>
+          <NameContainer>
+            {isEditingCatName ? (
+              <>
+                <NameInput
+                  type="text"
+                  aria-label="Update category name"
+                  title="Category name"
+                  value={catName}
+                  onChange={(event) => {
+                    setCatName(event.target.value);
+                    setCatNameError("");
+                  }}
+                  onKeyDown={handleCatNameKeyDown}
+                  onBlur={saveCatName}
+                  autoFocus
+                  enterKeyHint="done"
+                />
 
-        <SettingsButton
-          type="button"
-          aria-label="Edit category details"
-          title="Edit"
-          onClick={() => setIsFormEditCatOpen(true)}
-        >
-          <SettingsIcon />
-        </SettingsButton>
-      </DetailsRow>
-
-      {isFormEditCatOpen && (
-        <FormEditCategory
-          categoryId={id}
-          onCatUpdated={handleCatUpdated}
-          onCatDeleted={handleCatDeleted}
-          closeForm={() => setIsFormEditCatOpen(false)}
-        />
-      )}
-
-      <NavRow>
-        <NavButton
-          type="button"
-          aria-label="Previous category"
-          title="Previous"
-          disabled={!prevId}
-          onClick={goToPrevCat}
-        >
-          <PrevIcon className="prev" />
-        </NavButton>
-
-        <NavButton
-          type="button"
-          aria-label="Next category"
-          title="Next"
-          disabled={!nextId}
-          onClick={goToNextCat}
-        >
-          <NextIcon className="next" />
-        </NavButton>
-      </NavRow>
-
-      {filteredTransactions.length === 0 ? (
-        <p className="empty-state">No transactions in this category yet.</p>
-      ) : (
-        <ul>
-          {filteredTransactions.map((transaction) => (
-            <li key={transaction._id}>
-              <TransactionButton
+                {catNameError && <NameError>{catNameError}</NameError>}
+              </>
+            ) : (
+              <NameButton
                 type="button"
-                aria-label={`Edit transaction: ${transaction.description}`}
-                title="Edit transaction"
-                onClick={() => setEditingTxId(transaction._id)}
+                aria-label="Edit category name"
+                title="Edit category name"
+                onClick={startCatNameEditing}
               >
-                <p className="date">
-                  {new Date(transaction.date).toLocaleDateString("de-DE", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
+                {category.name}
+              </NameButton>
+            )}
+          </NameContainer>
+
+          <NavButton
+            type="button"
+            aria-label="Next category"
+            title="Next"
+            disabled={!nextId}
+            onClick={goToNextCat}
+          >
+            <NextIcon className="next" />
+          </NavButton>
+        </NameNavRow>
+
+        <ActionsRow>
+          <TrashButton
+            type="button"
+            aria-label="Delete category"
+            title="Delete"
+            onClick={() => setIsConfirmDeleteOpen(true)}
+          >
+            <TrashIcon />
+          </TrashButton>
+
+          <ColorInput
+            type="color"
+            aria-label="Update category color"
+            title="Update category color"
+            value={category.color}
+            onChange={handleColorChange}
+          />
+
+          <TypeButton
+            type="button"
+            aria-label="Switch category type"
+            title={`${category.type} (click to switch)`}
+            onClick={handleTypeChange}
+            $categoryType={category.type}
+          />
+        </ActionsRow>
+
+        {filteredTransactions.length === 0 ? (
+          <p className="empty-state">No transactions in this category yet.</p>
+        ) : (
+          <ul>
+            {filteredTransactions.map((transaction) => (
+              <li key={transaction._id}>
+                <TransactionButton
+                  type="button"
+                  aria-label={`Edit transaction: ${transaction.description}`}
+                  title="Edit transaction"
+                  onClick={() => setEditingTxId(transaction._id)}
+                >
+                  <p className="date">
+                    {new Date(transaction.date).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </p>
+
+                  <p className="description">{transaction.description}</p>
+
+                  <p className="amount">
+                    {transaction.amount.toLocaleString("de-DE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    €
+                  </p>
+                </TransactionButton>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <AddButton
+          type="button"
+          aria-label="Add transaction"
+          title="Add"
+          onClick={() => setIsFormAddTxOpen(true)}
+        >
+          <AddIcon />
+        </AddButton>
+
+        {isConfirmDeleteOpen && (
+          <DeleteConfirmModal
+            confirmationMessage={
+              category.transactionCount > 0 ? (
+                <p>
+                  Are you sure you want to delete this category & all included
+                  transactions?
                 </p>
+              ) : (
+                <p>Are you sure you want to delete this category?</p>
+              )
+            }
+            confirmDelete={handleCatDelete} // category löschen
+            closeModal={() => setIsConfirmDeleteOpen(false)} // X / ESC / Overlay
+          />
+        )}
 
-                <p className="description">{transaction.description}</p>
+        {editingTxId && (
+          <FormEditTransaction
+            transactionId={editingTxId}
+            onTxUpdated={mutateTransactions}
+            onTxDeleted={mutateTransactions}
+            closeForm={() => setEditingTxId(null)}
+          />
+        )}
 
-                <p className="amount">
-                  {transaction.amount.toLocaleString("de-DE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  €
-                </p>
-              </TransactionButton>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {editingTxId && (
-        <FormEditTransaction
-          transactionId={editingTxId}
-          onTxUpdated={mutateTransactions}
-          onTxDeleted={mutateTransactions}
-          closeForm={() => setEditingTxId(null)}
-        />
-      )}
-
-      <AddButton
-        type="button"
-        aria-label="Add transaction"
-        title="Add"
-        onClick={() => setIsFormAddTxOpen(true)}
-      >
-        <AddIcon />
-      </AddButton>
-
-      {isFormAddTxOpen && (
-        <FormAddTransaction
-          initialCategoryId={id}
-          closeForm={() => setIsFormAddTxOpen(false)}
-          onTxAdded={mutateTransactions}
-        />
-      )}
-    </ContentContainer>
+        {isFormAddTxOpen && (
+          <FormAddTransaction
+            initialCategoryId={id}
+            closeForm={() => setIsFormAddTxOpen(false)}
+            onTxAdded={mutateTransactions}
+          />
+        )}
+      </ContentContainer>
+    </PageShell>
   );
 }
 
-const ContentContainer = styled.main`
-  padding: 2rem; // Abstand Bildschirmrand
-  margin: 0 auto; // horizontal zentriert
+const ContentContainer = styled.div`
   max-width: var(--app-max-width);
+  // background-color: var(--list-item-background);
+  // border-radius: 30px;
+  // border: 2px solid var(--list-item-background);
+  padding: 1.55rem 1.75rem 2rem 1.75rem; // Abstand Bildschirmrand
+  margin: 0 auto; // horizontal zentriert
 
   .empty-state {
     text-align: center;
@@ -309,7 +485,7 @@ const ContentContainer = styled.main`
 
 const ContentHeader = styled.div`
   display: flex; // h1 + CloseButton nebeneinander
-  margin-bottom: 1rem; // Abstand DetailsRow
+  margin-bottom: 1.5rem; // Abstand NameNavRow
 
   h1 {
     font-size: 1.5rem;
@@ -324,8 +500,8 @@ const CloseButton = styled.button`
   cursor: pointer;
 
   svg {
-    width: 22px;
-    height: 23px;
+    width: 25px;
+    height: 25px;
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
@@ -344,64 +520,27 @@ const CloseButton = styled.button`
   }
 `;
 
-const DetailsRow = styled.div`
-  display: flex;
-  justify-content: center; // ColorTags + {category.name} horizontal zentriert
-  align-items: center; // ColorTags vertikal zentriert
-  gap: 0.5rem;
-`;
+// **************************************************************
 
-const ColorTag = styled.span`
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%; // rund
-  background-color: ${(props) => props.color};
-`;
-
-const SettingsButton = styled.button`
-  background: transparent;
-  border: none;
-  cursor: pointer;
-
-  display: flex; // icon vertikal zentriert
-  margin-left: 0.5rem; // Abstand {category.name}
-
-  svg {
-    width: 23px;
-    height: 23px;
-    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
-  }
-  svg path[class*="gear"] {
-    fill: var(--button-background-color);
-  }
-  svg path[class*="gear-ring"] {
-    fill: var(--button-text-color);
-  }
-
-  &:hover {
-    transform: scale(1.07);
-
-    svg path[class*="gear-ring"] {
-      fill: var(--primary-text-color);
-    }
-  }
-`;
-
-const NavRow = styled.div`
-  display: flex; // buttons nebeneinander
-  justify-content: space-between; // prev links, next rechts
-  margin-bottom: 1rem; // Abstand list / empty-state
+const NameNavRow = styled.div`
+  display: grid; //      prev | category.name | next
+  grid-template-columns: 25px minmax(0, 1fr) 25px;
+  align-items: center; // vertikal
+  margin-bottom: 1rem; // Abstand ActionsRow
 `;
 
 const NavButton = styled.button`
   border: none;
   border-radius: 50%;
-  width: 22px;
-  height: 22px;
+  width: 25px;
+  height: 25px;
   background-color: var(--button-background-color);
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
+
+  display: flex; // Zentrierung svg
+  align-items: center;
+  justify-content: center;
 
   svg {
     height: 10px;
@@ -429,6 +568,127 @@ const NavButton = styled.button`
   }
 `;
 
+const NameContainer = styled.div`
+  min-width: 0; // für grid / ellipsis
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+const NameButton = styled.button`
+  max-width: 170px; // für grid / ellipsis
+  background: transparent;
+  border: none;
+  font-size: 1.15rem;
+  font-weight: bold;
+  color: var(--secondary-text-color);
+  cursor: pointer;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    transform: scale(1.03);
+    color: var(--primary-text-color);
+  }
+`;
+
+const NameInput = styled.input`
+  width: min(150px, 100%);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--button-hover-color);
+  color: var(--primary-text-color);
+  font-size: 1.15rem;
+  font-weight: bold;
+  text-align: center;
+  // outline: none;
+`;
+
+const NameError = styled.p`
+  margin-top: 0.25rem;
+  color: var(--expense-color);
+  font-size: 0.75rem;
+`;
+
+// **************************************************************
+
+const ActionsRow = styled.div`
+  display: grid; //      TrashButton | ColorInput | TypeButton
+  grid-template-columns: 1fr auto auto;
+  align-items: center; // TrashButton vertikal zentiert
+  gap: 1rem; // Abstand zw. ColorInput + TypeButton
+  margin-bottom: 1.5rem; // Abstand list / empty.state
+`;
+
+const TrashButton = styled.button`
+  width: 25px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+
+  display: flex; // icon vertikal zentriert
+  justify-content: center; // horizontal
+
+  svg {
+    height: 20px;
+    fill: var(--delete-button-background-color);
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
+  }
+
+  &:hover {
+    transform: scale(1.07);
+  }
+`;
+
+const ColorInput = styled.input`
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
+
+  background-color: ${(props) => props.value};
+
+  &::-webkit-color-swatch-wrapper {
+    padding: 0;
+  } // [Chrome]
+
+  &::-webkit-color-swatch {
+    border: none;
+  } // [Chrome]
+
+  &::-moz-color-swatch {
+    border: none;
+  } // [Firefox]
+
+  &:hover {
+    transform: scale(1.07);
+  }
+`;
+
+const TypeButton = styled.button`
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
+
+  background-color: ${({ $categoryType }) =>
+    $categoryType === "Income"
+      ? "var(--income-color)"
+      : "var(--expense-color)"};
+
+  &:hover {
+    transform: scale(1.07);
+  }
+`;
+
+// **************************************************************
+
 const AddButton = styled.button`
   background: transparent;
   border: none;
@@ -438,8 +698,8 @@ const AddButton = styled.button`
   margin: 1rem auto 0; // Abstand list / empty-state + zentriert
 
   svg {
-    width: 23px;
-    height: 22px;
+    width: 25px;
+    height: 25px;
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {

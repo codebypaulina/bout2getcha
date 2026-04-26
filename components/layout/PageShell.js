@@ -7,6 +7,7 @@ export default function PageShell({
   title,
   children,
   showPageTitle = true, // für AddingPage
+  showBottomNav = true, // für CategoryDetailsPage
 }) {
   const pageTitleRef = useRef(null); // h1 in PageContent
   const pageContentRef = useRef(null); // PageContent
@@ -48,7 +49,7 @@ export default function PageShell({
         {children}
       </PageContent>
 
-      <BottomNav />
+      {showBottomNav ? <BottomNav /> : null}
     </PageLayout>
   );
 }
