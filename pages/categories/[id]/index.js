@@ -404,7 +404,7 @@ export default function CategoryDetailsPage() {
                     {new Date(transaction.date).toLocaleDateString("de-DE", {
                       day: "2-digit",
                       month: "2-digit",
-                      year: "numeric",
+                      year: "2-digit",
                     })}
                   </p>
 
@@ -471,26 +471,23 @@ export default function CategoryDetailsPage() {
 }
 
 const ContentContainer = styled.div`
-  max-width: var(--app-max-width);
+  padding: 1.55rem 1rem 2rem 1rem; // Abstand Bildschirmrand / PageShell
+
   // background-color: var(--list-item-background);
   // border-radius: 30px;
   // border: 2px solid var(--list-item-background);
-  padding: 1.55rem 1.75rem 2rem 1.75rem; // Abstand Bildschirmrand
-  margin: 0 auto; // horizontal zentriert
-
-  .empty-state {
-    text-align: center;
-  }
 `;
 
 const ContentHeader = styled.div`
   display: flex; // h1 + CloseButton nebeneinander
+  align-items: center; // CloseButton vertikal
   margin-bottom: 1.5rem; // Abstand NameNavRow
 
   h1 {
-    font-size: 1.5rem;
     flex: 1; // nimmt restlichen Platz in header
     text-align: center;
+    font-size: 1.5rem;
+    color: var(--secondary-text-color);
   }
 `;
 
@@ -498,6 +495,8 @@ const CloseButton = styled.button`
   background: transparent;
   border: none;
   cursor: pointer;
+
+  display: flex; // vertikal zentriert in ContentHeader
 
   svg {
     width: 25px;
@@ -523,7 +522,7 @@ const CloseButton = styled.button`
 // **************************************************************
 
 const NameNavRow = styled.div`
-  display: grid; //      prev | category.name | next
+  display: grid; //      NavButton | NameContainer | NavButton
   grid-template-columns: 25px minmax(0, 1fr) 25px;
   align-items: center; // vertikal
   margin-bottom: 1rem; // Abstand ActionsRow
@@ -543,8 +542,7 @@ const NavButton = styled.button`
   justify-content: center;
 
   svg {
-    height: 10px;
-    width: 10px;
+    height: 12px;
     stroke: var(--button-text-color);
   }
   .prev {
@@ -569,20 +567,22 @@ const NavButton = styled.button`
 `;
 
 const NameContainer = styled.div`
-  min-width: 0; // für grid / ellipsis
+  height: 33px; // NameButton -> NameInput springt nicht
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 `;
 
 const NameButton = styled.button`
-  max-width: 170px; // für grid / ellipsis
+  max-width: 170px; // für ellipsis
   background: transparent;
   border: none;
   font-size: 1.15rem;
   font-weight: bold;
   color: var(--secondary-text-color);
   cursor: pointer;
+  padding: 2px 0 6px 0; // NameButton -> NameInput springt nicht
 
   overflow: hidden;
   text-overflow: ellipsis;
@@ -595,15 +595,16 @@ const NameButton = styled.button`
 `;
 
 const NameInput = styled.input`
-  width: min(150px, 100%);
+  max-width: 170px;
   background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--button-hover-color);
+  border-radius: 30px;
+  border: 1px solid var(--primary-text-color);
   color: var(--primary-text-color);
   font-size: 1.15rem;
   font-weight: bold;
   text-align: center;
-  // outline: none;
+  outline: none;
+  padding: 2px 0 6px 0;
 `;
 
 const NameError = styled.p`
@@ -646,10 +647,9 @@ const ColorInput = styled.input`
   width: 25px;
   height: 25px;
   border-radius: 50%;
-  border: none;
+  border: 1px solid var(--primary-text-color);
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
   background-color: ${(props) => props.value};
 
   &::-webkit-color-swatch-wrapper {
@@ -695,7 +695,7 @@ const AddButton = styled.button`
   cursor: pointer;
 
   display: block; // wegen Zentrierung
-  margin: 1rem auto 0; // Abstand list / empty-state + zentriert
+  margin: 1.5rem auto 0; // Abstand list / empty-state + zentriert
 
   svg {
     width: 25px;
@@ -724,36 +724,39 @@ const TransactionButton = styled.button`
   border: none;
   cursor: pointer;
 
-  display: flex;
-  gap: 1rem; // Abstand items
+  display: grid; //      date | description | amount
+  grid-template-columns: minmax(33px, 50px) minmax(0, 1fr) max-content;
+  column-gap: 0.5rem; // Abstand items
   padding-bottom: 0.2rem; // Abstand zw. Zeilen
 
   p {
+    text-align: left;
     font-size: 0.8rem;
     white-space: nowrap;
   }
 
   p.date {
-    min-width: 33px;
     overflow: hidden;
   }
 
   p.description {
-    min-width: 60px;
-    text-align: left;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   p.amount {
+    text-align: right;
     font-weight: bold;
-    margin-left: auto; // rechts
   }
 
   &:hover {
     p {
       transform: scale(1.03);
       color: var(--primary-text-color);
+    }
+
+    p.description {
+      transform-origin: left center; // sonst zu arg links
     }
   }
 `;
