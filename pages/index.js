@@ -338,9 +338,10 @@ const CategoryLink = styled(Link)`
   transform: ${({ $isHighlighted }) =>
     $isHighlighted ? "scale(1.02)" : "none"};
 
-  display: flex; // items nebeneinander
+  display: grid; //      ColorTag | name | amount
+  grid-template-columns: 8px minmax(0, 1fr) max-content;
   align-items: center; // vertikal
-  gap: 0.5rem; // Abstand items
+  column-gap: 0.5rem; // Abstand items
 
   p.name,
   p.amount {
@@ -349,6 +350,12 @@ const CategoryLink = styled(Link)`
       $isHighlighted
         ? "var(--primary-text-color)"
         : "var(--secondary-text-color)"};
+  }
+
+  p.name {
+    white-space: nowrap; // in 1 Zeile
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   p.amount {
