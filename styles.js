@@ -31,6 +31,7 @@ export default createGlobalStyle`
 
     /* [LAYOUT] */
     --app-max-width: 450px; /* max App-Fläche auf Desktop */
+    --page-radius: 30px;
     --topbar-height: 57px;
     --bottomnav-height: 57px;
   }

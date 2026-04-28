@@ -81,7 +81,9 @@ const PageContent = styled.main`
   }
 
   @media (min-width: ${DESKTOP_BREAKPOINT}) {
-    border-radius: 30px; // runde Ecken
+    position: relative; // für BottomNav
+    z-index: 1; // über BottomNav-Füllfläche
+    border-radius: var(--page-radius); // runde Ecken
   }
 `;
 

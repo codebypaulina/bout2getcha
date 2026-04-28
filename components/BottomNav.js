@@ -17,8 +17,15 @@ export default function BottomNav() {
     return <Wrapper />;
   } // wenn ausgeloggt, keine actions
 
+  const activeEdge =
+    router.pathname === "/"
+      ? "left"
+      : router.pathname === "/profile"
+        ? "right"
+        : null; // Füllfläche
+
   return (
-    <Wrapper>
+    <Wrapper $activeEdge={activeEdge}>
       <ul>
         <NavItem $isActive={router.pathname === "/"}>
           <StyledLink
@@ -78,13 +85,47 @@ export default function BottomNav() {
   );
 }
 
+const DESKTOP_BREAKPOINT = "431px";
+
 const Wrapper = styled.nav`
   height: var(--bottomnav-height); // wie TopBar
   background-color: var(--button-background-color);
 
   ul {
-    list-style: none;
     display: flex; // items nebeneinander
+  }
+
+  // *** [ Füllfläche links + rechts ] *************
+  @media (min-width: ${DESKTOP_BREAKPOINT}) {
+    position: relative;
+
+    &::before,
+    &::after {
+      content: "";
+      position: absolute;
+      top: calc(-1 * var(--page-radius));
+      width: var(--page-radius);
+      height: var(--page-radius);
+      background-color: var(--button-active-color);
+      display: none; // keine Füllfläche
+    }
+
+    &::before {
+      left: 0;
+      display: ${({ $activeEdge }) =>
+        $activeEdge === "left" ? "block" : "none"};
+    }
+
+    &::after {
+      right: 0;
+      display: ${({ $activeEdge }) =>
+        $activeEdge === "right" ? "block" : "none"};
+    }
+
+    ul {
+      position: relative;
+      z-index: 1; // über Füllfläche
+    }
   }
 `;
 
