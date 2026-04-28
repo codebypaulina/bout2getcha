@@ -53,10 +53,12 @@ export default function ChartCard({
           animate={false} // Segmente springen nicht
           enableArcLabels={false} // keine Zahlen im Segment
           tooltip={({ datum }) => (
-            <div>
-              {datum.label}:{" "}
-              <strong>{getChartPercentage(datum.value)} %</strong>
-            </div>
+            <TooltipBox>
+              <span className="percentage">
+                {getChartPercentage(datum.value)} %
+              </span>
+              <span className="category">{datum.label}</span>
+            </TooltipBox>
           )}
           // für category- + segment-hover:
           activeId={activeId}
@@ -99,6 +101,27 @@ const PieWrapper = styled.div`
   height: 155px;
   width: 155px;
   filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Zwischenräume
+`;
+
+const TooltipBox = styled.div`
+  background-color: #232323;
+  color: var(--primary-text-color);
+  border-radius: 10px;
+  padding: 3px 8px 8px 8px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  .percentage {
+    font-size: 1rem;
+    font-weight: bold;
+  }
+
+  .category {
+    font-size: 0.85rem;
+  }
 `;
 
 const SummaryRow = styled.div`
