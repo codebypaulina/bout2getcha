@@ -472,10 +472,6 @@ export default function CategoryDetailsPage() {
 
 const ContentContainer = styled.div`
   padding: 1.55rem 1rem 2rem 1rem; // Abstand Bildschirmrand / PageShell
-
-  // background-color: var(--list-item-background);
-  // border-radius: 30px;
-  // border: 2px solid var(--list-item-background);
 `;
 
 const ContentHeader = styled.div`
@@ -495,7 +491,6 @@ const CloseButton = styled.button`
   background: transparent;
   border: none;
   cursor: pointer;
-
   display: flex; // vertikal zentriert in ContentHeader
 
   svg {
@@ -524,6 +519,7 @@ const CloseButton = styled.button`
 const NameNavRow = styled.div`
   display: grid; //      NavButton | NameContainer | NavButton
   grid-template-columns: 25px minmax(0, 1fr) 25px;
+  column-gap: 1rem; // Abstand items
   align-items: center; // vertikal
   margin-bottom: 1rem; // Abstand ActionsRow
 `;
@@ -567,7 +563,7 @@ const NavButton = styled.button`
 `;
 
 const NameContainer = styled.div`
-  height: 33px; // NameButton -> NameInput springt nicht
+  min-width: 0; // für ellipsis in grid
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -575,14 +571,15 @@ const NameContainer = styled.div`
 `;
 
 const NameButton = styled.button`
-  max-width: 170px; // für ellipsis
+  width: 100%; // volle verfügbare Breite in grid
   background: transparent;
-  border: none;
+  border: 1px solid transparent; // wie NameInput (springt nicht)
+  border-radius: 30px;
+  color: var(--secondary-text-color);
   font-size: 1.15rem;
   font-weight: bold;
-  color: var(--secondary-text-color);
   cursor: pointer;
-  padding: 2px 0 6px 0; // NameButton -> NameInput springt nicht
+  padding: 3px 0 6px 0; // wie NameInput (springt nicht)
 
   overflow: hidden;
   text-overflow: ellipsis;
@@ -595,16 +592,16 @@ const NameButton = styled.button`
 `;
 
 const NameInput = styled.input`
-  max-width: 170px;
+  width: 100%; // volle verfügbare Breite in grid
   background: transparent;
-  border-radius: 30px;
   border: 1px solid var(--primary-text-color);
+  border-radius: 30px;
   color: var(--primary-text-color);
   font-size: 1.15rem;
   font-weight: bold;
   text-align: center;
   outline: none;
-  padding: 2px 0 6px 0;
+  padding: 3px 0 6px 0; // text vertikal zentrierter
 `;
 
 const NameError = styled.p`

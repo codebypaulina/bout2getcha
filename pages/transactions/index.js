@@ -33,7 +33,7 @@ export default function TransactionsPage() {
   const pageTitle = "Transactions";
 
   // *** [ AUTH ]
-  const { data: session } = useSession(); // auth
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
 
   // *** [ DATA-FETCH ]
@@ -54,18 +54,16 @@ export default function TransactionsPage() {
 
   // *** [ SYNC ] **************************************************************************
   // *** [ 1. chart-state ]: session storage ***********************************************
-  // default: closed  ||  in storage: wenn open
   const [isChartOpen, setIsChartOpen] = useSessionStorageState(
     userId ? `u:${userId}:transactions:isChartOpen` : null,
     false
-  );
+  ); // default: closed  ||  in storage: wenn open
 
   // *** [ 2. type-filter ]: session storage ***********************************************
-  // default: kein filter  ||  in storage: wenn expense / income
   const [typeFilter, setTypeFilter] = useSessionStorageState(
     userId ? `u:${userId}:transactions:typeFilter` : null,
     null
-  );
+  ); // default: kein filter  ||  in storage: wenn expense / income
 
   // *** [ 3. date-filter ]: state + picker + session storage ******************************
   const {
@@ -299,15 +297,12 @@ export default function TransactionsPage() {
 
   function isTxHighlighted(transaction) {
     if (!typeFilterActive) return false;
-
     if (hoverSource === "list") {
       return hoveredTxId === transaction._id;
     }
-
     if (hoverSource === "pie") {
       return hoveredCategoryId === transaction.category._id;
     }
-
     return false;
   }
 
@@ -458,7 +453,7 @@ const TransactionList = styled.ul`
   display: grid; //    date | ColorTag | description | category | amount
   grid-template-columns:
     minmax(31px, max-content) 5px minmax(70px, 1fr) minmax(0, 60px)
-    67px;
+    max-content;
   align-items: center; // content in der Zeile vertikal zentriert
   gap: 0.5rem;
 `;
