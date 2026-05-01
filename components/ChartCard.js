@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic";
 import styled from "styled-components";
+import { formatCurrency } from "@/utils/helpers";
 
 // dynamisch, sonst ES Module error
 const ResponsivePie = dynamic(
@@ -39,7 +40,7 @@ export default function ChartCard({
         }));
 
   return (
-    <Card>
+    <Card aria-label="Chart">
       <PieWrapper>
         <ResponsivePie
           data={displayData}
@@ -68,23 +69,17 @@ export default function ChartCard({
       </PieWrapper>
 
       {!hideSummary && summaryLabel !== null && summaryValue !== null && (
-        <SummaryRow>
-          <SummaryLabel>{summaryLabel}</SummaryLabel>
+        <SummaryRow $isNegative={isNegativeValue}>
+          <p>{summaryLabel}</p>
 
-          <SummaryValue $isNegative={isNegativeValue}>
-            {summaryValue.toLocaleString("de-DE", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{" "}
-            €
-          </SummaryValue>
+          <p className="value">{formatCurrency(summaryValue)} €</p>
         </SummaryRow>
       )}
     </Card>
   );
 }
 
-const Card = styled.div`
+const Card = styled.section`
   display: flex;
   flex-direction: column; // PieWrapper + SummaryRow untereinander
   align-items: center; // horizontal zentriert
@@ -92,7 +87,7 @@ const Card = styled.div`
 
   background-color: #232323;
   border-radius: 30px; // wie FilterBar
-  padding: 1.2rem;
+  padding: 1.2rem 0 1rem 0;
   margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
   box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 `;
@@ -125,18 +120,14 @@ const TooltipBox = styled.div`
 `;
 
 const SummaryRow = styled.div`
-  display: grid;
-  grid-template-columns: 85px 80px;
-`;
+  display: flex;
+  flex-direction: column; // untereinander
+  align-items: center; // horizontal
+  gap: 0.25rem;
 
-const SummaryLabel = styled.p`
-  width: 85px;
-`;
-
-const SummaryValue = styled.p`
-  width: 80px;
-  text-align: right;
-  font-weight: bold;
-  color: ${({ $isNegative }) =>
-    $isNegative ? "var(--expense-color)" : "inherit"};
+  p.value {
+    font-weight: bold;
+    color: ${({ $isNegative }) =>
+      $isNegative ? "var(--expense-color)" : "inherit"};
+  }
 `;
