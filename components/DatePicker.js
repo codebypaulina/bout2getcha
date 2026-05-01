@@ -2,8 +2,7 @@ import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import styled from "styled-components";
 
-import PrevIcon from "@/public/icons/previous.svg";
-import NextIcon from "@/public/icons/next.svg";
+import NavArrowButton from "@/components/NavArrowButton";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
 
@@ -40,14 +39,20 @@ export default function DatePicker({
           onSelect={setPickerRange}
           components={{
             PreviousMonthButton: (props) => (
-              <NavButton {...props} type="button">
-                <PrevIcon className="prev" />
-              </NavButton>
+              <NavArrowButton
+                {...props}
+                direction="prev"
+                buttonSize={24} // weil in library height=24
+                iconSize={11}
+              />
             ),
             NextMonthButton: (props) => (
-              <NavButton {...props} type="button">
-                <NextIcon className="next" />
-              </NavButton>
+              <NavArrowButton
+                {...props}
+                direction="next"
+                buttonSize={24}
+                iconSize={11}
+              />
             ),
           }}
         />
@@ -173,30 +178,6 @@ const Wrapper = styled.div`
   .rdp-outside.rdp-range_start .rdp-day_button,
   .rdp-outside.rdp-range_end .rdp-day_button {
     opacity: 1;
-  }
-`;
-
-const NavButton = styled.button`
-  width: 25px;
-  height: 25px;
-  border: none;
-  border-radius: 50%;
-  background-color: var(--button-background-color);
-  cursor: pointer;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
-
-  svg {
-    height: 10px;
-    width: 10px;
-    stroke: var(--button-text-color);
-  }
-
-  &:hover {
-    transform: scale(1.07);
-
-    svg {
-      stroke: var(--primary-text-color);
-    }
   }
 `;
 

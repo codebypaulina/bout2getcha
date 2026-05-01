@@ -12,13 +12,11 @@ import {
   FilterBar,
   ChartButton,
   DateNav,
-  ArrowButton,
   RangeButton,
   TypeButton,
 } from "@/components/filterBar.styles";
+import NavArrowButton from "@/components/NavArrowButton";
 import ChartIcon from "@/public/icons/chart.svg";
-import PrevIcon from "@/public/icons/previous.svg";
-import NextIcon from "@/public/icons/next.svg";
 
 import useSessionStorageState from "@/hooks/useSessionStorageState";
 import useDateFilter from "@/hooks/useDateFilter";
@@ -274,14 +272,14 @@ export default function CategoriesPage() {
         </ChartButton>
 
         <DateNav>
-          <ArrowButton
-            type="button"
-            aria-label="Go to previous month"
+          <NavArrowButton
+            direction="prev"
+            ariaLabel="Go to previous month"
             disabled={isPrevRangeDisabled}
             onClick={goToPrevMonth}
-          >
-            <PrevIcon className="prev" />
-          </ArrowButton>
+            buttonSize={22}
+            iconSize={10}
+          />
 
           <RangeButton
             type="button"
@@ -292,14 +290,14 @@ export default function CategoriesPage() {
             {dateFilterLabel}
           </RangeButton>
 
-          <ArrowButton
-            type="button"
-            aria-label="Go to next month"
+          <NavArrowButton
+            direction="next"
+            ariaLabel="Go to next month"
             disabled={isNextRangeDisabled}
             onClick={goToNextMonth}
-          >
-            <NextIcon className="next" />
-          </ArrowButton>
+            buttonSize={22}
+            iconSize={10}
+          />
         </DateNav>
 
         <TypeButton

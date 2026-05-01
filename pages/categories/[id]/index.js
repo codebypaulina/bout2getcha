@@ -5,13 +5,12 @@ import { useSession } from "next-auth/react";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
+import NavArrowButton from "@/components/NavArrowButton";
 import FormEditTransaction from "@/components/FormEditTransaction";
 import FormAddTransaction from "@/components/FormAddTransaction";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 
 import CloseIcon from "/public/icons/close.svg";
-import PrevIcon from "/public/icons/previous.svg";
-import NextIcon from "/public/icons/next.svg";
 import TrashIcon from "/public/icons/trash.svg";
 import AddIcon from "/public/icons/addNEU.svg";
 
@@ -310,15 +309,15 @@ export default function CategoryDetailsPage() {
         </ContentHeader>
 
         <NameNavRow>
-          <NavButton
-            type="button"
-            aria-label="Previous category"
+          <NavArrowButton
+            direction="prev"
+            ariaLabel="Go to previous category"
             title="Previous"
             disabled={!prevId}
             onClick={goToPrevCat}
-          >
-            <PrevIcon className="prev" />
-          </NavButton>
+            buttonSize={25}
+            iconSize={12}
+          />
 
           <NameContainer>
             {isEditingCatName ? (
@@ -353,15 +352,15 @@ export default function CategoryDetailsPage() {
             )}
           </NameContainer>
 
-          <NavButton
-            type="button"
-            aria-label="Next category"
+          <NavArrowButton
+            direction="next"
+            ariaLabel="Go to next category"
             title="Next"
             disabled={!nextId}
             onClick={goToNextCat}
-          >
-            <NextIcon className="next" />
-          </NavButton>
+            buttonSize={25}
+            iconSize={12}
+          />
         </NameNavRow>
 
         <ActionsRow>
@@ -520,49 +519,11 @@ const CloseButton = styled.button`
 // **************************************************************
 
 const NameNavRow = styled.div`
-  display: grid; //      NavButton | NameContainer | NavButton
+  display: grid; //      NavArrowButton | NameContainer | NavArrowButton
   grid-template-columns: 25px minmax(0, 1fr) 25px;
   column-gap: 1rem; // Abstand items
   align-items: center; // vertikal
   margin-bottom: 1rem; // Abstand ActionsRow
-`;
-
-const NavButton = styled.button`
-  border: none;
-  border-radius: 50%;
-  width: 25px;
-  height: 25px;
-  background-color: var(--button-background-color);
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-  display: flex; // Zentrierung svg
-  align-items: center;
-  justify-content: center;
-
-  svg {
-    height: 12px;
-    stroke: var(--button-text-color);
-  }
-  .prev {
-    margin-right: 2px;
-  }
-  .next {
-    margin-left: 2px;
-  }
-
-  &:hover {
-    transform: scale(1.07);
-
-    svg {
-      stroke: var(--primary-text-color);
-    }
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
-  }
 `;
 
 const NameContainer = styled.div`

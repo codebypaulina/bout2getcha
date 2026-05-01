@@ -40,43 +40,6 @@ export const ChartButton = styled.button`
   }
 `;
 
-export const ArrowButton = styled.button`
-  border: none;
-  border-radius: 50%;
-  width: 22px;
-  height: 22px;
-  background-color: var(--button-background-color);
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
-
-  svg {
-    width: 10px;
-    height: 10px;
-    stroke: var(--button-text-color);
-  }
-
-  .prev {
-    margin-right: 2px;
-  }
-
-  .next {
-    margin-left: 2px;
-  }
-
-  &:hover {
-    transform: scale(1.07);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
-
-    svg {
-      stroke: #cccccc4f;
-    }
-  }
-`;
-
 export const DateNav = styled.div`
   display: flex; // buttons nebeneinander
   align-items: center; // vertikal zentriert
