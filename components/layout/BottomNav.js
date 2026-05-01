@@ -3,11 +3,11 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import styled from "styled-components";
 
-import HomeIcon from "../public/icons/home.svg";
-import TransactionsIcon from "../public/icons/transactions.svg";
-import AddIcon from "../public/icons/add.svg";
-import CategoriesIcon from "../public/icons/categories.svg";
-import ProfileIcon from "../public/icons/profile.svg";
+import HomeIcon from "@/public/icons/home.svg";
+import TransactionsIcon from "@/public/icons/transactions.svg";
+import AddIcon from "@/public/icons/add.svg";
+import CategoriesIcon from "@/public/icons/categories.svg";
+import ProfileIcon from "@/public/icons/profile.svg";
 import { DESKTOP_BREAKPOINT } from "@/utils/constants";
 
 export default function BottomNav() {
