@@ -212,7 +212,11 @@ export default function TransactionsPage() {
           },
         ];
 
-  const hasEnoughChartData = chartData.length > 0; // für ChartButton
+  const hasEnoughChartData =
+    typeFilter === null
+      ? totalIncome > 0 || totalExpense > 0
+      : chartData.length > 0; // für ChartButton
+
   const typeFilterActive = typeFilter !== null; // für transaction- + segment-hover (nur bei type-filter)
 
   // *** [balance-data]
