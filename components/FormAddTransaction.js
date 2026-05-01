@@ -6,6 +6,7 @@ import styled from "styled-components";
 import CloseIcon from "@/public/icons/close.svg";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
+import { TX_DESCRIPTION_MAX_LENGTH, TX_AMOUNT_MIN } from "@/utils/constants";
 
 export default function FormAddTransaction({
   initialCategoryId = "", // CategoryDetailsPage
@@ -177,6 +178,7 @@ export default function FormAddTransaction({
           aria-label="Enter description"
           title="Description"
           placeholder=" ..."
+          maxLength={TX_DESCRIPTION_MAX_LENGTH}
           required
         />
 
@@ -189,7 +191,7 @@ export default function FormAddTransaction({
           title="Amount"
           placeholder=" 0,00 €"
           inputMode="decimal"
-          min="0.01"
+          min={TX_AMOUNT_MIN}
           step="any" // Kommazahlen (in FormEditTransaction geht 0.01 nicht)
           required
         />

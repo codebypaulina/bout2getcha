@@ -14,6 +14,8 @@ import PrevIcon from "/public/icons/previous.svg";
 import NextIcon from "/public/icons/next.svg";
 import TrashIcon from "/public/icons/trash.svg";
 import AddIcon from "/public/icons/addNEU.svg";
+
+import { CAT_NAME_MAX_LENGTH } from "@/utils/constants";
 import {
   parseDateString,
   getDefaultRange,
@@ -326,6 +328,7 @@ export default function CategoryDetailsPage() {
                   aria-label="Update category name"
                   title="Category name"
                   value={catName}
+                  maxLength={CAT_NAME_MAX_LENGTH}
                   onChange={(event) => {
                     setCatName(event.target.value);
                     setCatNameError("");

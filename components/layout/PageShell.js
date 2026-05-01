@@ -1,7 +1,9 @@
 import { useRef, useState, useEffect } from "react";
 import styled from "styled-components";
-import TopBar from "@/components/TopBar";
-import BottomNav from "@/components/BottomNav";
+
+import TopBar from "@/components/layout/TopBar";
+import BottomNav from "@/components/layout/BottomNav";
+import { DESKTOP_BREAKPOINT } from "@/utils/constants";
 
 export default function PageShell({
   title,
@@ -53,8 +55,6 @@ export default function PageShell({
     </PageLayout>
   );
 }
-
-const DESKTOP_BREAKPOINT = "431px";
 
 const PageLayout = styled.div`
   height: 100%; // wie AppViewport

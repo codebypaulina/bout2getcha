@@ -59,7 +59,7 @@ export default async function handler(request, response) {
       const updatedCategory = await Category.findOneAndUpdate(
         { _id: id, userId: userObjectId },
         request.body,
-        { new: true } // geupdatete Version der category
+        { new: true, runValidators: true } // geupdatete Version der category
       );
 
       if (!updatedCategory) {

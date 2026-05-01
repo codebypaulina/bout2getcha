@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { CAT_NAME_MAX_LENGTH } from "@/utils/constants";
 
 const { Schema } = mongoose;
 
@@ -11,6 +12,8 @@ const categorySchema = new Schema({
   name: {
     type: String,
     required: true,
+    trim: true,
+    maxlength: CAT_NAME_MAX_LENGTH,
   },
   type: {
     type: String,

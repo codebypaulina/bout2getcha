@@ -5,6 +5,7 @@ import styled from "styled-components";
 import CloseIcon from "@/public/icons/close.svg";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
+import { CAT_NAME_MAX_LENGTH } from "@/utils/constants";
 
 export default function FormAddCategory({ closeForm }) {
   const router = useRouter();
@@ -75,6 +76,7 @@ export default function FormAddCategory({ closeForm }) {
             aria-label="Enter category name"
             title="Name"
             placeholder=" ..."
+            maxLength={CAT_NAME_MAX_LENGTH}
             required
           />
 

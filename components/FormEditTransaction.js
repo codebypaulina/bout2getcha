@@ -7,6 +7,7 @@ import CloseIcon from "@/public/icons/close.svg";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
+import { TX_DESCRIPTION_MAX_LENGTH, TX_AMOUNT_MIN } from "@/utils/constants";
 
 export default function FormEditTransaction({
   transactionId,
@@ -217,6 +218,7 @@ export default function FormEditTransaction({
           aria-label="Update description"
           title="Description"
           defaultValue={transaction.description}
+          maxLength={TX_DESCRIPTION_MAX_LENGTH}
           required
         />
 
@@ -229,7 +231,7 @@ export default function FormEditTransaction({
           title="Amount"
           defaultValue={transaction.amount}
           inputMode="decimal"
-          min="0.01"
+          min={TX_AMOUNT_MIN}
           step="any" // Kommazahlen (0.01 geht nicht)
           required
         />

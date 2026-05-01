@@ -51,7 +51,7 @@ export default async function handler(request, response) {
       const updatedTransaction = await Transaction.findOneAndUpdate(
         { _id: id, userId: userObjectId },
         request.body,
-        { new: true } // geupdatete Version der transaction
+        { new: true, runValidators: true } // geupdatete Version der transaction
       ).populate("category");
 
       if (!updatedTransaction) {

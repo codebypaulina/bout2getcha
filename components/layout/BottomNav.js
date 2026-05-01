@@ -8,6 +8,7 @@ import TransactionsIcon from "../public/icons/transactions.svg";
 import AddIcon from "../public/icons/add.svg";
 import CategoriesIcon from "../public/icons/categories.svg";
 import ProfileIcon from "../public/icons/profile.svg";
+import { DESKTOP_BREAKPOINT } from "@/utils/constants";
 
 export default function BottomNav() {
   const router = useRouter();
@@ -84,8 +85,6 @@ export default function BottomNav() {
     </Wrapper>
   );
 }
-
-const DESKTOP_BREAKPOINT = "431px";
 
 const Wrapper = styled.nav`
   height: var(--bottomnav-height); // wie TopBar
