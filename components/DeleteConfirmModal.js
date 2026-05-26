@@ -1,38 +1,30 @@
 import { useEffect, useRef } from "react";
 import styled from "styled-components";
+
 import CloseIcon from "@/public/icons/close.svg";
+import { OverlayDelete, fixedCenteredStylesDelete } from "./modal.styles";
+import useEscapeClose from "@/hooks/useEscapeClose";
 
 export default function DeleteConfirmModal({
-  open,
-  message,
-  onConfirm,
-  onCancel,
+  confirmationMessage,
+  confirmDelete,
+  closeModal,
 }) {
-  const confirmRef = useRef(null); // für Fokus delete-button
-
   // *** ESC-listener
+  useEscapeClose(true, closeModal);
+
+  // *** Fokus auf delete-button (enter / space)
+  const confirmRef = useRef(null);
+
   useEffect(() => {
-    if (!open) return;
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") onCancel();
-    }
-
-    window.addEventListener("keydown", handleKeyDown); // aktivieren
-    return () => window.removeEventListener("keydown", handleKeyDown); // beim Schließen entfernen
-  }, [open, onCancel]);
-
-  // *** Fokus auf delete-button (per enter/space bedienbar)
-  useEffect(() => {
-    if (open) confirmRef.current?.focus();
-  }, [open]);
+    confirmRef.current?.focus();
+  }, []);
 
   // ***************************************************
-  if (!open) return null;
 
   return (
     <>
-      <Overlay onClick={onCancel} />
+      <OverlayDelete onClick={closeModal} />
 
       <Modal
         role="dialog"
@@ -47,14 +39,14 @@ export default function DeleteConfirmModal({
             type="button"
             aria-label="Close dialog"
             title="Close"
-            onClick={onCancel}
+            onClick={closeModal}
           >
             <CloseIcon />
           </CloseButton>
         </Header>
 
         <section id="delete-confirm-desc">
-          {message}
+          {confirmationMessage}
           <p className="warning">This cannot be undone.</p>
         </section>
 
@@ -62,7 +54,7 @@ export default function DeleteConfirmModal({
           ref={confirmRef}
           type="button"
           aria-label="Confirm and delete"
-          onClick={onConfirm}
+          onClick={confirmDelete}
           className="delete"
         >
           Delete
@@ -72,53 +64,44 @@ export default function DeleteConfirmModal({
   );
 }
 
-const Overlay = styled.div`
-  position: fixed;
-  inset: 0; // füllt gesamten viewport
-  background: rgba(0, 0, 0, 0.6); // abgedunkelt
-  z-index: 9; // über form, unter Modal
-`;
-
 const Modal = styled.div`
+  ${fixedCenteredStylesDelete}; // über overlay + zentriert
+
   width: min(92vw, 350px); // responsiv + max
-  background-color: #ac2525;
-  color: var(--button-text-color);
-  padding: 1.3rem 1.5rem 1.5rem 1.5rem;
-  border-radius: 1.5rem; // abgerundete Ecken
+  background-color: var(--delete-modal-background-color);
+  border-radius: 30px; // abgerundete Ecken
+  padding: 1.45rem 1.75rem 1.7rem 1.75rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%); // zentriert
-  z-index: 10; // Modal über overlay
-
   p {
+    font-size: 1rem;
     color: var(--primary-text-color);
   }
 
   p.warning {
-    margin-top: 0.3rem; // Abstand message
+    font-size: 1.1rem;
     font-weight: bold;
-    font-size: 0.9rem;
+    margin-top: 0.3rem; // Abstand confirmationMessage
   }
 
   button.delete {
     display: block; // für margin
-    margin: 1.5rem auto 0 auto; // Abstand message-section + horizontal zentriert
+    margin: 1.5rem auto 0 auto; // Abstand confirmationMessage-section + horizontal zentriert
+    padding-bottom: 3px; // text vertikal zentrierter
 
+    min-width: 80px;
+    min-height: 35px;
     border: none;
-    border-radius: 20px;
-    min-width: 70px;
-    min-height: 30px;
-    cursor: pointer;
+    border-radius: 30px;
+    background-color: var(--delete-button-background-color);
+    color: var(--delete-button-text-color);
+    font-size: 1.1rem;
     font-weight: bold;
-    background-color: #fa6c6c;
-    color: #ffffffd5;
+    cursor: pointer;
     box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
     &:hover {
-      transform: scale(1.07);
+      transform: scale(1.05);
       color: var(--primary-text-color);
     }
   }
@@ -126,12 +109,13 @@ const Modal = styled.div`
 
 const Header = styled.div`
   display: flex; // h2 + CloseButton nebeneinander
-  margin-bottom: 1rem; // Abstand message-section
+  margin-bottom: 0.75rem; // Abstand confirmationMessage-section
 
   h2 {
-    font-size: 1.3rem;
     flex: 1; // nimmt restlichen Platz in Header
     text-align: center;
+    font-size: 1.5rem;
+    line-height: 1;
   }
 `;
 
@@ -141,15 +125,15 @@ const CloseButton = styled.button`
   cursor: pointer;
 
   svg {
-    width: 22px;
-    height: 22px;
+    width: 25px;
+    height: 25px;
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
-    fill: #fa6c6c;
+    fill: var(--delete-button-background-color);
   }
   svg path[class*="X"] {
-    fill: #ffffffd5;
+    fill: var(--delete-button-text-color);
   }
 
   &:hover {

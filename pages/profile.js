@@ -2,9 +2,9 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { mutate } from "swr";
-import styled from "styled-components";
+
+import PageShell from "@/components/layout/PageShell";
 import LoginSection from "@/components/LoginSection";
-import Navbar from "@/components/Navbar";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -12,12 +12,15 @@ export default function ProfilePage() {
   const { data: session } = useSession();
   const userId = session?.user?.userId;
 
+  const pageTitle = session ? "Profile" : "gotcha";
+
+  // *** [ LOGIN REDIRECT ] ******************************************************
   const callbackUrl =
     typeof router.query.callbackUrl === "string" && router.query.callbackUrl
       ? router.query.callbackUrl // vorhanden: nach Login dahin
       : "/"; // sonst: HomePage
 
-  // bootstrap seeding (default categories + transactions)
+  // *** [ BOOTSTRAP SEEDING ]: default categories + transactions ****************
   useEffect(() => {
     if (!userId) return;
 
@@ -40,25 +43,8 @@ export default function ProfilePage() {
   }, [userId]);
 
   return (
-    <>
-      <ContentContainer>
-        <h1>Profile</h1>
-
-        <LoginSection callbackUrl={callbackUrl} />
-      </ContentContainer>
-
-      {session && <Navbar />}
-    </>
+    <PageShell title={pageTitle}>
+      <LoginSection callbackUrl={callbackUrl} />
+    </PageShell>
   );
 }
-
-const ContentContainer = styled.div`
-  padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 350px; // Breite von list
-  margin: 0 auto; // content horizontal zentriert
-
-  h1 {
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
-`;

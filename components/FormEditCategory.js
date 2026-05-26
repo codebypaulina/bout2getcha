@@ -1,44 +1,50 @@
-import useSWR, { mutate } from "swr";
-import { useRouter } from "next/router";
+import useSWR from "swr";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
-import DeleteConfirmModal from "./DeleteConfirmModal";
+
 import CloseIcon from "@/public/icons/close.svg";
+import DeleteConfirmModal from "./DeleteConfirmModal";
+import { Overlay, fixedCenteredStyles } from "./modal.styles";
+import useEscapeClose from "@/hooks/useEscapeClose";
 
-export default function FormEditCategory() {
-  const router = useRouter();
-  const { id, from } = router.query; // from für back navigation nach category-delete
-
-  const { data: session } = useSession(); // auth
+export default function FormEditCategory({
+  categoryId,
+  onCatUpdated,
+  onCatDeleted,
+  closeForm,
+}) {
+  // *** [ AUTH ]
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
 
+  // *** [ DATA-FETCH ]
   const { data: category, error } = useSWR(
-    id && userId ? `/api/categories/${id}?u=${userId}` : null
-  ); // data-fetch
+    categoryId && userId ? `/api/categories/${categoryId}?u=${userId}` : null
+  );
 
-  // *** [ states ]
+  // *** [ STATES ]
   const [isConfirmOpen, setIsConfirmOpen] = useState(false); // für DeleteConfirmModal
   const [categoryType, setCategoryType] = useState("");
 
-  // *** [ sync type-state ]
+  // *** [ SYNC ] **************************************************************************
+  // *** [ type-state ]
   useEffect(() => {
     if (!category?.type) return;
     setCategoryType((prev) => prev || category.type);
   }, [category?.type]);
 
-  // *** [ guards ]
+  // *** [ ESC-listener ]
+  useEscapeClose(!isConfirmOpen, closeForm);
+
+  // *** [ GUARDS ] ************************************************************************
   if (error) return <h3>Failed to load category</h3>;
   if (!category) return <h3>Loading ...</h3>;
 
-  // *** [ type-button ] *******************************************************************
+  // *** [ HANDLERS ] **********************************************************************
+  // *** [ type-button ]
   function toggleCategoryType() {
     setCategoryType((prev) => (prev === "Expense" ? "Income" : "Expense"));
-  }
-
-  // *** [ X-button ]
-  function handleCancel() {
-    router.back();
   }
 
   // *** [ save-button ]
@@ -48,7 +54,7 @@ export default function FormEditCategory() {
     const data = Object.fromEntries(formData);
 
     try {
-      const response = await fetch(`/api/categories/${id}`, {
+      const response = await fetch(`/api/categories/${categoryId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -56,17 +62,15 @@ export default function FormEditCategory() {
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        await onCatUpdated?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (category- + transaction-list)
+        closeForm();
+        console.log("UPDATING SUCCESSFUL! (category)");
+      } else {
         throw new Error(
           `Failed to update category (status: ${response.status})`
         );
       }
-
-      // SWR-detail-cache: revalidieren, um category.transactionCount nicht zu überschreiben
-      // -> values geupdated (CategoryDetailsPage + reopened form)
-      mutate(`/api/categories/${id}?u=${userId}`);
-      console.log("UPDATING SUCCESSFUL! (category)");
-      router.back();
     } catch (error) {
       console.error("Error updating category: ", error);
     }
@@ -85,17 +89,17 @@ export default function FormEditCategory() {
     try {
       // cascade delete
       const url = hasTransactions
-        ? `/api/categories/${id}?cascade=true` // erst enthaltene transaction(s)
-        : `/api/categories/${id}`; // nur category (leer)
+        ? `/api/categories/${categoryId}?cascade=true` // erst enthaltene transaction(s)
+        : `/api/categories/${categoryId}`; // nur category (leer)
 
       const response = await fetch(url, {
         method: "DELETE",
       });
 
       if (response.ok) {
+        setIsConfirmOpen(false); // Modal schließen
+        await onCatDeleted?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (category- + transaction-list) + back nav
         console.log("DELETING SUCCESSFUL! (category)");
-        setIsConfirmOpen(false); //  Modal schließen
-        router.push(from || "/categories"); // zurück zu from (CategoryDetailsPage), sonst zu CategoriesPage
       } else {
         throw new Error(
           `Failed to delete category (status: ${response.status})`
@@ -108,16 +112,18 @@ export default function FormEditCategory() {
   }
 
   return (
-    <PageWrapper>
+    <>
+      <Overlay onClick={closeForm} />
+
       <FormContainer onSubmit={handleSubmit}>
         <FormHeader>
-          <h1>Edit</h1>
+          <h2>Category</h2>
 
           <CloseButton
             type="button"
             aria-label="Close form"
             title="Close"
-            onClick={handleCancel}
+            onClick={closeForm} // CategoryDetailsPage
           >
             <CloseIcon />
           </CloseButton>
@@ -172,51 +178,53 @@ export default function FormEditCategory() {
         </ButtonContainer>
       </FormContainer>
 
-      <DeleteConfirmModal
-        open={isConfirmOpen} // state
-        message={
-          category.transactionCount > 0 ? (
-            <p>
-              Are you sure you want to delete this category & all included
-              transactions?
-            </p>
-          ) : (
-            <p>Are you sure you want to delete this category?</p>
-          )
-        }
-        onConfirm={handleConfirmDelete} // category löschen
-        onCancel={() => setIsConfirmOpen(false)} // schließen (X / ESC / Overlay)
-      />
-    </PageWrapper>
+      {isConfirmOpen && (
+        <DeleteConfirmModal
+          confirmationMessage={
+            category.transactionCount > 0 ? (
+              <p>
+                Are you sure you want to delete this category & all included
+                transactions?
+              </p>
+            ) : (
+              <p>Are you sure you want to delete this category?</p>
+            )
+          }
+          confirmDelete={handleConfirmDelete} // category löschen
+          closeModal={() => setIsConfirmOpen(false)} // X / ESC / Overlay
+        />
+      )}
+    </>
   );
 }
 
-const PageWrapper = styled.div`
-  min-height: 100vh; // wrapper mind. wie viewport
-  display: flex; // wegen Zentrierung von form
-  align-items: center; // form vertikal zentriert
-  justify-content: center; // form horizontal zentriert
-`;
-
 const FormContainer = styled.form`
-  max-width: 250px;
-  background-color: var(--background-color);
-  padding: 1.5rem 2rem 2rem 2rem;
-  border-radius: 1.5rem; // abgerundete Ecken
+  ${fixedCenteredStyles}; // über overlay + zentriert
 
-  display: flex; // content vertikal
-  flex-direction: column; // content untereinander
+  width: 250px;
+  background-color: var(--background-color);
+  border-radius: 30px; // abgerundete Ecken
+  padding: 1.55rem 1.75rem 2rem 1.75rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
+  display: flex; // content vertikal
+  flex-direction: column; // untereinander
+
   label {
+    font-size: 1.15rem;
     font-weight: bold;
-    margin-bottom: 0.5rem; // Abstand zw. label & jeweiligem input
+    color: var(--primary-text-color);
+    margin: 0 0 0.55rem 0.25rem; // Abstand input
   }
 
   input {
-    border-radius: 0.5rem; // abgerundete Ecken
+    height: 1.75rem;
     border: 0.07rem solid var(--button-hover-color);
-    height: 1.5rem;
+    border-radius: 20px; // abgerundete Ecken
+  }
+
+  input[type="text"] {
+    padding-left: 5px;
   }
 
   input[type="color"] {
@@ -234,14 +242,14 @@ const FormContainer = styled.form`
 `;
 
 const FormHeader = styled.div`
-  display: flex; // h1 + CloseButton nebeneinander
-  align-items: center; // h1 + CloseButton vetikal zentriert
+  display: flex; // h2 + CloseButton nebeneinander
   margin-bottom: 1rem; // Abstand zum ersten label
 
-  h1 {
-    font-size: 1.5rem;
+  h2 {
     flex: 1; // nimmt restlichen Platz in FormHeader
     text-align: center;
+    font-size: 1.5rem;
+    line-height: 1;
   }
 `;
 
@@ -251,8 +259,8 @@ const CloseButton = styled.button`
   cursor: pointer;
 
   svg {
-    width: 22px;
-    height: 22px;
+    width: 25px;
+    height: 25px;
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
@@ -278,7 +286,7 @@ const NameTypeRow = styled.div`
   margin-bottom: 0.8rem; // Abstand Block Color
 
   input {
-    max-width: 126px; // sonst breiter als form
+    width: 155px; // sonst breiter als form
 
     // Firefox: wenn Feld angeklickt, kein blauer Rahmen:
     accent-color: var(--button-hover-color);
@@ -286,8 +294,8 @@ const NameTypeRow = styled.div`
 `;
 
 const ColorTag = styled.button`
-  width: 20px;
-  height: 20px;
+  width: 25px;
+  height: 25px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
@@ -307,21 +315,22 @@ const ButtonContainer = styled.div`
   margin-top: 2rem; // Abstand zum letzten input
   display: flex; // wegen Zentrierung
   justify-content: center; // buttons zentriert
-  gap: 0.8rem; // Abstand zw. buttons
+  gap: 1.5rem; // Abstand zw. buttons
 
   button {
+    width: 80px;
+    height: 35px;
     border: none;
-    border-radius: 20px;
-    width: 70px;
-    height: 30px;
-    cursor: pointer;
-    font-weight: bold;
+    border-radius: 30px;
     background-color: var(--button-background-color);
     color: var(--button-text-color);
-    box-shadow: 0 0 20px rgba(0, 0, 0, 1);
+    font-size: 1.15rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 
     &:hover {
-      transform: scale(1.07);
+      transform: scale(1.05);
       color: var(--primary-text-color);
     }
   }

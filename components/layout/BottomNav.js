@@ -1,19 +1,34 @@
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import styled from "styled-components";
-import HomeIcon from "../public/icons/home.svg";
-import TransactionsIcon from "../public/icons/transactions.svg";
-import AddIcon from "../public/icons/add.svg";
-import CategoriesIcon from "../public/icons/categories.svg";
-import ProfileIcon from "../public/icons/profile.svg";
 
-export default function Navbar() {
+import HomeIcon from "@/public/icons/home.svg";
+import TransactionsIcon from "@/public/icons/transactions.svg";
+import AddIcon from "@/public/icons/add.svg";
+import CategoriesIcon from "@/public/icons/categories.svg";
+import ProfileIcon from "@/public/icons/profile.svg";
+import { DESKTOP_BREAKPOINT } from "@/utils/constants";
+
+export default function BottomNav() {
   const router = useRouter();
+  const { data: session } = useSession();
+
+  if (!session) {
+    return <Wrapper />;
+  } // wenn ausgeloggt, keine actions
+
+  const activeEdge =
+    router.pathname === "/"
+      ? "left"
+      : router.pathname === "/profile"
+        ? "right"
+        : null; // Füllfläche
 
   return (
-    <Wrapper>
+    <Wrapper $activeEdge={activeEdge}>
       <ul>
-        <NavbarItem $isActive={router.pathname === "/"}>
+        <NavItem $isActive={router.pathname === "/"}>
           <StyledLink
             href="/"
             aria-label="Home"
@@ -21,9 +36,9 @@ export default function Navbar() {
           >
             <HomeIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
 
-        <NavbarItem $isActive={router.pathname === "/transactions"}>
+        <NavItem $isActive={router.pathname === "/transactions"}>
           <StyledLink
             href="/transactions"
             aria-label="Transactions"
@@ -33,9 +48,9 @@ export default function Navbar() {
           >
             <TransactionsIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
 
-        <NavbarItem $isActive={router.pathname === "/adding"}>
+        <NavItem $isActive={router.pathname === "/adding"}>
           <StyledLink
             href="/adding"
             aria-label="Add transaction or category"
@@ -43,9 +58,9 @@ export default function Navbar() {
           >
             <AddIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
 
-        <NavbarItem $isActive={router.pathname === "/categories"}>
+        <NavItem $isActive={router.pathname === "/categories"}>
           <StyledLink
             href="/categories"
             aria-label="Categories"
@@ -55,9 +70,9 @@ export default function Navbar() {
           >
             <CategoriesIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
 
-        <NavbarItem $isActive={router.pathname === "/profile"}>
+        <NavItem $isActive={router.pathname === "/profile"}>
           <StyledLink
             href="/profile"
             aria-label="Profile"
@@ -65,24 +80,55 @@ export default function Navbar() {
           >
             <ProfileIcon />
           </StyledLink>
-        </NavbarItem>
+        </NavItem>
       </ul>
     </Wrapper>
   );
 }
 
 const Wrapper = styled.nav`
-  position: fixed;
-  bottom: 0;
-  width: 100%;
+  height: var(--bottomnav-height); // wie TopBar
+  background-color: var(--button-background-color);
 
   ul {
-    list-style: none;
     display: flex; // items nebeneinander
+  }
+
+  // *** [ Füllfläche links + rechts ] *************
+  @media (min-width: ${DESKTOP_BREAKPOINT}) {
+    position: relative;
+
+    &::before,
+    &::after {
+      content: "";
+      position: absolute;
+      top: calc(-1 * var(--page-radius));
+      width: var(--page-radius);
+      height: var(--page-radius);
+      background-color: var(--button-active-color);
+      display: none; // keine Füllfläche
+    }
+
+    &::before {
+      left: 0;
+      display: ${({ $activeEdge }) =>
+        $activeEdge === "left" ? "block" : "none"};
+    }
+
+    &::after {
+      right: 0;
+      display: ${({ $activeEdge }) =>
+        $activeEdge === "right" ? "block" : "none"};
+    }
+
+    ul {
+      position: relative;
+      z-index: 1; // über Füllfläche
+    }
   }
 `;
 
-const NavbarItem = styled.li`
+const NavItem = styled.li`
   padding: 1rem;
   flex: 1; // ausgefüllt, keine Lücken
   background-color: ${({ $isActive }) =>

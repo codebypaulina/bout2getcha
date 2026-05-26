@@ -38,7 +38,7 @@ export default async function handler(request, response) {
         return response.status(404).json({ error: "Category not found" });
       }
 
-      // *** für cascade delete (FormEditCategory)
+      // *** für cascade delete (CategoryDetailsPage)
       const transactionCount = await Transaction.countDocuments({
         category: id,
         userId: userObjectId,
@@ -59,7 +59,7 @@ export default async function handler(request, response) {
       const updatedCategory = await Category.findOneAndUpdate(
         { _id: id, userId: userObjectId },
         request.body,
-        { new: true } // geupdatete Version der category
+        { new: true, runValidators: true } // geupdatete Version der category
       );
 
       if (!updatedCategory) {
@@ -76,7 +76,7 @@ export default async function handler(request, response) {
   if (request.method === "DELETE") {
     try {
       // 1. cascade delete: erst enthaltene transaction(s) löschen
-      const { cascade } = request.query; // cascade aus URL (FormEditCategory)
+      const { cascade } = request.query; // cascade aus URL (CategoryDetailsPage)
 
       if (cascade === "true") {
         await Transaction.deleteMany({ category: id, userId: userObjectId });

@@ -1,9 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
-import Link from "next/link";
-import dynamic from "next/dynamic";
 import styled from "styled-components";
+
+import PageShell from "@/components/layout/PageShell";
+import DatePicker from "@/components/DatePicker";
+import ChartCard from "@/components/ChartCard";
+import {
+  FilterBar,
+  ChartButton,
+  DateNav,
+  RangeButton,
+  TypeButton,
+} from "@/components/filterBar.styles";
+import NavArrowButton from "@/components/NavArrowButton";
+import FormEditTransaction from "@/components/FormEditTransaction";
+import ChartIcon from "@/public/icons/chart.svg";
+
+import useSessionStorageState from "@/hooks/useSessionStorageState";
 import useDateFilter from "@/hooks/useDateFilter";
 import {
   formatDateLabel,
@@ -11,79 +25,43 @@ import {
   getRangeBounds,
   findClosestValidRange,
 } from "@/utils/dateFilter";
-import DatePicker from "@/components/DatePicker";
-import Navbar from "@/components/Navbar";
-import ChartIcon from "@/public/icons/chart.svg";
-import PrevIcon from "@/public/icons/previous.svg";
-import NextIcon from "@/public/icons/next.svg";
-
-// dynamisch, sonst ES Module error (auch bei aktuellster next.js-Version)
-const ResponsivePie = dynamic(
-  () => import("@nivo/pie").then((mod) => mod.ResponsivePie),
-  { ssr: false }
-);
+import { formatCurrency } from "@/utils/helpers";
 
 export default function TransactionsPage() {
-  // *** [ STATES ]
-  const [isChartOpen, setIsChartOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState(null);
+  const pageTitle = "Transactions";
 
   // *** [ AUTH ]
-  const { data: session } = useSession(); // auth
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
 
   // *** [ DATA-FETCH ]
-  const { data: transactions, error: errorTransactions } = useSWR(
-    userId ? `/api/transactions?u=${userId}` : null
-  );
+  const {
+    data: transactions,
+    error: errorTransactions,
+    mutate: mutateTransactions,
+  } = useSWR(userId ? `/api/transactions?u=${userId}` : null);
   const { data: categories, error: errorCategories } = useSWR(
     userId ? `/api/categories?u=${userId}` : null
   );
 
+  // *** [ STATES ]
+  const [hoverSource, setHoverSource] = useState(null); // null | "list" | "pie"
+  const [hoveredTxId, setHoveredTxId] = useState(null);
+  const [hoveredCategoryId, setHoveredCategoryId] = useState(null);
+  const [editingTxId, setEditingTxId] = useState(null);
+
   // *** [ SYNC ] **************************************************************************
-  // *** [ 1. chart-state ] ****************************************************************
-  // *** [session storage abrufen]
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:transactions:isChartOpen`;
-    const storedChartState = sessionStorage.getItem(key);
-    if (storedChartState) setIsChartOpen(true);
-  }, [userId]);
+  // *** [ 1. chart-state ]: session storage ***********************************************
+  const [isChartOpen, setIsChartOpen] = useSessionStorageState(
+    userId ? `u:${userId}:transactions:isChartOpen` : null,
+    false
+  ); // default: closed  ||  in storage: wenn open
 
-  // *** [session storage speichern]: bei Änderung (= open)
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:transactions:isChartOpen`;
-
-    if (isChartOpen) {
-      sessionStorage.setItem(key, "true");
-    } else {
-      sessionStorage.removeItem(key);
-    }
-  }, [userId, isChartOpen]);
-
-  // *** [ 2. type-filter ] ****************************************************************
-  // *** [session storage abrufen]
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:transactions:typeFilter`;
-    const storedTypeFilter = sessionStorage.getItem(key);
-    if (storedTypeFilter !== "Income" && storedTypeFilter !== "Expense") return;
-
-    setTypeFilter(storedTypeFilter);
-  }, [userId]);
-
-  // *** [session storage speichern]
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:transactions:typeFilter`;
-
-    if (typeFilter) {
-      sessionStorage.setItem(key, typeFilter);
-    } else {
-      sessionStorage.removeItem(key);
-    }
-  }, [userId, typeFilter]);
+  // *** [ 2. type-filter ]: session storage ***********************************************
+  const [typeFilter, setTypeFilter] = useSessionStorageState(
+    userId ? `u:${userId}:transactions:typeFilter` : null,
+    null
+  ); // default: kein filter  ||  in storage: wenn expense / income
 
   // *** [ 3. date-filter ]: state + picker + session storage ******************************
   const {
@@ -105,21 +83,8 @@ export default function TransactionsPage() {
   if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>;
   if (!transactions || !categories) return <h3>Loading ...</h3>;
 
-  if (transactions?.length) {
-    const categoryShapes = transactions.map((transaction) => ({
-      typeofCategory: typeof transaction.category,
-      hasId:
-        transaction.category &&
-        typeof transaction.category === "object" &&
-        "_id" in transaction.category,
-      sample: transaction.category,
-    }));
-
-    console.log("category shapes:", categoryShapes);
-  }
-
   // *** [ DERIVED DATA ] ******************************************************************
-  // *** [ 1. date ] ***********************************************************************
+  // *** [ 1. date metadata ] **************************************************************
   const transactionTimes = transactions.map((transaction) =>
     new Date(transaction.date).getTime()
   ); // alle vorhandenen dates als Zeitwerte
@@ -133,7 +98,7 @@ export default function TransactionsPage() {
       ? new Date(Math.max(...transactionTimes))
       : null; // neuste vorhandene tx
 
-  // *** [ 2. range ] **********************************************************************
+  // *** [ 2. date range metadata ] ********************************************************
   const dateFilterLabel = `${formatDateLabel(dateFilter.from)} - ${formatDateLabel(dateFilter.to)}`;
 
   // *** [default range]: für RangeButton
@@ -174,7 +139,7 @@ export default function TransactionsPage() {
   const isPrevRangeDisabled = isCrossMonthRange || !prevValidRange;
   const isNextRangeDisabled = isCrossMonthRange || !nextValidRange;
 
-  // *** [ 3. transactions ]: filtern + sortieren ******************************************
+  // *** [ 3. filtered base data ] *********************************************************
   const { startTime: activeRangeStartTime, endTime: activeRangeEndTime } =
     getRangeBounds(dateFilter.from, dateFilter.to); // Beginn + Ende active date range
 
@@ -185,18 +150,18 @@ export default function TransactionsPage() {
         transactionTime >= activeRangeStartTime &&
         transactionTime <= activeRangeEndTime; // nur active date range
       const matchesTypeFilter =
-        !typeFilter || transaction.category.type === typeFilter; // nur active type-filter
+        typeFilter === null || transaction.category.type === typeFilter; // nur active type-filter
 
       return isInRange && matchesTypeFilter;
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date)); // Datum absteigend
 
-  // *** [ 4. totals ] pro category + pro type *********************************************
+  // *** [ 4. aggregated totals ] pro category + pro type **********************************
   const totalByCategoryId = {}; // pro category: für categoriesWithTotals (chart-data type-filter)
   let totalIncome = 0; // pro type: für totalBalanceValue (balance-data + chart-data main view)
   let totalExpense = 0;
 
-  // *** [amount zu total]: 1x durch alle aktuell sichtbaren transactions
+  // amount zu total: 1x durch alle aktuell sichtbaren transactions
   filteredTransactions.forEach((transaction) => {
     const categoryId = transaction.category._id.toString();
     const categoryType = transaction.category.type;
@@ -214,37 +179,43 @@ export default function TransactionsPage() {
     return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 }; // category + totalByCategoryId
   });
 
-  // *** [ 5. chart ] **************************************************
-  // *** [chart-data]
-  const chartData = typeFilter
-    ? categoriesWithTotals // segments: income-/expense-categories
-        .filter(
-          (category) => category.type === typeFilter && category.totalAmount > 0
-        )
-        .map((category) => ({
-          id: category._id,
-          label: category.name,
-          value: category.totalAmount,
-          color: category.color,
-        }))
-        .sort((a, b) => b.value - a.value) // segments value absteigend
-    : // segments main view: expenses + remaining income
-      [
-        {
-          id: "Expenses",
-          label: "Expenses",
-          value: totalExpense,
-          color: "var(--expense-color)",
-        },
-        {
-          id: "Remaining Income",
-          label: "Remaining Income",
-          value: totalIncome - totalExpense,
-          color: "var(--income-color)",
-        },
-      ];
+  // *** [ 5. chart-data ] *****************************************************************
+  const chartData =
+    typeFilter !== null
+      ? categoriesWithTotals // segments: income-/expense-categories
+          .filter(
+            (category) =>
+              category.type === typeFilter && category.totalAmount > 0
+          )
+          .map((category) => ({
+            id: category._id,
+            label: category.name,
+            value: category.totalAmount,
+            color: category.color,
+          }))
+          .sort((a, b) => b.value - a.value) // segments value absteigend
+      : // segments main view: expenses + remaining income
+        [
+          {
+            id: "Expenses",
+            label: "Expenses",
+            value: totalExpense,
+            color: "var(--expense-color)",
+          },
+          {
+            id: "Remaining Income",
+            label: "Remaining Income",
+            value: totalIncome - totalExpense,
+            color: "var(--income-color)",
+          },
+        ];
 
-  const hasEnoughChartData = chartData.length > 0; // für ChartButton
+  const hasEnoughChartData =
+    typeFilter === null
+      ? totalIncome > 0 || totalExpense > 0
+      : chartData.length > 0; // für ChartButton
+
+  const typeFilterActive = typeFilter !== null; // für transaction- + segment-hover (nur bei type-filter)
 
   // *** [balance-data]
   const totalBalanceLabel =
@@ -273,12 +244,10 @@ export default function TransactionsPage() {
   }
 
   // *** [ HANDLERS ] **********************************************************************
-  // *** [ chart ]
   function toggleChart() {
     setIsChartOpen((prevState) => !prevState);
   }
 
-  // *** [ type ]
   function switchTypeFilter() {
     setTypeFilter((prevState) => {
       if (prevState === null) return "Expense";
@@ -287,361 +256,228 @@ export default function TransactionsPage() {
     });
   }
 
-  // *** [ DateNav < > ]
   function goToPrevMonth() {
     if (!prevValidRange) return;
     updateDateFilter(prevValidRange.start, prevValidRange.end);
-  }
+  } // DateNav < >
 
   function goToNextMonth() {
     if (!nextValidRange) return;
     updateDateFilter(nextValidRange.start, nextValidRange.end);
+  } // DateNav < >
+
+  // *** [ transaction- + segment-hover ] *****************************************************
+  function clearHover() {
+    setHoverSource(null);
+    setHoveredTxId(null);
+    setHoveredCategoryId(null);
   }
+
+  function handleSliceEnter(categoryId) {
+    if (!typeFilterActive) return;
+    setHoverSource("pie");
+    setHoveredTxId(null); // alle tx dieser category in list highlighten
+    setHoveredCategoryId(categoryId);
+  }
+
+  function handleSliceLeave() {
+    if (!typeFilterActive) return;
+    clearHover();
+  }
+
+  function handleTxEnter(transaction) {
+    if (!typeFilterActive) return;
+    setHoverSource("list");
+    setHoveredTxId(transaction._id); // nur diese tx in list highlighten
+    setHoveredCategoryId(transaction.category._id);
+  }
+
+  function handleTxLeave() {
+    if (!typeFilterActive) return;
+    clearHover();
+  }
+
+  function isTxHighlighted(transaction) {
+    if (!typeFilterActive) return false;
+    if (hoverSource === "list") {
+      return hoveredTxId === transaction._id;
+    }
+    if (hoverSource === "pie") {
+      return hoveredCategoryId === transaction.category._id;
+    }
+    return false;
+  }
+
+  // ***************************************************************************************
+  const typeButtonColor =
+    typeFilter === "Expense"
+      ? "var(--expense-color)"
+      : typeFilter === "Income"
+        ? "var(--income-color)"
+        : "var(--button-background-color)";
 
   // ***************************************************************************************
   // ***************************************************************************************
   return (
-    <>
-      <ContentContainer>
-        <h1>Transactions</h1>
+    <PageShell title={pageTitle}>
+      <FilterBar>
+        <ChartButton
+          type="button"
+          aria-label="Toggle chart"
+          className={isChartOpen && hasEnoughChartData ? "active" : ""}
+          disabled={!hasEnoughChartData}
+          onClick={toggleChart}
+        >
+          <ChartIcon />
+        </ChartButton>
 
-        <FilterSection>
-          <ChartButton
+        <DateNav>
+          <NavArrowButton
+            direction="prev"
+            ariaLabel="Go to previous month"
+            disabled={isPrevRangeDisabled}
+            onClick={goToPrevMonth}
+            buttonSize={22}
+            iconSize={10}
+          />
+
+          <RangeButton
             type="button"
-            aria-label="Toggle chart"
-            className={isChartOpen && hasEnoughChartData ? "active" : ""}
-            disabled={!hasEnoughChartData}
-            onClick={toggleChart}
+            aria-label="Change date range"
+            onClick={openPicker}
+            className={isDefaultRange ? "" : "active"}
           >
-            <ChartIcon />
-          </ChartButton>
+            {dateFilterLabel}
+          </RangeButton>
 
-          <DateNav>
-            <ArrowButton
-              type="button"
-              aria-label="Go to previous month"
-              disabled={isPrevRangeDisabled}
-              onClick={goToPrevMonth}
-            >
-              <PrevIcon className="prev" />
-            </ArrowButton>
-
-            <RangeButton
-              type="button"
-              aria-label="Change date range"
-              onClick={openPicker}
-              className={isDefaultRange ? "" : "active"}
-            >
-              {dateFilterLabel}
-            </RangeButton>
-
-            <ArrowButton
-              type="button"
-              aria-label="Go to next month"
-              disabled={isNextRangeDisabled}
-              onClick={goToNextMonth}
-            >
-              <NextIcon className="next" />
-            </ArrowButton>
-          </DateNav>
-
-          <TypeButton
-            type="button"
-            aria-label="Filter transactions by type"
-            onClick={switchTypeFilter}
-            $typeFilter={typeFilter}
+          <NavArrowButton
+            direction="next"
+            ariaLabel="Go to next month"
+            disabled={isNextRangeDisabled}
+            onClick={goToNextMonth}
+            buttonSize={22}
+            iconSize={10}
           />
-        </FilterSection>
+        </DateNav>
 
-        {isDatePickerOpen && (
-          <DatePicker
-            pickerRange={pickerRange}
-            setPickerRange={setPickerRange}
-            pickerVisibleMonth={pickerVisibleMonth}
-            setPickerVisibleMonth={setPickerVisibleMonth}
-            applyPickerRange={applyPickerRange}
-            clearPickerRange={clearPickerRange}
-            closePicker={closePicker}
-          />
-        )}
+        <TypeButton
+          type="button"
+          aria-label="Filter transactions by type"
+          onClick={switchTypeFilter}
+          $backgroundColor={typeButtonColor}
+        />
+      </FilterBar>
 
-        {isChartOpen && hasEnoughChartData && (
-          <ChartSection>
-            <PieWrapper>
-              <ResponsivePie
-                data={chartData}
-                colors={{ datum: "data.color" }}
-                innerRadius={0.5} // 50 % ausgeschnitten
-                startAngle={0} // Start: oben auf 12 Uhr
-                endAngle={-360} // Ende: volle Runde gegen Uhrzeigersinn
-                padAngle={2} // Abstand zwischen Segmenten
-                cornerRadius={3} // rundere Ecken der Segmente
-                arcLinkLabelsSkipAngle={360} // ausgeblendete Linien
-                animate={false} // Segmente springen nicht
-                enableArcLabels={false} // keine Zahlen im Segment
-                tooltip={({ datum }) => (
-                  <div>
-                    {datum.label}:{" "}
-                    <strong>{getChartPercentage(datum.value)} %</strong>
-                  </div>
-                )}
-              />
-            </PieWrapper>
+      {isDatePickerOpen && (
+        <DatePicker
+          pickerRange={pickerRange}
+          setPickerRange={setPickerRange}
+          pickerVisibleMonth={pickerVisibleMonth}
+          setPickerVisibleMonth={setPickerVisibleMonth}
+          applyPickerRange={applyPickerRange}
+          clearPickerRange={clearPickerRange}
+          closePicker={closePicker}
+        />
+      )}
 
-            <BalanceContainer>
-              <p className="label">{totalBalanceLabel}</p>
-              <p className={`value ${totalBalanceValue < 0 ? "negative" : ""}`}>
-                {totalBalanceValue.toLocaleString("de-DE", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{" "}
-                €
-              </p>
-            </BalanceContainer>
-          </ChartSection>
-        )}
+      {isChartOpen && hasEnoughChartData && (
+        <ChartCard
+          data={chartData}
+          getChartPercentage={getChartPercentage}
+          summaryLabel={totalBalanceLabel}
+          summaryValue={totalBalanceValue}
+          isNegativeValue={totalBalanceValue < 0}
+          // für transaction- + segment-hover:
+          activeId={typeFilterActive ? hoveredCategoryId : null} // nicht in main view
+          onSliceEnter={handleSliceEnter}
+          onSliceLeave={handleSliceLeave}
+        />
+      )}
 
-        {filteredTransactions.length === 0 ? (
-          <p className="no-transaction">No transactions in this date range.</p>
-        ) : (
-          <StyledList>
-            {filteredTransactions.map((transaction) => (
-              <ListItem key={transaction._id}>
-                <StyledLink href={`/transactions/${transaction._id}`}>
-                  <p className="date">
-                    {new Date(transaction.date).toLocaleDateString("de-DE", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
-                  </p>
+      {filteredTransactions.length === 0 ? (
+        <p className="empty-state">No transactions in this date range.</p>
+      ) : (
+        <TransactionList>
+          {filteredTransactions.map((transaction) => (
+            <ListItem key={transaction._id}>
+              <TransactionButton
+                type="button"
+                aria-label={`Edit transaction: ${transaction.description}`}
+                title="Edit transaction"
+                onClick={() => setEditingTxId(transaction._id)}
+                // für transaction- + segment-hover:
+                $isHighlighted={isTxHighlighted(transaction)}
+                onMouseEnter={() => handleTxEnter(transaction)}
+                onMouseLeave={handleTxLeave}
+              >
+                <p className="date">
+                  {new Date(transaction.date).toLocaleDateString("de-DE", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })}
+                </p>
 
-                  <ColorTag
-                    $typeFilter={typeFilter}
-                    $categoryType={transaction.category.type}
-                    $categoryColor={transaction.category.color}
-                  />
+                <ColorTag
+                  $typeFilter={typeFilter}
+                  $categoryType={transaction.category.type}
+                  $categoryColor={transaction.category.color}
+                  $isHighlighted={isTxHighlighted(transaction)}
+                />
 
-                  <p className="description">{transaction.description}</p>
-                  <p className="category">{transaction.category.name}</p>
-                  <p className="amount">
-                    {transaction.amount.toLocaleString("de-DE", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    €
-                  </p>
-                </StyledLink>
-              </ListItem>
-            ))}
-          </StyledList>
-        )}
-      </ContentContainer>
+                <p className="description">{transaction.description}</p>
+                <p className="category">{transaction.category.name}</p>
+                <p className="amount">{formatCurrency(transaction.amount)} €</p>
+              </TransactionButton>
+            </ListItem>
+          ))}
+        </TransactionList>
+      )}
 
-      <Navbar />
-    </>
+      {editingTxId && (
+        <FormEditTransaction
+          transactionId={editingTxId}
+          onTxUpdated={mutateTransactions}
+          onTxDeleted={mutateTransactions}
+          closeForm={() => setEditingTxId(null)}
+        />
+      )}
+    </PageShell>
   );
 }
 
-const ContentContainer = styled.div`
-  padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 350px; // Breite von list
-  margin: 0 auto; // content horizontal zentriert
-
-  h1 {
-    text-align: center;
-    margin-bottom: 1.5rem;
-  }
-
-  .no-transaction {
-    text-align: center;
-  }
-`;
-
-const FilterSection = styled.div`
-  margin-bottom: 1.5rem;
-  background-color: #232323;
+const TransactionList = styled.ul`
+  background-color: #232323; // wie FilterBar
   border-radius: 20px;
-  padding: 10px 12px;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
+  padding: 0.75rem; // Abstand Rand
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
 
-  display: flex; // items nebeneinander
-  justify-content: space-between; // verteilt
-  align-items: center; // vertikal zentriert
-`;
-
-const ChartButton = styled.button`
-  border: none;
-  background: transparent;
-  color: var(--button-background-color);
-  line-height: 0; // unten bündiger
-  margin-bottom: 1px; // bündig
-  cursor: pointer;
-
-  svg {
-    width: 22px;
-    height: 22px;
-    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1)); // ohne Zwischenräume
-  }
-
-  &:hover {
-    transform: scale(1.07);
-  }
-
-  &.active {
-    color: var(--button-active-color);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
-  }
-`;
-
-const DateNav = styled.div`
-  display: flex; // buttons nebeneinander
-  align-items: center; // vertikal zentriert
-  gap: 0.4rem;
-`;
-
-const ArrowButton = styled.button`
-  border: none;
-  border-radius: 50%;
-  width: 22px;
-  height: 22px;
-  background-color: var(--button-background-color);
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
-
-  svg {
-    height: 10px;
-    width: 10px;
-    stroke: var(--button-text-color);
-  }
-  .prev {
-    margin-right: 2px;
-  }
-  .next {
-    margin-left: 2px;
-  }
-
-  &:hover {
-    transform: scale(1.07);
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
-  }
-`;
-
-const RangeButton = styled.button`
-  border: none;
-  border-radius: 20px;
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 4px 8px;
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
-
-  &:hover {
-    transform: scale(1.02);
-  }
-
-  &.active {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
-  }
-`;
-
-const TypeButton = styled.button`
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 1);
-
-  background-color: ${({ $typeFilter }) =>
-    $typeFilter === "Expense"
-      ? "var(--expense-color)"
-      : $typeFilter === "Income"
-        ? "var(--income-color)"
-        : "var(--button-background-color)"};
-
-  &:hover {
-    transform: scale(1.07);
-  }
-`;
-
-// ******************************************************************************
-
-const ChartSection = styled.div`
-  display: flex;
-  flex-direction: column; // PieWrapper + BalanceContainer untereinander
-  align-items: center; // horizontal zentriert
-  gap: 1rem;
-
-  background-color: #232323;
-  border-radius: 20px;
-  width: 200px;
-  padding: 1.2rem 1.2rem 1rem 1.2rem;
-  margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
-  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
-`;
-
-const PieWrapper = styled.div`
-  height: 155px;
-  width: 155px;
-  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Zwischenräume
-`;
-
-const BalanceContainer = styled.div`
-  display: flex; // label + value nebeneinander
-  gap: 0.5rem;
-
-  p.label {
-    width: 85px;
-  }
-
-  p.value {
-    font-weight: bold;
-  }
-
-  p.value.negative {
-    color: var(--expense-color);
-  }
-`;
-
-// ******************************************************************************
-
-const StyledList = styled.ul`
-  list-style-type: none;
   display: grid; //    date | ColorTag | description | category | amount
   grid-template-columns:
-    minmax(33px, max-content) 5px minmax(70px, 1fr) minmax(0, max-content)
-    67px;
+    minmax(31px, max-content) 5px minmax(70px, 1fr) minmax(0, 60px)
+    max-content;
   align-items: center; // content in der Zeile vertikal zentriert
   gap: 0.5rem;
-
-  background-color: #232323;
-  border-radius: 20px;
-  padding: 0.75rem;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 1);
 `;
 
 const ListItem = styled.li`
-  display: contents; // childs direkte grid-items von StyledList
+  display: contents; // childs direkte grid-items von TransactionList
 `;
 
-const StyledLink = styled(Link)`
-  text-decoration: none;
+const TransactionButton = styled.button`
   display: contents; // date, ColorTag, description, category, amount -> grid
+  background: transparent;
+  border: none;
+  cursor: pointer;
 
   p {
     font-size: 0.755rem;
+    color: ${({ $isHighlighted }) =>
+      $isHighlighted
+        ? "var(--primary-text-color)"
+        : "var(--secondary-text-color)"};
+    transform: ${({ $isHighlighted }) =>
+      $isHighlighted ? "scale(1.03)" : "none"};
   }
 
   p.date {
@@ -650,14 +486,16 @@ const StyledLink = styled(Link)`
   }
 
   p.description {
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   p.category {
+    text-align: left;
     font-size: 0.6rem;
-    opacity: 0.6;
+    opacity: ${({ $isHighlighted }) => ($isHighlighted ? 0.7 : 0.6)};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -684,20 +522,21 @@ const StyledLink = styled(Link)`
     }
 
     span {
-      transform: scale(1.2);
+      transform: scale(1.3);
     }
-  }
+  } // hover list item
 `;
 
 const ColorTag = styled.span`
   width: 5px;
   height: 5px;
   border-radius: 50%;
-
-  background-color: ${(props) =>
-    props.$typeFilter
-      ? props.$categoryColor // bei type-filter: category color
-      : props.$categoryType === "Income" // bei main view: type color
+  background-color: ${({ $typeFilter, $categoryColor, $categoryType }) =>
+    $typeFilter
+      ? $categoryColor // type-filter: category-color
+      : $categoryType === "Income" // main view: type-color
         ? "var(--income-color)"
         : "var(--expense-color)"};
+  transform: ${({ $isHighlighted }) =>
+    $isHighlighted ? "scale(1.2)" : "none"};
 `;

@@ -2,27 +2,30 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import styled from "styled-components";
-import Navbar from "@/components/Navbar";
+
+import PageShell from "@/components/layout/PageShell";
+import ChartCard from "@/components/ChartCard";
+import { FilterBar, ChartButton } from "@/components/filterBar.styles";
+
 import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
 
-// hier muss dynamischer Import, sonst ES Module error (auch bei aktuellster next.js-Version)
-const ResponsivePie = dynamic(
-  () => import("@nivo/pie").then((mod) => mod.ResponsivePie),
-  { ssr: false }
-);
+import { formatCurrency } from "@/utils/helpers";
 
 export default function HomePage() {
+  const pageTitle = "Expenses";
+
   const [hiddenCategories, setHiddenCategories] = useState([]);
   const [isChartOpen, setIsChartOpen] = useState(false);
+  const [hoveredCategoryId, setHoveredCategoryId] = useState(null); // category- + segment-hover
 
-  const { data: session } = useSession(); // auth
+  // *** [ AUTH ]
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // user-ID (für local + session storage / data-fetch)
 
-  // *** [ data-fetch ]
+  // *** [ DATA-FETCH ]
   const { data: categories, error: errorCategories } = useSWR(
     userId ? `/api/categories?u=${userId}` : null
   );
@@ -30,7 +33,8 @@ export default function HomePage() {
     userId ? `/api/transactions?u=${userId}` : null
   );
 
-  // *** [ LOCAL STORAGE ] hidden categories ***********************************************
+  // *** [ SYNC ] **************************************************************************
+  // *** [ 1. hidden categories ]: local storage *******************************************
   // *** [abrufen]
   useEffect(() => {
     if (!userId) return;
@@ -60,7 +64,7 @@ export default function HomePage() {
     }
   }, [userId, hiddenCategories]);
 
-  // *** [ SESSION STORAGE ] chart-state ***************************************************
+  // *** [ 2. chart-state ]: session storage ***********************************************
   // *** [abrufen]
   useEffect(() => {
     if (!userId) return;
@@ -155,20 +159,33 @@ export default function HomePage() {
     color: category.color,
   }));
 
-  // *** [display-section]: Summe angezeigter categories
+  const hasEnoughChartData = chartData.length > 0; // für ChartButton + ChartCard
+
+  // *** [total expense box]
+  const currentMonthLabel = new Intl.DateTimeFormat("de-DE", {
+    month: "long",
+    year: "numeric",
+  }).format(now); // aktueller Monat
+
   const totalExpense = visibleCategories.reduce(
     (sum, category) => sum + category.totalAmount,
     0
-  );
+  ); // Summe angezeigter categories
 
-  // *** [tooltip %]
+  // *** [ HELPERS ] ***********************************************************************
   function getChartPercentage(value) {
     if (!totalExpense) return 0;
     return Math.round((value / totalExpense) * 100);
+  } // für tooltip % in pie
+
+  function getCategoryHref(categoryId) {
+    const navKeyQuery = encodeURIComponent(navKey);
+    return `/categories/${categoryId}?from=/&navKey=${navKeyQuery}`;
+    // "?from=/": Herkunft = HomePage für nach category-delete
+    // "&navKey": ID-Reihenfolge (< > nav)
   }
 
-  // ***************************************************************************************
-
+  // *** [ HANDLERS ] **********************************************************************
   function toggleChart() {
     setIsChartOpen((prevState) => !prevState);
   }
@@ -183,180 +200,162 @@ export default function HomePage() {
   }
 
   return (
-    <>
-      <ContentContainer>
-        <h1>Expenses</h1>
-
-        {isChartOpen && chartData.length > 0 && (
-          <PieWrapper>
-            <ResponsivePie
-              data={chartData}
-              colors={{ datum: "data.color" }}
-              innerRadius={0.5} // 50 % ausgeschnitten
-              startAngle={0} // Start: oben auf 12 Uhr
-              endAngle={-360} // Ende: volle Runde gegen Uhrzeigersinn
-              padAngle={2} // Abstand zw. Segmenten
-              cornerRadius={3} // rundere Ecken von Segmenten
-              arcLinkLabelsSkipAngle={360} // ausgeblendete Linien
-              animate={false} // Segmente springen nicht
-              enableArcLabels={false} // keine Zahlen im Segment
-              tooltip={({ datum }) => (
-                <div>
-                  {datum.label}:{" "}
-                  <strong>{getChartPercentage(datum.value)} %</strong>
-                </div>
-              )}
-            />
-          </PieWrapper>
-        )}
-
-        <DisplaySection>
-          <IconWrapperChart
+    <PageShell title={pageTitle}>
+      <FilterBar>
+        <HomeFilterBarContent>
+          <ChartButton
+            type="button"
+            aria-label="Toggle chart"
+            className={isChartOpen && hasEnoughChartData ? "active" : ""}
+            disabled={!hasEnoughChartData}
             onClick={toggleChart}
-            className={isChartOpen ? "active" : ""}
           >
             <ChartIcon />
-          </IconWrapperChart>
+          </ChartButton>
 
-          <p>
-            {totalExpense.toLocaleString("de-DE", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{" "}
-            €
-          </p>
-        </DisplaySection>
+          <TotalExpenseBox>
+            <span className="month">{currentMonthLabel}</span>
+            <span className="amount">{formatCurrency(totalExpense)} €</span>
+          </TotalExpenseBox>
+        </HomeFilterBarContent>
+      </FilterBar>
 
-        <StyledList>
-          {sortedCategories.map((category) => (
-            <ListItem
-              key={category._id}
-              $isHidden={hiddenCategories.includes(category._id)}
-            >
-              <StyledLink
-                href={`/categories/${category._id}?from=/&navKey=${encodeURIComponent(navKey)}`} // "?from/": Herkunft = HomePage (nach category-delete) // "&navKey=...": ID-Reihenfolge (< > nav)
-                onClick={storeCatNavSnapshot}
-                $isHidden={hiddenCategories.includes(category._id)}
-              >
-                <ColorTag
-                  $categoryColor={category.color}
-                  $isHidden={hiddenCategories.includes(category._id)}
-                />
+      {isChartOpen && hasEnoughChartData && (
+        <ChartCard
+          data={chartData}
+          getChartPercentage={getChartPercentage}
+          hideSummary
+          // für category- + segment-hover:
+          activeId={hoveredCategoryId}
+          onSliceEnter={setHoveredCategoryId}
+          onSliceLeave={() => setHoveredCategoryId(null)}
+        />
+      )}
 
-                <p>{category.name}</p>
-                <p className="amount">
-                  {category.totalAmount.toLocaleString("de-DE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  €
-                </p>
-              </StyledLink>
+      {sortedCategories.length === 0 ? (
+        <p className="empty-state">No expenses yet this month.</p>
+      ) : (
+        <ul>
+          {sortedCategories.map((category) => {
+            const isHidden = hiddenCategories.includes(category._id);
+            const isHighlighted = hoveredCategoryId === category._id;
+            const href = getCategoryHref(category._id);
 
-              {hiddenCategories.includes(category._id) ? (
-                <IconWrapperEye onClick={() => toggleVisibility(category._id)}>
-                  <EyeSlashIcon />
-                </IconWrapperEye>
-              ) : (
-                <IconWrapperEye onClick={() => toggleVisibility(category._id)}>
-                  <EyeIcon />
-                </IconWrapperEye>
-              )}
-            </ListItem>
-          ))}
-        </StyledList>
-      </ContentContainer>
+            return (
+              <ListItem key={category._id} $isHidden={isHidden}>
+                <CategoryLink
+                  href={href}
+                  onClick={storeCatNavSnapshot}
+                  // für category- + segment-hover:
+                  $isHighlighted={isHighlighted}
+                  onMouseEnter={() => setHoveredCategoryId(category._id)}
+                  onMouseLeave={() => setHoveredCategoryId(null)}
+                >
+                  <ColorTag
+                    $categoryColor={category.color}
+                    $isHidden={isHidden}
+                    $isHighlighted={isHighlighted}
+                  />
 
-      <Navbar />
-    </>
+                  <p className="name">{category.name}</p>
+                  <p className="amount">
+                    {formatCurrency(category.totalAmount)} €
+                  </p>
+                </CategoryLink>
+
+                {isHidden ? (
+                  <EyeButton
+                    type="button"
+                    aria-label="Show category"
+                    title="Show category"
+                    onClick={() => toggleVisibility(category._id)}
+                  >
+                    <EyeSlashIcon />
+                  </EyeButton>
+                ) : (
+                  <EyeButton
+                    type="button"
+                    aria-label="Hide category"
+                    title="Hide category"
+                    onClick={() => toggleVisibility(category._id)}
+                  >
+                    <EyeIcon />
+                  </EyeButton>
+                )}
+              </ListItem>
+            );
+          })}
+        </ul>
+      )}
+    </PageShell>
   );
 }
 
-const ContentContainer = styled.div`
-  padding: 20px 20px 83px 20px; // Nav 75px // Abstand Bildschirmrand
-  max-width: 350px; // Breite von list
-  margin: 0 auto; // content horizontal zentriert
+const HomeFilterBarContent = styled.div`
+  position: relative; // neuer Bezugspunkt für TotalExpenseBox
+  width: 100%; // wie FilterBar (für Zentrierung von TotalExpenseBox)
+  display: flex; // ChartButton + TotalExpenseBox nebeneinander
+  align-items: center; // TotalExpenseBox vertikal zentriert
+`;
 
-  h1 {
-    text-align: center;
-    margin-bottom: 1.5rem;
+const TotalExpenseBox = styled.div`
+  position: absolute; // rel zu HomeFilterBarContent (ChartButton bleibt links)
+  left: 50%; // Zentrierung
+  transform: translateX(-50%); // Zentrierung
+
+  display: flex;
+  flex-direction: column; // untereinander
+  align-items: center; // horizontal zentriert
+  color: var(--secondary-text-color);
+
+  .month {
+    font-size: 0.8rem;
   }
-`;
 
-const PieWrapper = styled.div`
-  height: 150px;
-  width: 150px;
-  margin: 0 auto 1rem auto; // horizontal zentriert, Abstand DisplaySection
-`;
-
-const DisplaySection = styled.div`
-  display: flex; // icon + totalExpense nebeneinander
-  justify-content: space-between; // icon links, totalExpense rechts
-  max-width: 285px; // schmaler als list
-  margin: 0 auto 1.5rem auto; // horizontal zentriert, Abstand list
-
-  p {
+  .amount {
+    font-size: 1rem;
     font-weight: bold;
-    font-size: 1.4rem;
-    margin-right: 2.5rem;
   }
 `;
 
-const IconWrapperChart = styled.div`
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
-  width: 32px;
-  height: 30px;
-  border-radius: 10px;
-  display: flex; // wegen Zentrierung von svg
-  align-items: center; // vertikal zentriert
-  justify-content: center; // horizontal zentriert
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  &:hover {
-    transform: scale(1.07);
-    color: var(--primary-text-color);
-  }
-
-  &.active {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
-  }
-`;
-
-const StyledList = styled.ul`
-  list-style-type: none;
-`;
+// ******************************************************************************
 
 const ListItem = styled.li`
-  display: flex; // link + icon nebeneinander
-  justify-content: center; // horizontal zentriert
-  margin-bottom: 0.75rem; // Abstand zw. ListItems
-  gap: 1rem; // Abstand link + icon
-
-  opacity: ${(props) => (props.$isHidden ? 0.2 : 1)};
+  margin-bottom: 0.75rem; // Abstand ListItems
+  opacity: ${({ $isHidden }) => ($isHidden ? 0.2 : 1)}; // ausgegraut
+  display: flex; // link + eye nebeneinander
+  gap: 1rem; // Abstand link + eye
 `;
 
-const StyledLink = styled(Link)`
+const CategoryLink = styled(Link)`
   text-decoration: none;
-  display: flex; // items nebeneinander
-  align-items: center; // items vertikal zentriert
-  gap: 0.5rem; // Abstand items
-
   background-color: var(--list-item-background);
+  border-radius: 30px;
   height: 2rem;
   width: 100%; // link füllt Platz in list-Breite
-  border-radius: 20px;
   padding: 0 1rem; // Abstand Rand
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+  transform: ${({ $isHighlighted }) =>
+    $isHighlighted ? "scale(1.02)" : "none"};
 
-  p {
+  display: grid; //      ColorTag | name | amount
+  grid-template-columns: 8px minmax(0, 1fr) max-content;
+  align-items: center; // vertikal
+  column-gap: 0.5rem; // Abstand items
+
+  p.name,
+  p.amount {
     font-size: 1rem;
+    color: ${({ $isHighlighted }) =>
+      $isHighlighted
+        ? "var(--primary-text-color)"
+        : "var(--secondary-text-color)"};
+  }
+
+  p.name {
+    white-space: nowrap; // in 1 Zeile
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   p.amount {
@@ -364,28 +363,26 @@ const StyledLink = styled(Link)`
     font-weight: bold;
     white-space: nowrap;
   }
-
-  &:hover {
-    transform: scale(1.02);
-
-    p {
-      color: var(--primary-text-color);
-    }
-  }
 `;
 
-const IconWrapperEye = styled.div`
-  display: flex; // wegen Zentrierung von svg
-  align-items: center; // vertikal zentriert
-  justify-content: center; // horizontal zentriert
+const EyeButton = styled.button`
+  border: none;
+  background: transparent;
   cursor: pointer;
+
+  display: flex; // für Zentrierung von svg
+  align-items: center; // vertikal
+  justify-content: center; // horizontal
 
   svg {
     width: 20px;
     height: 20px;
+    color: var(--secondary-text-color);
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1));
 
     &:hover {
       transform: scale(1.2);
+      color: var(--primary-text-color);
     }
   }
 `;
@@ -394,7 +391,8 @@ const ColorTag = styled.span`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-
-  background-color: ${(props) =>
-    props.$isHidden ? "#5a5a5a" : props.$categoryColor};
+  background-color: ${({ $isHidden, $categoryColor }) =>
+    $isHidden ? "#5a5a5a" : $categoryColor};
+  transform: ${({ $isHighlighted }) =>
+    $isHighlighted ? "scale(1.2)" : "none"};
 `;

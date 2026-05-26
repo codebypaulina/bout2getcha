@@ -1,102 +1,66 @@
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
-import Link from "next/link";
+
+import PageShell from "@/components/layout/PageShell";
+import NavArrowButton from "@/components/NavArrowButton";
+import FormEditTransaction from "@/components/FormEditTransaction";
+import FormAddTransaction from "@/components/FormAddTransaction";
+import DeleteConfirmModal from "@/components/DeleteConfirmModal";
+
 import CloseIcon from "/public/icons/close.svg";
-import SettingsIcon from "/public/icons/settings.svg";
-import PrevIcon from "/public/icons/previous.svg";
-import NextIcon from "/public/icons/next.svg";
+import TrashIcon from "/public/icons/trash.svg";
 import AddIcon from "/public/icons/addNEU.svg";
 
-// *** [ HELPERS ]: date ******************************************************************
-// *** ["YYYY-MM-DD" -> new Date(YYYY, MM, DD)]: für dateFrom / dateTo (activeDateRange aus url)
-function parseDateParam(value) {
-  if (typeof value !== "string") return null;
-
-  const [yearString, monthString, dayString] = value.split("-");
-  const year = Number(yearString);
-  const monthIndex = Number(monthString) - 1;
-  const day = Number(dayString);
-
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(monthIndex) ||
-    !Number.isInteger(day) ||
-    monthIndex < 0 ||
-    monthIndex > 11 ||
-    day < 1 ||
-    day > 31
-  ) {
-    return null;
-  }
-
-  const date = new Date(year, monthIndex, day);
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== monthIndex ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-
-  return date; // new Date(2026, 2, 1)
-}
-
-// *** [aktueller Monat]
-function startOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1); // 1. Tag
-}
-function endOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0); // letzter Tag
-}
-
-// *** [range-Tagesgrenzen]
-function getRangeBounds(startDate, endDate) {
-  return {
-    startTime: new Date(
-      startDate.getFullYear(),
-      startDate.getMonth(),
-      startDate.getDate(),
-      0,
-      0,
-      0,
-      0
-    ).getTime(), // Starttag um 00:00:00
-
-    endTime: new Date(
-      endDate.getFullYear(),
-      endDate.getMonth(),
-      endDate.getDate(),
-      23,
-      59,
-      59,
-      999
-    ).getTime(), // Endtag um 23:59:59
-  };
-}
+import { CAT_NAME_MAX_LENGTH } from "@/utils/constants";
+import {
+  parseDateString,
+  getDefaultRange,
+  getRangeBounds,
+} from "@/utils/dateFilter";
 
 export default function CategoryDetailsPage() {
   const router = useRouter();
   const { id, from, dateFrom, dateTo, navKey } = router.query;
 
-  const { data: session } = useSession(); // auth
+  // *** [ AUTH ]
+  const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
 
-  // *** [ data-fetch ]
-  const { data: category, error: errorCategory } = useSWR(
-    id && userId ? `/api/categories/${id}?u=${userId}` : null
-  );
-  const { data: transactions, error: errorTransactions } = useSWR(
-    userId ? `/api/transactions?u=${userId}` : null
-  );
+  // *** [ DATA-FETCH ]
+  const {
+    data: category,
+    error: errorCategory,
+    mutate: mutateCategory,
+  } = useSWR(id && userId ? `/api/categories/${id}?u=${userId}` : null);
+  const {
+    data: transactions,
+    error: errorTransactions,
+    mutate: mutateTransactions,
+  } = useSWR(userId ? `/api/transactions?u=${userId}` : null);
+
+  // *** [ STATES ]
+  const [navIds, setNavIds] = useState(null); // für < > nav (snapshot ID-Reihenfolge category-list)
+
+  const [isFormAddTxOpen, setIsFormAddTxOpen] = useState(false);
+  const [editingTxId, setEditingTxId] = useState(null);
+
+  const [isEditingCatName, setIsEditingCatName] = useState(false);
+  const [catName, setCatName] = useState("");
+  const [catNameError, setCatNameError] = useState("");
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+
+  // *** [ SYNC ] **************************************************************************
+  // *** [ category name ]: bei Änderung ***************************************************
+  useEffect(() => {
+    if (!category?.name) return;
+    setCatName(category.name);
+    setCatNameError("");
+  }, [category?.name]);
 
   // *** [ < > nav ] ***********************************************************************
-  // *** [ state ]: snapshot ID-Reihenfolge category-list
-  const [navIds, setNavIds] = useState(null);
-
   // *** [ session storage ]: snapshot abrufen
   useEffect(() => {
     if (!router.isReady) return;
@@ -147,10 +111,6 @@ export default function CategoryDetailsPage() {
     );
   }
 
-  function editCatDetails() {
-    router.push(`/categories/${id}/edit${fromQuery}`); // für FormEditCategory nach category-delete
-  }
-
   const goToPrevCat = useCallback(() => {
     if (!prevId) return;
     router.push(
@@ -168,6 +128,13 @@ export default function CategoryDetailsPage() {
   // *** [ keyboard nav ] ******************************************************************
   useEffect(() => {
     function handleKeyDown(event) {
+      const isEditableElement =
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target.isContentEditable;
+
+      if (isEditableElement) return; // nur, wenn nicht in NameInput
+
       if (event.key === "ArrowLeft") goToPrevCat();
       if (event.key === "ArrowRight") goToNextCat();
     }
@@ -176,22 +143,22 @@ export default function CategoryDetailsPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevCat, goToNextCat]);
 
-  // *** [ guards ] ************************************************************************
+  // *** [ GUARDS ] ************************************************************************
   if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
   if (!category || !transactions) return <h3>Loading ...</h3>;
 
-  // *** [ ABGELEITETE DATEN ] *************************************************************
+  // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. active date range ]: aus url *************************************************
-  const parsedDateFrom = parseDateParam(dateFrom);
-  const parsedDateTo = parseDateParam(dateTo);
-  const today = new Date();
+  const parsedDateFrom = parseDateString(dateFrom);
+  const parsedDateTo = parseDateString(dateTo);
+  const defaultRange = getDefaultRange();
 
   const activeDateRange =
     parsedDateFrom &&
     parsedDateTo &&
     parsedDateFrom.getTime() <= parsedDateTo.getTime()
       ? getRangeBounds(parsedDateFrom, parsedDateTo)
-      : getRangeBounds(startOfMonth(today), endOfMonth(today)); // sonst aktueller Monat
+      : getRangeBounds(defaultRange.from, defaultRange.to); // sonst aktueller Monat
 
   // *** [ 2. transactions ] ***************************************************************
   const filteredTransactions = transactions
@@ -206,131 +173,319 @@ export default function CategoryDetailsPage() {
     .filter((transaction) => transaction.category?._id === id) // nur active category
     .sort((a, b) => new Date(a.date) - new Date(b.date)); // Datum aufsteigend
 
+  // *** [ HANDLERS ] **********************************************************************
+  async function updateCategory(updatedFields) {
+    try {
+      const response = await fetch(`/api/categories/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedFields),
+      });
+
+      if (response.ok) {
+        await mutateCategory(); // header aktualisieren
+        await mutate(`/api/categories?u=${userId}`); // category-list
+        await mutateTransactions(); // transaction-list
+      } else {
+        throw new Error(
+          `Failed to update category (status: ${response.status})`
+        );
+      }
+    } catch (error) {
+      console.error("Error updating category: ", error);
+      throw error;
+    }
+  }
+
+  // *** [ type-button ]
+  async function handleTypeChange() {
+    const newType = category.type === "Expense" ? "Income" : "Expense";
+    await updateCategory({ type: newType });
+  }
+
+  // *** [ color-input ]
+  async function handleColorChange(event) {
+    await updateCategory({ color: event.target.value });
+  }
+
+  // *** [ name-input ] *************************
+  function startCatNameEditing() {
+    setCatName(category.name);
+    setCatNameError("");
+    setIsEditingCatName(true);
+  }
+
+  function cancelCatNameEditing() {
+    setCatName(category.name);
+    setCatNameError("");
+    setIsEditingCatName(false);
+  }
+
+  async function saveCatName() {
+    const trimmedName = catName.trim();
+
+    if (!trimmedName) {
+      setCatNameError("Name is required.");
+      setIsEditingCatName(true);
+      return;
+    }
+
+    if (trimmedName === category.name) {
+      setCatNameError("");
+      setIsEditingCatName(false);
+      return;
+    }
+
+    try {
+      await updateCategory({ name: trimmedName });
+      setCatNameError("");
+      setIsEditingCatName(false);
+    } catch (error) {
+      setCatNameError("Could not save name.");
+      setIsEditingCatName(true);
+    }
+  }
+
+  function handleCatNameKeyDown(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveCatName();
+    }
+
+    if (event.key === "Escape") {
+      cancelCatNameEditing();
+    }
+  }
+
+  // *** [ delete ] *****************************
+  async function handleCatDelete() {
+    const hasTransactions = category.transactionCount > 0; // Anzahl tx aus API
+
+    try {
+      // cascade delete
+      const url = hasTransactions
+        ? `/api/categories/${id}?cascade=true` // erst enthaltene transaction(s)
+        : `/api/categories/${id}`; // nur category (leer)
+
+      const response = await fetch(url, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setIsConfirmDeleteOpen(false); // Modal schließen
+        await mutate(`/api/categories?u=${userId}`); // category-list aktualisieren
+        await mutateTransactions(); // transaction-list
+        closeCatDetails(); // zurück zur vorherigen page
+        console.log("DELETING SUCCESSFUL! (category)");
+      } else {
+        throw new Error(
+          `Failed to delete category (status: ${response.status})`
+        );
+      }
+    } catch (error) {
+      console.error("Error deleting category: ", error);
+      setIsConfirmDeleteOpen(false); // Modal schließen, damit user nicht festhängt
+    }
+  }
+
   // ***************************************************************************************
 
   return (
-    <ContentContainer>
-      <ContentHeader>
-        <h1>Category Details</h1>
+    <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+      <ContentContainer>
+        <ContentHeader>
+          <h1>Category Details</h1>
 
-        <CloseButton
+          <CloseButton
+            type="button"
+            aria-label="Close category details"
+            title="Close"
+            onClick={closeCatDetails}
+          >
+            <CloseIcon />
+          </CloseButton>
+        </ContentHeader>
+
+        <NameNavRow>
+          <NavArrowButton
+            direction="prev"
+            ariaLabel="Go to previous category"
+            title="Previous"
+            disabled={!prevId}
+            onClick={goToPrevCat}
+            buttonSize={25}
+            iconSize={12}
+          />
+
+          <NameContainer>
+            {isEditingCatName ? (
+              <>
+                <NameInput
+                  type="text"
+                  aria-label="Update category name"
+                  title="Category name"
+                  value={catName}
+                  maxLength={CAT_NAME_MAX_LENGTH}
+                  onChange={(event) => {
+                    setCatName(event.target.value);
+                    setCatNameError("");
+                  }}
+                  onKeyDown={handleCatNameKeyDown}
+                  onBlur={saveCatName}
+                  autoFocus
+                  enterKeyHint="done"
+                />
+
+                {catNameError && <NameError>{catNameError}</NameError>}
+              </>
+            ) : (
+              <NameButton
+                type="button"
+                aria-label="Edit category name"
+                title="Edit category name"
+                onClick={startCatNameEditing}
+              >
+                {category.name}
+              </NameButton>
+            )}
+          </NameContainer>
+
+          <NavArrowButton
+            direction="next"
+            ariaLabel="Go to next category"
+            title="Next"
+            disabled={!nextId}
+            onClick={goToNextCat}
+            buttonSize={25}
+            iconSize={12}
+          />
+        </NameNavRow>
+
+        <ActionsRow>
+          <TrashButton
+            type="button"
+            aria-label="Delete category"
+            title="Delete"
+            onClick={() => setIsConfirmDeleteOpen(true)}
+          >
+            <TrashIcon />
+          </TrashButton>
+
+          <ColorInput
+            type="color"
+            aria-label="Update category color"
+            title="Update category color"
+            value={category.color}
+            onChange={handleColorChange}
+          />
+
+          <TypeButton
+            type="button"
+            aria-label="Switch category type"
+            title={`${category.type} (click to switch)`}
+            onClick={handleTypeChange}
+            $categoryType={category.type}
+          />
+        </ActionsRow>
+
+        {filteredTransactions.length === 0 ? (
+          <p className="empty-state">No transactions in this category yet.</p>
+        ) : (
+          <ul>
+            {filteredTransactions.map((transaction) => (
+              <li key={transaction._id}>
+                <TransactionButton
+                  type="button"
+                  aria-label={`Edit transaction: ${transaction.description}`}
+                  title="Edit transaction"
+                  onClick={() => setEditingTxId(transaction._id)}
+                >
+                  <p className="date">
+                    {new Date(transaction.date).toLocaleDateString("de-DE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "2-digit",
+                    })}
+                  </p>
+
+                  <p className="description">{transaction.description}</p>
+
+                  <p className="amount">
+                    {transaction.amount.toLocaleString("de-DE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    €
+                  </p>
+                </TransactionButton>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <AddButton
           type="button"
-          aria-label="Close category details"
-          title="Close"
-          onClick={closeCatDetails}
+          aria-label="Add transaction"
+          title="Add"
+          onClick={() => setIsFormAddTxOpen(true)}
         >
-          <CloseIcon />
-        </CloseButton>
-      </ContentHeader>
+          <AddIcon />
+        </AddButton>
 
-      <DetailsRow>
-        <ColorTag
-          color={
-            category.type === "Income"
-              ? "var(--income-color)"
-              : "var(--expense-color)"
-          }
-        />
-        <ColorTag color={category.color} />
-
-        <h2>{category.name}</h2>
-
-        <SettingsButton
-          type="button"
-          aria-label="Edit category details"
-          title="Edit"
-          onClick={editCatDetails}
-        >
-          <SettingsIcon />
-        </SettingsButton>
-      </DetailsRow>
-
-      <NavRow>
-        <NavButton
-          type="button"
-          aria-label="Previous category"
-          title="Previous"
-          disabled={!prevId}
-          onClick={goToPrevCat}
-        >
-          <PrevIcon className="prev" />
-        </NavButton>
-
-        <NavButton
-          type="button"
-          aria-label="Next category"
-          title="Next"
-          disabled={!nextId}
-          onClick={goToNextCat}
-        >
-          <NextIcon className="next" />
-        </NavButton>
-      </NavRow>
-
-      {filteredTransactions.length === 0 ? (
-        <p className="no-transaction">No transactions in this category yet.</p>
-      ) : (
-        <ul>
-          {filteredTransactions.map((transaction) => (
-            <li key={transaction._id}>
-              <StyledLink href={`/transactions/${transaction._id}`}>
-                <p className="date">
-                  {new Date(transaction.date).toLocaleDateString("de-DE", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                  })}
+        {isConfirmDeleteOpen && (
+          <DeleteConfirmModal
+            confirmationMessage={
+              category.transactionCount > 0 ? (
+                <p>
+                  Are you sure you want to delete this category & all included
+                  transactions?
                 </p>
+              ) : (
+                <p>Are you sure you want to delete this category?</p>
+              )
+            }
+            confirmDelete={handleCatDelete} // category löschen
+            closeModal={() => setIsConfirmDeleteOpen(false)} // X / ESC / Overlay
+          />
+        )}
 
-                <p className="description">{transaction.description}</p>
+        {editingTxId && (
+          <FormEditTransaction
+            transactionId={editingTxId}
+            onTxUpdated={mutateTransactions}
+            onTxDeleted={mutateTransactions}
+            closeForm={() => setEditingTxId(null)}
+          />
+        )}
 
-                <p className="amount">
-                  {transaction.amount.toLocaleString("de-DE", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  €
-                </p>
-              </StyledLink>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <AddButton
-        type="button"
-        aria-label="Add transaction"
-        title="Add"
-        onClick={() => router.push(`/adding?category=${id}`)}
-      >
-        <AddIcon />
-      </AddButton>
-    </ContentContainer>
+        {isFormAddTxOpen && (
+          <FormAddTransaction
+            initialCategoryId={id}
+            closeForm={() => setIsFormAddTxOpen(false)}
+            onTxAdded={mutateTransactions}
+          />
+        )}
+      </ContentContainer>
+    </PageShell>
   );
 }
 
 const ContentContainer = styled.div`
-  padding: 2rem; // Abstand Bildschirmrand
-  margin: 0 auto; // horizontal zentriert
-  max-width: 450px;
-
-  .no-transaction {
-    text-align: center;
-  }
-
-  ul {
-    list-style: none;
-  }
+  padding: 1.55rem 1rem 2rem 1rem; // Abstand Bildschirmrand / PageShell
 `;
 
 const ContentHeader = styled.div`
   display: flex; // h1 + CloseButton nebeneinander
-  margin-bottom: 1rem; // Abstand DetailsRow
+  align-items: center; // CloseButton vertikal
+  margin-bottom: 1.5rem; // Abstand NameNavRow
 
   h1 {
-    font-size: 1.5rem;
     flex: 1; // nimmt restlichen Platz in header
     text-align: center;
+    font-size: 1.5rem;
+    color: var(--secondary-text-color);
   }
 `;
 
@@ -338,10 +493,11 @@ const CloseButton = styled.button`
   background: transparent;
   border: none;
   cursor: pointer;
+  display: flex; // vertikal zentriert in ContentHeader
 
   svg {
-    width: 22px;
-    height: 23px;
+    width: 25px;
+    height: 25px;
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
@@ -360,90 +516,139 @@ const CloseButton = styled.button`
   }
 `;
 
-const DetailsRow = styled.div`
+// **************************************************************
+
+const NameNavRow = styled.div`
+  display: grid; //      NavArrowButton | NameContainer | NavArrowButton
+  grid-template-columns: 25px minmax(0, 1fr) 25px;
+  column-gap: 1rem; // Abstand items
+  align-items: center; // vertikal
+  margin-bottom: 1rem; // Abstand ActionsRow
+`;
+
+const NameContainer = styled.div`
+  min-width: 0; // für ellipsis in grid
   display: flex;
-  justify-content: center; // ColorTags + {category.name} horizontal zentriert
-  align-items: center; // ColorTags vertikal zentriert
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 `;
 
-const ColorTag = styled.span`
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%; // rund
-  background-color: ${(props) => props.color};
+const NameButton = styled.button`
+  width: 100%; // volle verfügbare Breite in grid
+  background: transparent;
+  border: 1px solid transparent; // wie NameInput (springt nicht)
+  border-radius: 30px;
+  color: var(--secondary-text-color);
+  font-size: 1.15rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 3px 0 6px 0; // wie NameInput (springt nicht)
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover {
+    transform: scale(1.03);
+    color: var(--primary-text-color);
+  }
 `;
 
-const SettingsButton = styled.button`
+const NameInput = styled.input`
+  width: 100%; // volle verfügbare Breite in grid
+  background: transparent;
+  border: 1px solid var(--primary-text-color);
+  border-radius: 30px;
+  color: var(--primary-text-color);
+  font-size: 1.15rem;
+  font-weight: bold;
+  text-align: center;
+  outline: none;
+  padding: 3px 0 6px 0; // text vertikal zentrierter
+`;
+
+const NameError = styled.p`
+  margin-top: 0.25rem;
+  color: var(--expense-color);
+  font-size: 0.75rem;
+`;
+
+// **************************************************************
+
+const ActionsRow = styled.div`
+  display: grid; //      TrashButton | ColorInput | TypeButton
+  grid-template-columns: 1fr auto auto;
+  align-items: center; // TrashButton vertikal zentiert
+  gap: 1rem; // Abstand zw. ColorInput + TypeButton
+  margin-bottom: 1.5rem; // Abstand list / empty.state
+`;
+
+const TrashButton = styled.button`
+  width: 25px;
   background: transparent;
   border: none;
   cursor: pointer;
 
   display: flex; // icon vertikal zentriert
-  margin-left: 0.5rem; // Abstand {category.name}
+  justify-content: center; // horizontal
 
   svg {
-    width: 23px;
-    height: 23px;
+    height: 20px;
+    fill: var(--delete-button-background-color);
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
-  }
-  svg path[class*="gear"] {
-    fill: var(--button-background-color);
-  }
-  svg path[class*="gear-ring"] {
-    fill: var(--button-text-color);
   }
 
   &:hover {
     transform: scale(1.07);
-
-    svg path[class*="gear-ring"] {
-      fill: var(--primary-text-color);
-    }
   }
 `;
 
-const NavRow = styled.div`
-  display: flex; // buttons nebeneinander
-  justify-content: space-between; // prev links, next rechts
-  margin-bottom: 1rem; // Abstand list / no-transaction
+const ColorInput = styled.input`
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: 1px solid var(--primary-text-color);
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 1);
+  background-color: ${(props) => props.value};
+
+  &::-webkit-color-swatch-wrapper {
+    padding: 0;
+  } // [Chrome]
+
+  &::-webkit-color-swatch {
+    border: none;
+  } // [Chrome]
+
+  &::-moz-color-swatch {
+    border: none;
+  } // [Firefox]
+
+  &:hover {
+    transform: scale(1.07);
+  }
 `;
 
-const NavButton = styled.button`
-  border: none;
+const TypeButton = styled.button`
+  width: 25px;
+  height: 25px;
   border-radius: 50%;
-  width: 22px;
-  height: 22px;
-  background-color: var(--button-background-color);
+  border: none;
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
-  svg {
-    height: 10px;
-    width: 10px;
-    stroke: var(--button-text-color);
-  }
-  .prev {
-    margin-right: 2px;
-  }
-  .next {
-    margin-left: 2px;
-  }
+  background-color: ${({ $categoryType }) =>
+    $categoryType === "Income"
+      ? "var(--income-color)"
+      : "var(--expense-color)"};
 
   &:hover {
     transform: scale(1.07);
-
-    svg {
-      stroke: var(--primary-text-color);
-    }
-  }
-
-  &:disabled {
-    opacity: 0.35;
-    pointer-events: none;
   }
 `;
+
+// **************************************************************
 
 const AddButton = styled.button`
   background: transparent;
@@ -451,11 +656,11 @@ const AddButton = styled.button`
   cursor: pointer;
 
   display: block; // wegen Zentrierung
-  margin: 1rem auto 0; // Abstand list / no-transaction + zentriert
+  margin: 1.5rem auto 0; // Abstand list / empty-state + zentriert
 
   svg {
-    width: 23px;
-    height: 22px;
+    width: 25px;
+    height: 25px;
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
@@ -474,30 +679,34 @@ const AddButton = styled.button`
   }
 `;
 
-const StyledLink = styled(Link)`
-  text-decoration: none;
-  display: flex;
-  gap: 1rem; // Abstand items
+const TransactionButton = styled.button`
+  width: 100%; // wie ContentContainer
+  background: transparent;
+  border: none;
+  cursor: pointer;
+
+  display: grid; //      date | description | amount
+  grid-template-columns: minmax(33px, 50px) minmax(0, 1fr) max-content;
+  column-gap: 0.5rem; // Abstand items
   padding-bottom: 0.2rem; // Abstand zw. Zeilen
 
   p {
+    text-align: left;
     font-size: 0.8rem;
     white-space: nowrap;
   }
 
   p.date {
     overflow: hidden;
-    min-width: 33px;
   }
 
   p.description {
     overflow: hidden;
     text-overflow: ellipsis;
-    min-width: 60px;
   }
 
   p.amount {
-    margin-left: auto; // rechts
+    text-align: right;
     font-weight: bold;
   }
 
@@ -505,6 +714,10 @@ const StyledLink = styled(Link)`
     p {
       transform: scale(1.03);
       color: var(--primary-text-color);
+    }
+
+    p.description {
+      transform-origin: left center; // sonst zu arg links
     }
   }
 `;
