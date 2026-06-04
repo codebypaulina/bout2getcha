@@ -12,7 +12,7 @@ export default function ProfilePage() {
   const { data: session } = useSession();
   const userId = session?.user?.userId;
 
-  const pageTitle = session ? "Profile" : "gotcha";
+  const pageTitle = session ? "Profile" : "bout2getcha";
 
   // *** [ LOGIN REDIRECT ] ******************************************************
   const callbackUrl =

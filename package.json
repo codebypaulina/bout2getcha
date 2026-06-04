@@ -1,5 +1,5 @@
 {
-  "name": "expense-tracker",
+  "name": "bout2getcha",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -34,7 +34,7 @@
     "jest": "^29.6.0",
     "jest-environment-jsdom": "^29.6.0"
   },
-  "description": "Expense Tracker App with Next.js",
+  "description": "bout2getcha App with Next.js",
   "nf": {
     "template": "next"
   }
