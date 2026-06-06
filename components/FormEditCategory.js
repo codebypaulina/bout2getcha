@@ -65,7 +65,6 @@ export default function FormEditCategory({
       if (response.ok) {
         await onCatUpdated?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (category- + transaction-list)
         closeForm();
-        console.log("UPDATING SUCCESSFUL! (category)");
       } else {
         throw new Error(
           `Failed to update category (status: ${response.status})`
@@ -99,7 +98,6 @@ export default function FormEditCategory({
       if (response.ok) {
         setIsConfirmOpen(false); // Modal schließen
         await onCatDeleted?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (category- + transaction-list) + back nav
-        console.log("DELETING SUCCESSFUL! (category)");
       } else {
         throw new Error(
           `Failed to delete category (status: ${response.status})`

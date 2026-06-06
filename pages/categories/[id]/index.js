@@ -83,8 +83,6 @@ export default function CategoryDetailsPage() {
       ? navIds[index + 1]
       : null; // nächste (sonst > disabled)
 
-  console.log({ navKey, id, navIds, index, prevId, nextId });
-
   // *** [ nav routes ] ********************************************************************
   const fromQuery = from ? `?from=${encodeURIComponent(from)}` : ""; // back nav (HomePage / CategoriesPage)
 
@@ -278,7 +276,6 @@ export default function CategoryDetailsPage() {
         await mutate(`/api/categories?u=${userId}`); // category-list aktualisieren
         await mutateTransactions(); // transaction-list
         closeCatDetails(); // zurück zur vorherigen page
-        console.log("DELETING SUCCESSFUL! (category)");
       } else {
         throw new Error(
           `Failed to delete category (status: ${response.status})`

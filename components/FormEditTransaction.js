@@ -121,7 +121,6 @@ export default function FormEditTransaction({
         await mutateTransaction(updatedTransaction, { revalidate: false }); // in form: SWR-detail-cache von tx aktualisieren (reopened)
         await onTxUpdated?.(); // in HomePage + CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
         closeForm();
-        console.log("UPDATING SUCCESSFUL! (transaction)");
       } else {
         throw new Error(
           `Failed to update transaction (status: ${response.status})`
@@ -149,7 +148,6 @@ export default function FormEditTransaction({
         setIsConfirmOpen(false); // Modal schließen
         await onTxDeleted?.(); // in HomePage + CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
         closeForm();
-        console.log("DELETING SUCCESSFUL! (transaction)");
       } else {
         throw new Error(
           `Failed to delete transaction (status: ${response.status})`

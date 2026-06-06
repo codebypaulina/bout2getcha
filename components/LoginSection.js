@@ -5,8 +5,6 @@ export default function LoginSection({ callbackUrl = "/" }) {
 
   const { data: session } = useSession();
 
-  console.log("user-data: ", session);
-
   // [eingeloggt]: Logout -> ProfilePage
   if (session) {
     return (

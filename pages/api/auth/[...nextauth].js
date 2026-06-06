@@ -20,7 +20,7 @@ export const authOptions = {
     }),
   ],
 
-  debug: true,
+  // debug: true,
 
   callbacks: {
     async jwt({ token, user }) {

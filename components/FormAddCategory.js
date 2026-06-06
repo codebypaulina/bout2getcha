@@ -38,7 +38,6 @@ export default function FormAddCategory({ closeForm }) {
 
       if (response.ok) {
         await router.push(`/categories?type=${categoryType}`); // zu CategoriesPage mit type-filter = type neuer category
-        console.log("ADDING SUCCESSFUL! (category)");
       } else {
         throw new Error(
           `Failed to add new category (status: ${response.status})`

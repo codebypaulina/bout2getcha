@@ -108,7 +108,6 @@ export default function FormAddTransaction({
       if (response.ok) {
         await onTxAdded?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
         closeForm();
-        console.log("ADDING SUCCESSFUL! (transaction)");
       } else {
         throw new Error(
           `Failed to add new transaction (status: ${response.status})`
