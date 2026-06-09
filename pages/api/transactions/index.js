@@ -7,29 +7,27 @@ import Category from "@/db/models/Category";
 
 export default async function handler(request, response) {
   // *** [ auth guard ]
-  const session = await getServerSession(request, response, authOptions);
-  if (!session) {
+  const authSession = await getServerSession(request, response, authOptions);
+  if (!authSession) {
     return response.status(401).json({ error: "Not authenticated" });
   }
 
-  // *** [ user / ownership ]
-  const userId = session.user.userId; // aus NextAuth-session (string)
-
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return response.status(400).json({ error: "Invalid user id" }); // defensive check (kein crash bei ungültiger ID)
+  // *** [ user validation ]
+  const authUserId = authSession.user.userId; // NextAuth-user-id (string)
+  if (!mongoose.Types.ObjectId.isValid(authUserId)) {
+    return response.status(400).json({ error: "Invalid user id" }); // abbrechen, wenn id ungültig (kein crash)
   }
+  const dbUserId = mongoose.Types.ObjectId.createFromHexString(authUserId); // string -> ObjectId (für MongoDB)
 
-  const userObjectId = mongoose.Types.ObjectId.createFromHexString(userId); // aktueller user als ObjectId (für MongoDB-Queries)
-
-  // *** [ DB ]
+  // *** [ db ]
   await dbConnect();
 
   // *** [ GET ] **********************************************************
   if (request.method === "GET") {
     try {
       const transactions = await Transaction.find({
-        userId: userObjectId, // nur transactions des eingeloggten users
-      }).populate("category"); // für details der entspr. category
+        userId: dbUserId, // ownership-check
+      }).populate("category"); // transactions mit category-object
 
       return response.status(200).json(transactions);
     } catch (error) {
@@ -42,27 +40,29 @@ export default async function handler(request, response) {
   // *** [ POST ] *********************************************************
   if (request.method === "POST") {
     try {
-      const categoryId = request.body.category;
-      if (!categoryId) {
-        return response.status(400).json({ error: "Category is required" });
-      }
-
-      // ownership-check (transaction darf nur in users category gespeichert werden)
-      const category = await Category.findOne({
-        _id: categoryId,
-        userId: userObjectId,
-      });
-      if (!category) {
+      // *** [ category ]
+      const { category: categoryId } = request.body; // als id
+      if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {
         return response.status(400).json({ error: "Invalid category" });
-      }
+      } // abbrechen, wenn fehlt / ungültig
 
-      const newTransaction = new Transaction({
+      const categoryExists = await Category.exists({
+        _id: categoryId,
+        userId: dbUserId,
+      }); // ownership-check
+      if (!categoryExists) {
+        return response.status(400).json({ error: "Invalid category" });
+      } // abbrechen, wenn id nicht existiert / nicht von user
+
+      // *** [ transaction ]
+      const createdTransaction = await Transaction.create({
         ...request.body,
-        userId: userObjectId,
-      }); // neue transaction erstellen
-      const savedTransaction = await newTransaction.save(); // in DB speichern
+        userId: dbUserId,
+      }); // in db erstellen + speichern (mit category-id)
 
-      return response.status(201).json(savedTransaction);
+      await createdTransaction.populate("category"); // category-id -> category-object
+
+      return response.status(201).json(createdTransaction); // zurückgeben (mit category-object)
     } catch (error) {
       return response
         .status(500)
@@ -70,6 +70,6 @@ export default async function handler(request, response) {
     }
   }
 
-  // *** [ fallback ] *****************************************************
+  // *** [ method fallback ] **********************************************
   return response.status(405).json({ message: "Method not allowed" });
 }
