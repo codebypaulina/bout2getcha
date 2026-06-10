@@ -50,28 +50,26 @@ export default async function handler(request, response) {
   // *** [ PUT ] **********************************************************
   if (request.method === "PUT") {
     try {
-      // *** [ category ]: falls geändert wird
-      const { category: categoryId } = request.body; // als id
+      const { category: categoryId, description, amount, date } = request.body; // nur diese updaten
 
-      if (categoryId) {
-        if (!mongoose.Types.ObjectId.isValid(categoryId)) {
-          return response.status(400).json({ error: "Invalid category" });
-        } // abbrechen, wenn ungültig
+      // *** [ category ]
+      if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {
+        return response.status(400).json({ error: "Invalid category" });
+      } // abbrechen, wenn id fehlt / ungültig
 
-        const categoryExists = await Category.exists({
-          _id: categoryId,
-          userId: dbUserId,
-        }); // ownership-check
+      const categoryExists = await Category.exists({
+        _id: categoryId,
+        userId: dbUserId,
+      }); // ownership-check
 
-        if (!categoryExists) {
-          return response.status(400).json({ error: "Invalid category" });
-        } // abbrechen, wenn id nicht existiert / nicht von user
-      }
+      if (!categoryExists) {
+        return response.status(400).json({ error: "Invalid category" });
+      } // abbrechen, wenn id nicht existiert / nicht von user
 
       // *** [ transaction ]
       const updatedTransaction = await Transaction.findOneAndUpdate(
         { _id: transactionId, userId: dbUserId },
-        request.body,
+        { category: categoryId, description, amount, date },
         { new: true, runValidators: true } // geupdatete transaction
       ).populate("category"); // mit category-object
 

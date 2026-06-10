@@ -40,11 +40,12 @@ export default async function handler(request, response) {
   // *** [ POST ] *********************************************************
   if (request.method === "POST") {
     try {
+      const { category: categoryId, description, amount, date } = request.body; // nur diese übernehmen
+
       // *** [ category ]
-      const { category: categoryId } = request.body; // als id
       if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {
         return response.status(400).json({ error: "Invalid category" });
-      } // abbrechen, wenn fehlt / ungültig
+      } // abbrechen, wenn id fehlt / ungültig
 
       const categoryExists = await Category.exists({
         _id: categoryId,
@@ -56,8 +57,11 @@ export default async function handler(request, response) {
 
       // *** [ transaction ]
       const createdTransaction = await Transaction.create({
-        ...request.body,
         userId: dbUserId,
+        category: categoryId,
+        description,
+        amount,
+        date,
       }); // in db erstellen + speichern (mit category-id)
 
       await createdTransaction.populate("category"); // category-id -> category-object

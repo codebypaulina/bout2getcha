@@ -57,9 +57,28 @@ export default async function handler(request, response) {
   // *** [ PUT ] **********************************************************
   if (request.method === "PUT") {
     try {
+      // *** [ partial update ]
+      // -> CategoryDetailsPage sendet Felder einzeln (inline-actions, nicht form)
+      const fieldToUpdate = {};
+
+      if (Object.hasOwn(request.body, "name")) {
+        fieldToUpdate.name = request.body.name;
+      }
+      if (Object.hasOwn(request.body, "type")) {
+        fieldToUpdate.type = request.body.type;
+      }
+      if (Object.hasOwn(request.body, "color")) {
+        fieldToUpdate.color = request.body.color;
+      }
+
+      if (Object.keys(fieldToUpdate).length === 0) {
+        return response.status(400).json({ error: "Invalid category data" });
+      } // abbrechen, wenn leer
+
+      // *** [ update ]
       const updatedCategory = await Category.findOneAndUpdate(
         { _id: categoryId, userId: dbUserId },
-        request.body,
+        fieldToUpdate,
         { new: true, runValidators: true } // geupdatete category
       );
 
@@ -79,8 +98,7 @@ export default async function handler(request, response) {
 
   // *** [ DELETE ] *******************************************************
   if (request.method === "DELETE") {
-    // MongoDB-Session (für Transaction)
-    const dbSession = await mongoose.startSession();
+    const dbSession = await mongoose.startSession(); // MongoDB-Session (für Transaction)
 
     try {
       // *** [ MongoDB-Transaction ] ***********************\

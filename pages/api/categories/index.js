@@ -35,9 +35,13 @@ export default async function handler(request, response) {
   // *** [ POST ] *********************************************************
   if (request.method === "POST") {
     try {
+      const { name, type, color } = request.body; // nur diese übernehmen
+
       const createdCategory = await Category.create({
-        ...request.body,
         userId: dbUserId,
+        name,
+        type,
+        color,
       }); // erstellen + in db speichern
 
       return response.status(201).json(createdCategory);
