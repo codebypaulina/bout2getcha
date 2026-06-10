@@ -11,8 +11,8 @@ const transactionSchema = new Schema(
       index: true,
     },
     category: {
-      type: Schema.Types.ObjectId, // category = ObjectId, das auf ein Dokument im Category-Modell verweist
-      ref: "Category", // stellt sicher, dass es sich auf das Category-Modell bezieht
+      type: Schema.Types.ObjectId,
+      ref: "Category", // referenziert Category-Model
       required: true,
     },
     description: {
@@ -31,8 +31,7 @@ const transactionSchema = new Schema(
     },
   },
 
-  // fügt Felder "createdAt" & "updatedAt" hinzu, um zu verfolgen, wann eine Transaktion erstellt / geändert wird
-  { timestamps: true }
+  { timestamps: true } // "createdAt" + "updatedAt"
 );
 
 const Transaction =

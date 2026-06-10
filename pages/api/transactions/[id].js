@@ -81,9 +81,13 @@ export default async function handler(request, response) {
 
       return response.status(200).json(updatedTransaction);
     } catch (error) {
+      if (error.name === "ValidationError") {
+        return response.status(400).json({ error: "Invalid transaction data" });
+      } // ungültige Eingabe (description/amount/date)
+
       return response
         .status(500)
-        .json({ error: "Failed to update transaction" });
+        .json({ error: "Failed to update transaction" }); // alle anderen Fehler
     }
   }
 

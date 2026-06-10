@@ -64,9 +64,13 @@ export default async function handler(request, response) {
 
       return response.status(201).json(createdTransaction); // zurückgeben (mit category-object)
     } catch (error) {
+      if (error.name === "ValidationError") {
+        return response.status(400).json({ error: "Invalid transaction data" });
+      } // ungültige Eingabe (description/amount/date)
+
       return response
         .status(500)
-        .json({ error: "Failed to create transaction" });
+        .json({ error: "Failed to create transaction" }); // alle anderen Fehler
     }
   }
 

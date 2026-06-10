@@ -42,7 +42,11 @@ export default async function handler(request, response) {
 
       return response.status(201).json(createdCategory);
     } catch (error) {
-      return response.status(500).json({ error: "Failed to create category" });
+      if (error.name === "ValidationError") {
+        return response.status(400).json({ error: "Invalid category data" });
+      } // ungültige Eingabe (name/type/color)
+
+      return response.status(500).json({ error: "Failed to create category" }); // alle anderen Fehler
     }
   }
 
