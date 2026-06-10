@@ -109,12 +109,7 @@ export default function HomePage() {
   const categoriesWithTotals = categories.map((category) => {
     const totalAmount = currentMonthTransactions
       .filter((transaction) => {
-        const categoryId =
-          typeof transaction.category === "string"
-            ? transaction.category
-            : transaction.category?._id;
-
-        return categoryId === category._id;
+        return transaction.category._id === category._id;
       })
       .reduce((sum, transaction) => sum + transaction.amount, 0);
 
