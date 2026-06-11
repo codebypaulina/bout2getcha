@@ -1,4 +1,4 @@
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
@@ -13,6 +13,9 @@ export default function FormAddTransaction({
   onTxAdded, // CategoryDetailsPage
   closeForm, // AddingPage + CategoryDetailsPage
 }) {
+  // *** [ SWR-CACHE ]
+  const { mutate } = useSWRConfig(); // um tx-list zu aktualisieren
+
   // *** [ AUTH ]
   const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
@@ -93,26 +96,48 @@ export default function FormAddTransaction({
   // *** [ save-button ]
   async function handleSubmit(event) {
     event.preventDefault();
-    const formData = new FormData(event.target);
-    const data = Object.fromEntries(formData);
+    const formData = new FormData(event.currentTarget);
+    const transactionData = Object.fromEntries(formData); // form data -> object
 
     try {
+      // *** [ db ]: tx speichern
       const response = await fetch("/api/transactions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(transactionData),
       });
 
-      if (response.ok) {
-        await onTxAdded?.(); // in CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
-        closeForm();
-      } else {
+      if (!response.ok) {
         throw new Error(
           `Failed to add new transaction (status: ${response.status})`
         );
       }
+
+      const createdTransaction = await response.json(); // neue tx
+
+      // *** [ swr-cache ]: tx-list aktualisieren
+      const transactionsKey = `/api/transactions?u=${userId}`; // key tx-list
+
+      await mutate(
+        transactionsKey,
+
+        // bisherige tx-list aus cache:
+        (currentTransactions) => {
+          if (currentTransactions === undefined) {
+            return undefined;
+          } // wenn keine list, nicht list mit nur neuer tx anlegen
+
+          return [...currentTransactions, createdTransaction]; // aktualisierter cache: bisherige list + neue tx
+        },
+
+        { revalidate: false } // nicht zusätzl GET, weil neue tx von POST
+      );
+
+      await onTxAdded?.(); // parent data: CategoryDetailsPage aktualisiert detail-cache, AddingPage nicht nötig
+
+      closeForm(); // zu CategoryDetailsPage / AddingPage
     } catch (error) {
       console.error("Error adding new transaction: ", error);
     }

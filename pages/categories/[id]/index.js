@@ -461,7 +461,7 @@ export default function CategoryDetailsPage() {
           <FormAddTransaction
             initialCategoryId={id}
             closeForm={() => setIsFormAddTxOpen(false)}
-            onTxAdded={mutateTransactions}
+            onTxAdded={mutateCategory} // category-detail-cache aktualisieren (wg transactionCount)
           />
         )}
       </ContentContainer>
