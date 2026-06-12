@@ -1,4 +1,4 @@
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { useEffect, useState } from "react"; // effect + state: category-Änderung -> type-Änderung // state: ConfirmModal open/!open
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
@@ -8,6 +8,7 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
 import { TX_DESCRIPTION_MAX_LENGTH, TX_AMOUNT_MIN } from "@/utils/constants";
+import { id } from "react-day-picker/locale";
 
 export default function FormEditTransaction({
   transactionId,
@@ -15,6 +16,9 @@ export default function FormEditTransaction({
   onTxDeleted,
   closeForm,
 }) {
+  // *** [ SWR-CACHE ]
+  const { mutate } = useSWRConfig(); // um tx-list zu aktualisieren
+
   // *** [ AUTH ]
   const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
@@ -140,19 +144,42 @@ export default function FormEditTransaction({
   // *** [2. confirm-button]: transaction löschen
   async function handleConfirmDelete() {
     try {
+      // *** [ db ]
       const response = await fetch(`/api/transactions/${transactionId}`, {
         method: "DELETE",
-      });
+      }); // löschen
 
-      if (response.ok) {
-        setIsConfirmOpen(false); // Modal schließen
-        await onTxDeleted?.(); // in HomePage + CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
-        closeForm();
-      } else {
+      if (!response.ok) {
         throw new Error(
           `Failed to delete transaction (status: ${response.status})`
         );
       }
+
+      setIsConfirmOpen(false); // Modal schließen
+
+      // *** [ swr-cache ]: tx-list aktualisieren
+      const transactionsKey = `/api/transactions?u=${userId}`; // key tx-list
+
+      await mutate(
+        transactionsKey,
+
+        // bisherige tx-list aus cache:
+        (currentTransactions) => {
+          if (currentTransactions === undefined) {
+            return undefined;
+          } // wenn keine list, list nicht anpassen
+
+          return currentTransactions.filter(
+            (transaction) => transaction._id !== transactionId
+          ); // aktualisierter cache: bisherige list ohne gelöschte tx
+        },
+
+        { revalidate: false } // nicht zusätzl GET, weil tx rausgefiltert aus list
+      );
+
+      await onTxDeleted?.(); // parent data: CategoryDetailsPage aktualisiert detail-cache, TransactionsPage nicht nötig
+
+      closeForm(); // zu CategoryDetailsPage / TransactionsPage
     } catch (error) {
       console.error("Error deleting transaction: ", error);
       setIsConfirmOpen(false); // Modal schließen, damit user nicht festhängt

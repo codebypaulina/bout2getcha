@@ -452,7 +452,7 @@ export default function CategoryDetailsPage() {
           <FormEditTransaction
             transactionId={editingTxId}
             onTxUpdated={mutateTransactions}
-            onTxDeleted={mutateTransactions}
+            onTxDeleted={mutateCategory} // category-detail-cache aktualisieren (wg transactionCount)
             closeForm={() => setEditingTxId(null)}
           />
         )}

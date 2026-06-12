@@ -438,7 +438,6 @@ export default function TransactionsPage() {
         <FormEditTransaction
           transactionId={editingTxId}
           onTxUpdated={mutateTransactions}
-          onTxDeleted={mutateTransactions}
           closeForm={() => setEditingTxId(null)}
         />
       )}
