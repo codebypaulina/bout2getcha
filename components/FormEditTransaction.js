@@ -8,11 +8,10 @@ import DeleteConfirmModal from "./DeleteConfirmModal";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
 import { TX_DESCRIPTION_MAX_LENGTH, TX_AMOUNT_MIN } from "@/utils/constants";
-import { id } from "react-day-picker/locale";
 
 export default function FormEditTransaction({
   transactionId,
-  onTxUpdated,
+  onTxCategoryChanged,
   onTxDeleted,
   closeForm,
 }) {
@@ -108,28 +107,62 @@ export default function FormEditTransaction({
   // *** [ save-button ]
   async function handleSubmit(event) {
     event.preventDefault();
-    const formData = new FormData(event.target);
-    const data = Object.fromEntries(formData);
+    const formData = new FormData(event.currentTarget);
+    const transactionData = Object.fromEntries(formData); // form data -> object
 
     try {
+      // *** [ db ]: tx updaten
       const response = await fetch(`/api/transactions/${transactionId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(transactionData),
       });
 
-      if (response.ok) {
-        const updatedTransaction = await response.json();
-        await mutateTransaction(updatedTransaction, { revalidate: false }); // in form: SWR-detail-cache von tx aktualisieren (reopened)
-        await onTxUpdated?.(); // in HomePage + CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
-        closeForm();
-      } else {
+      if (!response.ok) {
         throw new Error(
           `Failed to update transaction (status: ${response.status})`
         );
       }
+
+      const updatedTransaction = await response.json(); // geupdatete tx
+
+      // *** [ swr-cache ]: aktualisieren
+      // *** [1]: tx-detail
+      await mutateTransaction(updatedTransaction, { revalidate: false });
+
+      // *** [2]: tx-list
+      const transactionsKey = `/api/transactions?u=${userId}`; // key tx-list
+
+      await mutate(
+        transactionsKey,
+
+        // bisherige tx-list aus cache:
+        (currentTransactions) => {
+          if (currentTransactions === undefined) {
+            return undefined;
+          } // wenn keine list, list nicht anpassen
+
+          return currentTransactions.map((currentTransaction) =>
+            currentTransaction._id === transactionId
+              ? updatedTransaction
+              : currentTransaction
+          ); // aktualisierter cache: in list tx durch geupdatete ersetzt
+        },
+
+        { revalidate: false } // nicht zusätzl GET, weil geupdatete tx durch PUT
+      );
+
+      // *** [3]: parent data
+      const categoryChanged =
+        transaction.category._id !== updatedTransaction.category._id;
+
+      if (categoryChanged) {
+        await onTxCategoryChanged?.(); // CategoryDetailsPage aktualisiert detail-cache, TransactionsPage nicht nötig
+      }
+
+      closeForm(); // zu CategoryDetailsPage / TransactionsPage
     } catch (error) {
       console.error("Error updating transaction: ", error);
     }

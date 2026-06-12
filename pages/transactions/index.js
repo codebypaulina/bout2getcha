@@ -35,11 +35,9 @@ export default function TransactionsPage() {
   const userId = session?.user?.userId; // user-ID (für session storage / data-fetch)
 
   // *** [ DATA-FETCH ]
-  const {
-    data: transactions,
-    error: errorTransactions,
-    mutate: mutateTransactions,
-  } = useSWR(userId ? `/api/transactions?u=${userId}` : null);
+  const { data: transactions, error: errorTransactions } = useSWR(
+    userId ? `/api/transactions?u=${userId}` : null
+  );
   const { data: categories, error: errorCategories } = useSWR(
     userId ? `/api/categories?u=${userId}` : null
   );
@@ -437,7 +435,6 @@ export default function TransactionsPage() {
       {editingTxId && (
         <FormEditTransaction
           transactionId={editingTxId}
-          onTxUpdated={mutateTransactions}
           closeForm={() => setEditingTxId(null)}
         />
       )}
