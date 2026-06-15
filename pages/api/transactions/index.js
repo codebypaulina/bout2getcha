@@ -1,23 +1,13 @@
 import mongoose from "mongoose";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
 import dbConnect from "@/db/connect";
 import Transaction from "@/db/models/Transaction";
 import Category from "@/db/models/Category";
+import { getAuthenticatedDbUserId } from "@/utils/apiAuth";
 
 export default async function handler(request, response) {
-  // *** [ auth guard ]
-  const authSession = await getServerSession(request, response, authOptions);
-  if (!authSession) {
-    return response.status(401).json({ error: "Not authenticated" });
-  }
-
-  // *** [ user validation ]
-  const authUserId = authSession.user.userId; // NextAuth-user-id (string)
-  if (!mongoose.Types.ObjectId.isValid(authUserId)) {
-    return response.status(400).json({ error: "Invalid user id" }); // abbrechen, wenn id ungültig (kein crash)
-  }
-  const dbUserId = mongoose.Types.ObjectId.createFromHexString(authUserId); // string -> ObjectId (für MongoDB)
+  // *** [ auth + user ]
+  const dbUserId = await getAuthenticatedDbUserId(request, response);
+  if (!dbUserId) return;
 
   // *** [ db ]
   await dbConnect();
