@@ -131,7 +131,7 @@ function createSeedDate(day) {
 export default async function handler(request, response) {
   // *** [ method guard ]
   if (request.method !== "POST") {
-    return response.status(405).json({ message: "Method not allowed" });
+    return response.status(405).json({ error: "Method not allowed" });
   }
 
   // *** [ auth + user ]
@@ -193,7 +193,7 @@ export default async function handler(request, response) {
       return response.status(200).json({ alreadySeeded: true });
     } // duplicate key error: SeedLog.userId existiert bereits
 
-    return response.status(500).json({ message: "Bootstrap failed" });
+    return response.status(500).json({ error: "Bootstrap failed" });
   } finally {
     await dbSession.endSession();
   }

@@ -7,7 +7,7 @@ import { getAuthenticatedDbUserId } from "@/utils/apiAuth";
 export default async function handler(request, response) {
   // *** [ method guard ]
   if (!["GET", "POST"].includes(request.method)) {
-    return response.status(405).json({ message: "Method not allowed" });
+    return response.status(405).json({ error: "Method not allowed" });
   }
 
   // *** [ auth + user ]
