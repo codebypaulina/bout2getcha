@@ -5,6 +5,11 @@ import Transaction from "@/db/models/Transaction";
 import { getAuthenticatedDbUserId } from "@/utils/apiAuth";
 
 export default async function handler(request, response) {
+  // *** [ method guard ]
+  if (!["GET", "PUT", "DELETE"].includes(request.method)) {
+    return response.status(405).json({ message: "Method not allowed" });
+  }
+
   // *** [ auth + user ]
   const dbUserId = await getAuthenticatedDbUserId(request, response);
   if (!dbUserId) return;
@@ -132,7 +137,4 @@ export default async function handler(request, response) {
       await dbSession.endSession();
     }
   }
-
-  // *** [ fallback ] *****************************************************
-  return response.status(405).json({ message: "Method not allowed" });
 }

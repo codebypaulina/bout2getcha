@@ -129,14 +129,14 @@ function createSeedDate(day) {
 }
 
 export default async function handler(request, response) {
-  // *** [ auth + user ]
-  const dbUserId = await getAuthenticatedDbUserId(request, response);
-  if (!dbUserId) return;
-
   // *** [ method guard ]
   if (request.method !== "POST") {
     return response.status(405).json({ message: "Method not allowed" });
   }
+
+  // *** [ auth + user ]
+  const dbUserId = await getAuthenticatedDbUserId(request, response);
+  if (!dbUserId) return;
 
   // *** [ db setup ]
   await dbConnect(); // MongoDB-Verbindung (nur wenn POST)

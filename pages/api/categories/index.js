@@ -3,6 +3,11 @@ import Category from "@/db/models/Category";
 import { getAuthenticatedDbUserId } from "@/utils/apiAuth";
 
 export default async function handler(request, response) {
+  // *** [ method guard ]
+  if (!["GET", "POST"].includes(request.method)) {
+    return response.status(405).json({ message: "Method not allowed" });
+  }
+
   // *** [ auth + user ]
   const dbUserId = await getAuthenticatedDbUserId(request, response);
   if (!dbUserId) return;
@@ -42,7 +47,4 @@ export default async function handler(request, response) {
       return response.status(500).json({ error: "Failed to create category" }); // alle anderen Fehler
     }
   }
-
-  // *** [ fallback ] *****************************************************
-  return response.status(405).json({ message: "Method not allowed" });
 }

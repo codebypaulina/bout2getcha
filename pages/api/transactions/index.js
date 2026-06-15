@@ -5,6 +5,11 @@ import Category from "@/db/models/Category";
 import { getAuthenticatedDbUserId } from "@/utils/apiAuth";
 
 export default async function handler(request, response) {
+  // *** [ method guard ]
+  if (!["GET", "POST"].includes(request.method)) {
+    return response.status(405).json({ message: "Method not allowed" });
+  }
+
   // *** [ auth + user ]
   const dbUserId = await getAuthenticatedDbUserId(request, response);
   if (!dbUserId) return;
@@ -67,7 +72,4 @@ export default async function handler(request, response) {
         .json({ error: "Failed to create transaction" }); // alle anderen Fehler
     }
   }
-
-  // *** [ method fallback ] **********************************************
-  return response.status(405).json({ message: "Method not allowed" });
 }
