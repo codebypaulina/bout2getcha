@@ -7,6 +7,11 @@ import CloseIcon from "@/public/icons/close.svg";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
+import {
+  getCategoriesKey,
+  getTransactionsKey,
+  getTransactionKey,
+} from "@/utils/swrKeys";
 import { TX_DESCRIPTION_MAX_LENGTH, TX_AMOUNT_MIN } from "@/utils/constants";
 
 export default function FormEditTransaction({
@@ -27,13 +32,9 @@ export default function FormEditTransaction({
     data: transaction,
     error: errorTransaction,
     mutate: mutateTransaction,
-  } = useSWR(
-    transactionId && userId
-      ? `/api/transactions/${transactionId}?u=${userId}`
-      : null
-  );
+  } = useSWR(getTransactionKey(transactionId, userId));
   const { data: categories, error: errorCategories } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null
+    getCategoriesKey(userId)
   );
 
   // *** [ STATES ]
@@ -133,7 +134,7 @@ export default function FormEditTransaction({
       await mutateTransaction(updatedTransaction, { revalidate: false });
 
       // *** [2]: tx-list
-      const transactionsKey = `/api/transactions?u=${userId}`; // key tx-list
+      const transactionsKey = getTransactionsKey(userId); // key tx-list
 
       await mutate(
         transactionsKey,
@@ -191,7 +192,7 @@ export default function FormEditTransaction({
       setIsConfirmOpen(false); // Modal schließen
 
       // *** [ swr-cache ]: tx-list aktualisieren
-      const transactionsKey = `/api/transactions?u=${userId}`; // key tx-list
+      const transactionsKey = getTransactionsKey(userId); // key tx-list
 
       await mutate(
         transactionsKey,

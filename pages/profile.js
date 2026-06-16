@@ -6,6 +6,8 @@ import { mutate } from "swr";
 import PageShell from "@/components/layout/PageShell";
 import LoginSection from "@/components/LoginSection";
 
+import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
+
 export default function ProfilePage() {
   const router = useRouter();
 
@@ -31,8 +33,8 @@ export default function ProfilePage() {
 
         // nach seed: SWR-cache ohne reload aktualisieren
         if (!data.alreadySeeded) {
-          mutate(`/api/categories?u=${userId}`);
-          mutate(`/api/transactions?u=${userId}`);
+          mutate(getCategoriesKey(userId));
+          mutate(getTransactionsKey(userId));
         }
       } catch (error) {
         console.error("Bootstrap failed");

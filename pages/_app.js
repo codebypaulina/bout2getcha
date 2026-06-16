@@ -10,11 +10,18 @@ export default function App({
   return (
     <SWRConfig
       value={{
-        fetcher: async (...args) => {
-          const response = await fetch(...args);
+        fetcher: async (key) => {
+          // key:  SWR-key für useSWR
+
+          const url = Array.isArray(key) ? key[0] : key;
+          // key array:  ["/api/categories", userId]  -> fetch("/api/categories")
+          // key string:  "/api/categories"           -> fetch("/api/categories")
+
+          const response = await fetch(url);
           if (!response.ok) {
-            throw new Error(`Request with ${JSON.stringify(args)} failed.`);
+            throw new Error(`Request to ${url} failed.`);
           }
+
           return await response.json();
         },
       }}

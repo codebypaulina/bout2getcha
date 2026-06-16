@@ -14,6 +14,11 @@ import CloseIcon from "/public/icons/close.svg";
 import TrashIcon from "/public/icons/trash.svg";
 import AddIcon from "/public/icons/addNEU.svg";
 
+import {
+  getCategoryKey,
+  getCategoriesKey,
+  getTransactionsKey,
+} from "@/utils/swrKeys";
 import { CAT_NAME_MAX_LENGTH } from "@/utils/constants";
 import {
   parseDateString,
@@ -34,12 +39,12 @@ export default function CategoryDetailsPage() {
     data: category,
     error: errorCategory,
     mutate: mutateCategory,
-  } = useSWR(id && userId ? `/api/categories/${id}?u=${userId}` : null);
+  } = useSWR(getCategoryKey(id, userId));
   const {
     data: transactions,
     error: errorTransactions,
     mutate: mutateTransactions,
-  } = useSWR(userId ? `/api/transactions?u=${userId}` : null);
+  } = useSWR(getTransactionsKey(userId));
 
   // *** [ STATES ]
   const [navIds, setNavIds] = useState(null); // für < > nav (snapshot ID-Reihenfolge category-list)
@@ -184,7 +189,7 @@ export default function CategoryDetailsPage() {
 
       if (response.ok) {
         await mutateCategory(); // header aktualisieren
-        await mutate(`/api/categories?u=${userId}`); // category-list
+        await mutate(getCategoriesKey(userId)); // category-list
         await mutateTransactions(); // transaction-list
       } else {
         throw new Error(
@@ -273,7 +278,7 @@ export default function CategoryDetailsPage() {
 
       if (response.ok) {
         setIsConfirmDeleteOpen(false); // Modal schließen
-        await mutate(`/api/categories?u=${userId}`); // category-list aktualisieren
+        await mutate(getCategoriesKey(userId)); // category-list aktualisieren
         await mutateTransactions(); // transaction-list
         closeCatDetails(); // zurück zur vorherigen page
       } else {

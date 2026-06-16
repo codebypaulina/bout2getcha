@@ -6,6 +6,7 @@ import styled from "styled-components";
 import CloseIcon from "@/public/icons/close.svg";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
+import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
 import { TX_DESCRIPTION_MAX_LENGTH, TX_AMOUNT_MIN } from "@/utils/constants";
 
 export default function FormAddTransaction({
@@ -21,9 +22,7 @@ export default function FormAddTransaction({
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
 
   // *** [ DATA-FETCH ]
-  const { data: categories, error } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null
-  );
+  const { data: categories, error } = useSWR(getCategoriesKey(userId));
 
   // *** [ STATES ]
   const [currentCategoryId, setCurrentCategoryId] = useState(initialCategoryId); // ID für dropdown
@@ -118,7 +117,7 @@ export default function FormAddTransaction({
       const createdTransaction = await response.json(); // neue tx
 
       // *** [ swr-cache ]: tx-list aktualisieren
-      const transactionsKey = `/api/transactions?u=${userId}`; // key tx-list
+      const transactionsKey = getTransactionsKey(userId); // key tx-list
 
       await mutate(
         transactionsKey,

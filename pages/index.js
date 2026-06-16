@@ -12,6 +12,7 @@ import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
 
+import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
 import { formatCurrency } from "@/utils/helpers";
 
 export default function HomePage() {
@@ -27,10 +28,10 @@ export default function HomePage() {
 
   // *** [ DATA-FETCH ]
   const { data: categories, error: errorCategories } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null
+    getCategoriesKey(userId)
   );
   const { data: transactions, error: errorTransactions } = useSWR(
-    userId ? `/api/transactions?u=${userId}` : null
+    getTransactionsKey(userId)
   );
 
   // *** [ SYNC ] **************************************************************************

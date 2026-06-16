@@ -20,6 +20,7 @@ import ChartIcon from "@/public/icons/chart.svg";
 
 import useSessionStorageState from "@/hooks/useSessionStorageState";
 import useDateFilter from "@/hooks/useDateFilter";
+import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
 import {
   formatDateString,
   formatDateLabel,
@@ -44,10 +45,10 @@ export default function CategoriesPage() {
 
   // *** [ DATA-FETCH ]
   const { data: categories, error: errorCategories } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null
+    getCategoriesKey(userId)
   );
   const { data: transactions, error: errorTransactions } = useSWR(
-    userId ? `/api/transactions?u=${userId}` : null
+    getTransactionsKey(userId)
   );
 
   // *** [ SYNC ] **************************************************************************
