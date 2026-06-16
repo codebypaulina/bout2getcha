@@ -74,7 +74,7 @@ export default async function handler(request, response) {
 
       return response.status(200).json(updatedTransaction);
     } catch (error) {
-      if (error.name === "ValidationError") {
+      if (["ValidationError", "CastError"].includes(error.name)) {
         return response.status(400).json({ error: "Invalid transaction data" });
       } // ungültige Eingabe (description/amount/date)
 
