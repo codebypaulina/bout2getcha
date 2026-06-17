@@ -6,6 +6,7 @@ import Link from "next/link";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
+import StatusMessage from "@/components/layout/StatusMessage";
 import DatePicker from "@/components/DatePicker";
 import ChartCard from "@/components/ChartCard";
 import {
@@ -90,8 +91,21 @@ export default function CategoriesPage() {
   } = useDateFilter(userId ? `u:${userId}:categories:dateFilter` : null);
 
   // *** [ GUARDS ] ************************************************************************
-  if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
-  if (!categories || !transactions) return <h3>Loading ...</h3>;
+  if (errorCategories || errorTransactions) {
+    return (
+      <PageShell title={pageTitle}>
+        <StatusMessage variant="error" message="Failed to load data." />
+      </PageShell>
+    );
+  }
+
+  if (!categories || !transactions) {
+    return (
+      <PageShell title={pageTitle}>
+        <StatusMessage message="Loading ..." />
+      </PageShell>
+    );
+  }
 
   // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. date metadata ] **************************************************************

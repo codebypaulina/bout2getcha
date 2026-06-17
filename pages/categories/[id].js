@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
+import StatusMessage from "@/components/layout/StatusMessage";
 import NavArrowButton from "@/components/NavArrowButton";
 import FormEditTransaction from "@/components/FormEditTransaction";
 import FormAddTransaction from "@/components/FormAddTransaction";
@@ -147,8 +148,21 @@ export default function CategoryDetailsPage() {
   }, [goToPrevCat, goToNextCat]);
 
   // *** [ GUARDS ] ************************************************************************
-  if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
-  if (!category || !transactions) return <h3>Loading ...</h3>;
+  if (errorCategory || errorTransactions) {
+    return (
+      <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+        <StatusMessage variant="error" message="Failed to load data." />
+      </PageShell>
+    );
+  }
+
+  if (!category || !transactions) {
+    return (
+      <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+        <StatusMessage message="Loading ..." />
+      </PageShell>
+    );
+  }
 
   // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. active date range ]: aus url *************************************************

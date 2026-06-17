@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"; // effect + state: category-Änderu
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
 
+import StatusMessage from "./layout/StatusMessage";
 import CloseIcon from "@/public/icons/close.svg";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
@@ -66,8 +67,29 @@ export default function FormEditTransaction({
   useEscapeClose(!isConfirmOpen, closeForm);
 
   // *** [ GUARDS ] ************************************************************************
-  if (errorTransaction || errorCategories) return <h3>Failed to load data</h3>;
-  if (!transaction || !categories) return <h3>Loading ...</h3>;
+  if (errorTransaction || errorCategories) {
+    return (
+      <>
+        <Overlay onClick={closeForm} />
+
+        <FormContainer as="section">
+          <StatusMessage variant="error" message="Failed to load data." />
+        </FormContainer>
+      </>
+    );
+  }
+
+  if (!transaction || !categories) {
+    return (
+      <>
+        <Overlay onClick={closeForm} />
+
+        <FormContainer as="section">
+          <StatusMessage message="Loading ..." />
+        </FormContainer>
+      </>
+    );
+  }
 
   // *** [ DERIVED DATA ] ******************************************************************
   // *** [categories sortieren]: A-Z (für dropdown)

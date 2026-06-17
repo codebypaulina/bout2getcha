@@ -4,6 +4,7 @@ import useSWR from "swr";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
+import StatusMessage from "@/components/layout/StatusMessage";
 import DatePicker from "@/components/DatePicker";
 import ChartCard from "@/components/ChartCard";
 import {
@@ -79,8 +80,21 @@ export default function TransactionsPage() {
   } = useDateFilter(userId ? `u:${userId}:transactions:dateFilter` : null);
 
   // *** [ GUARDS ] ************************************************************************
-  if (errorTransactions || errorCategories) return <h3>Failed to load data</h3>;
-  if (!transactions || !categories) return <h3>Loading ...</h3>;
+  if (errorTransactions || errorCategories) {
+    return (
+      <PageShell title={pageTitle}>
+        <StatusMessage variant="error" message="Failed to load data." />
+      </PageShell>
+    );
+  }
+
+  if (!transactions || !categories) {
+    return (
+      <PageShell title={pageTitle}>
+        <StatusMessage message="Loading ..." />
+      </PageShell>
+    );
+  }
 
   // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. date metadata ] **************************************************************
