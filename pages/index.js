@@ -12,6 +12,7 @@ import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
 
+import useSessionStorageState from "@/hooks/useSessionStorageState";
 import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
 import { formatCurrency } from "@/utils/helpers";
 
@@ -19,7 +20,6 @@ export default function HomePage() {
   const pageTitle = "Expenses";
 
   const [hiddenCategories, setHiddenCategories] = useState([]);
-  const [isChartOpen, setIsChartOpen] = useState(false);
   const [hoveredCategoryId, setHoveredCategoryId] = useState(null); // category- + segment-hover
 
   // *** [ AUTH ]
@@ -66,25 +66,11 @@ export default function HomePage() {
   }, [userId, hiddenCategories]);
 
   // *** [ 2. chart-state ]: session storage ***********************************************
-  // *** [abrufen]
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:home:isChartOpen`;
-    const storedChartState = sessionStorage.getItem(key);
-    if (storedChartState) setIsChartOpen(true);
-  }, [userId]);
-
-  // *** [speichern]: bei Änderung (= open)
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:home:isChartOpen`;
-
-    if (isChartOpen) {
-      sessionStorage.setItem(key, "true");
-    } else {
-      sessionStorage.removeItem(key);
-    }
-  }, [userId, isChartOpen]);
+  // default: closed  ||  in storage: wenn open
+  const [isChartOpen, setIsChartOpen] = useSessionStorageState(
+    userId ? `u:${userId}:home:isChartOpen` : null,
+    false
+  );
 
   // *** [ GUARDS ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
