@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
+import StatusMessage from "@/components/layout/StatusMessage";
 import NavArrowButton from "@/components/NavArrowButton";
 import FormEditTransaction from "@/components/FormEditTransaction";
 import FormAddTransaction from "@/components/FormAddTransaction";
@@ -14,6 +15,11 @@ import CloseIcon from "/public/icons/close.svg";
 import TrashIcon from "/public/icons/trash.svg";
 import AddIcon from "/public/icons/addNEU.svg";
 
+import {
+  getCategoryKey,
+  getCategoriesKey,
+  getTransactionsKey,
+} from "@/utils/swrKeys";
 import { CAT_NAME_MAX_LENGTH } from "@/utils/constants";
 import {
   parseDateString,
@@ -34,12 +40,12 @@ export default function CategoryDetailsPage() {
     data: category,
     error: errorCategory,
     mutate: mutateCategory,
-  } = useSWR(id && userId ? `/api/categories/${id}?u=${userId}` : null);
+  } = useSWR(getCategoryKey(id, userId));
   const {
     data: transactions,
     error: errorTransactions,
     mutate: mutateTransactions,
-  } = useSWR(userId ? `/api/transactions?u=${userId}` : null);
+  } = useSWR(getTransactionsKey(userId));
 
   // *** [ STATES ]
   const [navIds, setNavIds] = useState(null); // für < > nav (snapshot ID-Reihenfolge category-list)
@@ -82,8 +88,6 @@ export default function CategoryDetailsPage() {
     index >= 0 && navIds && index < navIds.length - 1
       ? navIds[index + 1]
       : null; // nächste (sonst > disabled)
-
-  console.log({ navKey, id, navIds, index, prevId, nextId });
 
   // *** [ nav routes ] ********************************************************************
   const fromQuery = from ? `?from=${encodeURIComponent(from)}` : ""; // back nav (HomePage / CategoriesPage)
@@ -144,8 +148,21 @@ export default function CategoryDetailsPage() {
   }, [goToPrevCat, goToNextCat]);
 
   // *** [ GUARDS ] ************************************************************************
-  if (errorCategory || errorTransactions) return <h3>Failed to load data</h3>;
-  if (!category || !transactions) return <h3>Loading ...</h3>;
+  if (errorCategory || errorTransactions) {
+    return (
+      <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+        <StatusMessage variant="error" message="Failed to load data." />
+      </PageShell>
+    );
+  }
+
+  if (!category || !transactions) {
+    return (
+      <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+        <StatusMessage message="Loading ..." />
+      </PageShell>
+    );
+  }
 
   // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. active date range ]: aus url *************************************************
@@ -186,7 +203,7 @@ export default function CategoryDetailsPage() {
 
       if (response.ok) {
         await mutateCategory(); // header aktualisieren
-        await mutate(`/api/categories?u=${userId}`); // category-list
+        await mutate(getCategoriesKey(userId)); // category-list
         await mutateTransactions(); // transaction-list
       } else {
         throw new Error(
@@ -275,10 +292,9 @@ export default function CategoryDetailsPage() {
 
       if (response.ok) {
         setIsConfirmDeleteOpen(false); // Modal schließen
-        await mutate(`/api/categories?u=${userId}`); // category-list aktualisieren
+        await mutate(getCategoriesKey(userId)); // category-list aktualisieren
         await mutateTransactions(); // transaction-list
         closeCatDetails(); // zurück zur vorherigen page
-        console.log("DELETING SUCCESSFUL! (category)");
       } else {
         throw new Error(
           `Failed to delete category (status: ${response.status})`
@@ -454,8 +470,8 @@ export default function CategoryDetailsPage() {
         {editingTxId && (
           <FormEditTransaction
             transactionId={editingTxId}
-            onTxUpdated={mutateTransactions}
-            onTxDeleted={mutateTransactions}
+            onTxCategoryChanged={mutateCategory} // category-detail-cache aktualisieren (wg transactionCount)
+            onTxDeleted={mutateCategory} // wg transactionCount
             closeForm={() => setEditingTxId(null)}
           />
         )}
@@ -464,7 +480,7 @@ export default function CategoryDetailsPage() {
           <FormAddTransaction
             initialCategoryId={id}
             closeForm={() => setIsFormAddTxOpen(false)}
-            onTxAdded={mutateTransactions}
+            onTxAdded={mutateCategory} // category-detail-cache aktualisieren (wg transactionCount)
           />
         )}
       </ContentContainer>

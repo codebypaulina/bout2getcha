@@ -1,34 +1,24 @@
-import mongoose from "mongoose";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
 import dbConnect from "@/db/connect";
 import Category from "@/db/models/Category";
+import { getAuthenticatedDbUserId } from "@/utils/apiAuth";
 
 export default async function handler(request, response) {
-  // *** [ auth guard ]
-  const session = await getServerSession(request, response, authOptions);
-  if (!session) {
-    return response.status(401).json({ error: "Not authenticated" });
+  // *** [ method guard ]
+  if (!["GET", "POST"].includes(request.method)) {
+    return response.status(405).json({ error: "Method not allowed" });
   }
 
-  // *** [ user / ownership ]
-  const userId = session.user.userId; // aus NextAuth-session (string)
+  // *** [ auth + user ]
+  const dbUserId = await getAuthenticatedDbUserId(request, response);
+  if (!dbUserId) return;
 
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return response.status(400).json({ error: "Invalid user id" }); // defensive check (kein crash bei ungültiger ID)
-  }
-
-  const userObjectId = mongoose.Types.ObjectId.createFromHexString(userId); // aktueller user als ObjectId (für MongoDB-Queries)
-
-  // *** [ DB ]
+  // *** [ db ]
   await dbConnect();
 
   // *** [ GET ] **********************************************************
   if (request.method === "GET") {
     try {
-      const categories = await Category.find({
-        userId: userObjectId, // nur categories des eingeloggten users
-      });
+      const categories = await Category.find({ userId: dbUserId }); // ownership-check
 
       return response.status(200).json(categories);
     } catch (error) {
@@ -36,71 +26,25 @@ export default async function handler(request, response) {
     }
   }
 
-  // // categories | zugehörige transactions | totalAmount
-  // if (request.method === "GET") {
-  //   try {
-  //     const categories = await Category.aggregate([
-  //       // [categories] des eingeloggten users:
-  //       {
-  //         $match: { userId: userObjectId },
-  //       },
-
-  //       // [transactions] in category integrieren:
-  //       {
-  //         $lookup: {
-  //           from: "transactions", // collection, aus der gejoint wird
-  //           let: { categoryId: "$_id" }, // aktuelle category-ID für join (in pipeline "$$categoryId")
-  //           pipeline: [
-  //             {
-  //               $match: {
-  //                 // Feld-zu-Feld / Feld-zu-Variable vergleichen:
-  //                 $expr: {
-  //                   $and: [
-  //                     // nur transactions mit aktueller category-ID:
-  //                     // ($category = Feld in transactions-collection: transaction.category // $$categoryId = let-Variable ID)
-  //                     { $eq: ["$category", "$$categoryId"] },
-
-  //                     // nur transactions des eingeloggten users:
-  //                     // ($userId = Feld in transactions-collection: transaction.userId // userObjectId = user)
-  //                     { $eq: ["$userId", userObjectId] },
-  //                   ],
-  //                 },
-  //               },
-  //             },
-  //           ],
-  //           as: "transactions", // integrierte transactions (neues Feld)
-  //         },
-  //       },
-
-  //       // [totalAmount] aus integrierten transactions:
-  //       {
-  //         $addFields: {
-  //           totalAmount: { $sum: "$transactions.amount" },
-  //         },
-  //       },
-  //     ]);
-
-  //     return response.status(200).json(categories);
-  //   } catch (error) {
-  //     return response.status(500).json({ error: "Failed to fetch categories" });
-  //   }
-  // }
-
   // *** [ POST ] *********************************************************
   if (request.method === "POST") {
     try {
-      const newCategory = new Category({
-        ...request.body,
-        userId: userObjectId,
-      }); // neue category erstellen
-      const savedCategory = await newCategory.save(); // in DB speichern
+      const { name, type, color } = request.body; // nur diese übernehmen
 
-      return response.status(201).json(savedCategory);
+      const createdCategory = await Category.create({
+        userId: dbUserId,
+        name,
+        type,
+        color,
+      }); // erstellen + in db speichern
+
+      return response.status(201).json(createdCategory);
     } catch (error) {
-      return response.status(500).json({ error: "Failed to create category" });
+      if (error.name === "ValidationError") {
+        return response.status(400).json({ error: "Invalid category data" });
+      } // ungültige Eingabe (name/type/color)
+
+      return response.status(500).json({ error: "Failed to create category" }); // alle anderen Fehler
     }
   }
-
-  // *** [ fallback ] *****************************************************
-  return response.status(405).json({ message: "Method not allowed" });
 }

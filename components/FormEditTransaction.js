@@ -1,20 +1,29 @@
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { useEffect, useState } from "react"; // effect + state: category-Änderung -> type-Änderung // state: ConfirmModal open/!open
 import { useSession } from "next-auth/react";
 import styled from "styled-components";
 
+import StatusMessage from "./layout/StatusMessage";
 import CloseIcon from "@/public/icons/close.svg";
 import DeleteConfirmModal from "./DeleteConfirmModal";
 import { Overlay, fixedCenteredStyles } from "./modal.styles";
 import useEscapeClose from "@/hooks/useEscapeClose";
+import {
+  getCategoriesKey,
+  getTransactionsKey,
+  getTransactionKey,
+} from "@/utils/swrKeys";
 import { TX_DESCRIPTION_MAX_LENGTH, TX_AMOUNT_MIN } from "@/utils/constants";
 
 export default function FormEditTransaction({
   transactionId,
-  onTxUpdated,
+  onTxCategoryChanged,
   onTxDeleted,
   closeForm,
 }) {
+  // *** [ SWR-CACHE ]
+  const { mutate } = useSWRConfig(); // um tx-list zu aktualisieren
+
   // *** [ AUTH ]
   const { data: session } = useSession();
   const userId = session?.user?.userId; // für data-fetch, SWR cache-key
@@ -24,13 +33,9 @@ export default function FormEditTransaction({
     data: transaction,
     error: errorTransaction,
     mutate: mutateTransaction,
-  } = useSWR(
-    transactionId && userId
-      ? `/api/transactions/${transactionId}?u=${userId}`
-      : null
-  );
+  } = useSWR(getTransactionKey(transactionId, userId));
   const { data: categories, error: errorCategories } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null
+    getCategoriesKey(userId)
   );
 
   // *** [ STATES ]
@@ -62,8 +67,29 @@ export default function FormEditTransaction({
   useEscapeClose(!isConfirmOpen, closeForm);
 
   // *** [ GUARDS ] ************************************************************************
-  if (errorTransaction || errorCategories) return <h3>Failed to load data</h3>;
-  if (!transaction || !categories) return <h3>Loading ...</h3>;
+  if (errorTransaction || errorCategories) {
+    return (
+      <>
+        <Overlay onClick={closeForm} />
+
+        <FormContainer as="section">
+          <StatusMessage variant="error" message="Failed to load data." />
+        </FormContainer>
+      </>
+    );
+  }
+
+  if (!transaction || !categories) {
+    return (
+      <>
+        <Overlay onClick={closeForm} />
+
+        <FormContainer as="section">
+          <StatusMessage message="Loading ..." />
+        </FormContainer>
+      </>
+    );
+  }
 
   // *** [ DERIVED DATA ] ******************************************************************
   // *** [categories sortieren]: A-Z (für dropdown)
@@ -104,29 +130,62 @@ export default function FormEditTransaction({
   // *** [ save-button ]
   async function handleSubmit(event) {
     event.preventDefault();
-    const formData = new FormData(event.target);
-    const data = Object.fromEntries(formData);
+    const formData = new FormData(event.currentTarget);
+    const transactionData = Object.fromEntries(formData); // form data -> object
 
     try {
+      // *** [ db ]: tx updaten
       const response = await fetch(`/api/transactions/${transactionId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(transactionData),
       });
 
-      if (response.ok) {
-        const updatedTransaction = await response.json();
-        await mutateTransaction(updatedTransaction, { revalidate: false }); // in form: SWR-detail-cache von tx aktualisieren (reopened)
-        await onTxUpdated?.(); // in HomePage + CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
-        closeForm();
-        console.log("UPDATING SUCCESSFUL! (transaction)");
-      } else {
+      if (!response.ok) {
         throw new Error(
           `Failed to update transaction (status: ${response.status})`
         );
       }
+
+      const updatedTransaction = await response.json(); // geupdatete tx
+
+      // *** [ swr-cache ]: aktualisieren
+      // *** [1]: tx-detail
+      await mutateTransaction(updatedTransaction, { revalidate: false });
+
+      // *** [2]: tx-list
+      const transactionsKey = getTransactionsKey(userId); // key tx-list
+
+      await mutate(
+        transactionsKey,
+
+        // bisherige tx-list aus cache:
+        (currentTransactions) => {
+          if (currentTransactions === undefined) {
+            return undefined;
+          } // wenn keine list, list nicht anpassen
+
+          return currentTransactions.map((currentTransaction) =>
+            currentTransaction._id === transactionId
+              ? updatedTransaction
+              : currentTransaction
+          ); // aktualisierter cache: in list tx durch geupdatete ersetzt
+        },
+
+        { revalidate: false } // nicht zusätzl GET, weil geupdatete tx durch PUT
+      );
+
+      // *** [3]: parent data
+      const categoryChanged =
+        transaction.category._id !== updatedTransaction.category._id;
+
+      if (categoryChanged) {
+        await onTxCategoryChanged?.(); // CategoryDetailsPage aktualisiert detail-cache, TransactionsPage nicht nötig
+      }
+
+      closeForm(); // zu CategoryDetailsPage / TransactionsPage
     } catch (error) {
       console.error("Error updating transaction: ", error);
     }
@@ -141,20 +200,42 @@ export default function FormEditTransaction({
   // *** [2. confirm-button]: transaction löschen
   async function handleConfirmDelete() {
     try {
+      // *** [ db ]
       const response = await fetch(`/api/transactions/${transactionId}`, {
         method: "DELETE",
-      });
+      }); // löschen
 
-      if (response.ok) {
-        setIsConfirmOpen(false); // Modal schließen
-        await onTxDeleted?.(); // in HomePage + CategoryDetailsPage: SWR-cache aktualisieren (transaction-list)
-        closeForm();
-        console.log("DELETING SUCCESSFUL! (transaction)");
-      } else {
+      if (!response.ok) {
         throw new Error(
           `Failed to delete transaction (status: ${response.status})`
         );
       }
+
+      setIsConfirmOpen(false); // Modal schließen
+
+      // *** [ swr-cache ]: tx-list aktualisieren
+      const transactionsKey = getTransactionsKey(userId); // key tx-list
+
+      await mutate(
+        transactionsKey,
+
+        // bisherige tx-list aus cache:
+        (currentTransactions) => {
+          if (currentTransactions === undefined) {
+            return undefined;
+          } // wenn keine list, list nicht anpassen
+
+          return currentTransactions.filter(
+            (transaction) => transaction._id !== transactionId
+          ); // aktualisierter cache: bisherige list ohne gelöschte tx
+        },
+
+        { revalidate: false } // nicht zusätzl GET, weil tx rausgefiltert aus list
+      );
+
+      await onTxDeleted?.(); // parent data: CategoryDetailsPage aktualisiert detail-cache, TransactionsPage nicht nötig
+
+      closeForm(); // zu CategoryDetailsPage / TransactionsPage
     } catch (error) {
       console.error("Error deleting transaction: ", error);
       setIsConfirmOpen(false); // Modal schließen, damit user nicht festhängt

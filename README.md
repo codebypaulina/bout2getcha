@@ -1,31 +1,73 @@
-# Expense Tracker
+# bout2getcha
 
-HELLOOOO, WHAZZUUUP? 🙌
+A simple money tracker for everyone who keeps asking: _"Wait... where did it all vanish to?"_
 
-This is a Next.js financial tracking app to finally solve the mystery of where your money sneaks off to every month. 🕵️‍♂️💸
+b2g helps you finally solve the mystery of where your money sneaks off to every month. 💫✨
 
-Forget the "Where the heck did all my fckng money go?" meltdown.
-I've got colorful charts, simple lists, & a reality check ready for you. 💀
+❌ No more end-of-month instant noodle panic.  
+❌ No more spreadsheets.  
+Just an easy way to track down every euro that somehow disappears. 🔎💸
 
-No more Excel horror shows.
-Just fun (or panic) while tracking your precious cash! 🪙✨
+## Live App
+
+https://bout2getcha.vercel.app
+
+## What it does
+
+- Sign in with Google or GitHub
+- Add your own income & expense categories
+- Add, edit, & delete transactions
+- Filter transactions by date & type
+- See your spending by category
+- Keep your data connected to your own account
+
+## Built for
+
+bout2getcha is built for students, young adults, & anyone who wants a better grip on their money without turning budgeting into a second job. It keeps things simple, visual, & easy to check at a glance.
+
+## Tech Stack
+
+- Next.js
+- React
+- NextAuth
+- MongoDB
+- Mongoose
+- SWR
+- Styled Components
+- Vercel
 
 ## Development
 
-### Local Development
+Install dependencies:
 
-To work locally, please install the dependencies using `npm i` first.
+```bash
+npm install
+```
 
-Run `npm run dev` to start a development server and open the displayed URL in a browser.
+Start the local development server:
 
-Use `npm run test` to run the tests.
+```bash
+npm run dev
+```
 
-### Scripts
+Build the project:
 
-You can use the following commands:
+```bash
+npm run build
+```
 
-- `npm run dev` to start a development server
-- `npm run build` to build the project
-- `npm run start` to start a production server
-- `npm run test` to run the tests
-- `npm run lint` to run the linter
+Run tests:
+
+```bash
+npm run test
+```
+
+Run the linter:
+
+```bash
+npm run lint
+```
+
+## Status
+
+Still in progress. More useful stuff is coming. 🔜

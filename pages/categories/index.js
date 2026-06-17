@@ -6,6 +6,7 @@ import Link from "next/link";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
+import StatusMessage from "@/components/layout/StatusMessage";
 import DatePicker from "@/components/DatePicker";
 import ChartCard from "@/components/ChartCard";
 import {
@@ -20,6 +21,7 @@ import ChartIcon from "@/public/icons/chart.svg";
 
 import useSessionStorageState from "@/hooks/useSessionStorageState";
 import useDateFilter from "@/hooks/useDateFilter";
+import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
 import {
   formatDateString,
   formatDateLabel,
@@ -44,10 +46,10 @@ export default function CategoriesPage() {
 
   // *** [ DATA-FETCH ]
   const { data: categories, error: errorCategories } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null
+    getCategoriesKey(userId)
   );
   const { data: transactions, error: errorTransactions } = useSWR(
-    userId ? `/api/transactions?u=${userId}` : null
+    getTransactionsKey(userId)
   );
 
   // *** [ SYNC ] **************************************************************************
@@ -89,8 +91,21 @@ export default function CategoriesPage() {
   } = useDateFilter(userId ? `u:${userId}:categories:dateFilter` : null);
 
   // *** [ GUARDS ] ************************************************************************
-  if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
-  if (!categories || !transactions) return <h3>Loading ...</h3>;
+  if (errorCategories || errorTransactions) {
+    return (
+      <PageShell title={pageTitle}>
+        <StatusMessage variant="error" message="Failed to load data." />
+      </PageShell>
+    );
+  }
+
+  if (!categories || !transactions) {
+    return (
+      <PageShell title={pageTitle}>
+        <StatusMessage message="Loading ..." />
+      </PageShell>
+    );
+  }
 
   // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. date metadata ] **************************************************************
@@ -165,14 +180,14 @@ export default function CategoriesPage() {
 
   // amount zu total: 1x durch alle aktuell sichtbaren transactions
   filteredTransactions.forEach((transaction) => {
-    const categoryId = transaction.category._id.toString();
+    const categoryId = transaction.category._id;
     totalByCategoryId[categoryId] =
       (totalByCategoryId[categoryId] || 0) + transaction.amount;
   });
 
   // total zu category: 1x durch alle categories
   const categoriesWithTotals = categories.map((category) => {
-    const categoryId = category._id.toString();
+    const categoryId = category._id;
     return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 }; // category + totalByCategoryId
   });
 

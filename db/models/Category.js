@@ -17,11 +17,11 @@ const categorySchema = new Schema({
   },
   type: {
     type: String,
-    enum: ["Income", "Expense"], // stellt sicher, dass nur "Income" oder "Expense" sein kann
+    enum: ["Income", "Expense"], // nur "Income" / "Expense"
     required: true,
   },
   color: {
-    type: String, // Hex-Code (soll später von Color-Picker geliefert werden)
+    type: String, // Hex-Code
     required: true,
   },
 });

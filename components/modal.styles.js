@@ -1,7 +1,7 @@
 import styled, { css } from "styled-components";
 
 // *** FormAddTransaction, FormAddCategory **********
-// *** FormEditTransaction, FormEditCategory
+// *** FormEditTransaction
 // *** DatePicker
 export const Overlay = styled.div`
   position: fixed;

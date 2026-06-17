@@ -5,6 +5,7 @@ import Link from "next/link";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
+import StatusMessage from "@/components/layout/StatusMessage";
 import ChartCard from "@/components/ChartCard";
 import { FilterBar, ChartButton } from "@/components/filterBar.styles";
 
@@ -12,13 +13,14 @@ import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
 import ChartIcon from "@/public/icons/chart.svg";
 
+import useSessionStorageState from "@/hooks/useSessionStorageState";
+import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
 import { formatCurrency } from "@/utils/helpers";
 
 export default function HomePage() {
   const pageTitle = "Expenses";
 
   const [hiddenCategories, setHiddenCategories] = useState([]);
-  const [isChartOpen, setIsChartOpen] = useState(false);
   const [hoveredCategoryId, setHoveredCategoryId] = useState(null); // category- + segment-hover
 
   // *** [ AUTH ]
@@ -27,10 +29,10 @@ export default function HomePage() {
 
   // *** [ DATA-FETCH ]
   const { data: categories, error: errorCategories } = useSWR(
-    userId ? `/api/categories?u=${userId}` : null
+    getCategoriesKey(userId)
   );
   const { data: transactions, error: errorTransactions } = useSWR(
-    userId ? `/api/transactions?u=${userId}` : null
+    getTransactionsKey(userId)
   );
 
   // *** [ SYNC ] **************************************************************************
@@ -65,31 +67,30 @@ export default function HomePage() {
   }, [userId, hiddenCategories]);
 
   // *** [ 2. chart-state ]: session storage ***********************************************
-  // *** [abrufen]
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:home:isChartOpen`;
-    const storedChartState = sessionStorage.getItem(key);
-    if (storedChartState) setIsChartOpen(true);
-  }, [userId]);
+  // default: closed  ||  in storage: wenn open
+  const [isChartOpen, setIsChartOpen] = useSessionStorageState(
+    userId ? `u:${userId}:home:isChartOpen` : null,
+    false
+  );
 
-  // *** [speichern]: bei Änderung (= open)
-  useEffect(() => {
-    if (!userId) return;
-    const key = `u:${userId}:home:isChartOpen`;
+  // *** [ GUARDS ] ************************************************************************
+  if (errorCategories || errorTransactions) {
+    return (
+      <PageShell title={pageTitle}>
+        <StatusMessage variant="error" message="Failed to load data." />
+      </PageShell>
+    );
+  }
 
-    if (isChartOpen) {
-      sessionStorage.setItem(key, "true");
-    } else {
-      sessionStorage.removeItem(key);
-    }
-  }, [userId, isChartOpen]);
+  if (!categories || !transactions) {
+    return (
+      <PageShell title={pageTitle}>
+        <StatusMessage message="Loading ..." />
+      </PageShell>
+    );
+  }
 
-  // *** [ guards ] ************************************************************************
-  if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
-  if (!categories || !transactions) return <h3>Loading ...</h3>;
-
-  // *** [ ABGELEITETE DATEN ] *************************************************************
+  // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. transactions ]: nur aus aktuellem Monat **************************************
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -105,20 +106,20 @@ export default function HomePage() {
   });
 
   // *** [ 2. categories ] *****************************************************************
-  // *** [mit totals]
+  // *** [aggregated totals]
+  const totalByCategoryId = {}; // total pro category
+
+  // amount zu total: 1x durch alle current-month-transactions
+  currentMonthTransactions.forEach((transaction) => {
+    const categoryId = transaction.category._id;
+    totalByCategoryId[categoryId] =
+      (totalByCategoryId[categoryId] || 0) + transaction.amount;
+  });
+
+  // total zu category: 1x durch alle categories
   const categoriesWithTotals = categories.map((category) => {
-    const totalAmount = currentMonthTransactions
-      .filter((transaction) => {
-        const categoryId =
-          typeof transaction.category === "string"
-            ? transaction.category
-            : transaction.category?._id;
-
-        return categoryId === category._id;
-      })
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-    return { ...category, totalAmount };
+    const categoryId = category._id;
+    return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 };
   });
 
   // *** [filtern]: alle expense + nicht leer
@@ -140,7 +141,7 @@ export default function HomePage() {
     (category) => !hiddenCategories.includes(category._id)
   );
 
-  // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
+  // *** [ 3. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
   const navKey = `u:${userId}:catNav:/`; // sessionStorage-key
   const navIds = sortedCategories.map((category) => category._id); // ID-array
@@ -150,7 +151,7 @@ export default function HomePage() {
     sessionStorage.setItem(navKey, JSON.stringify(navIds));
   }
 
-  // *** [ 3. chart ] **********************************************************************
+  // *** [ 4. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = visibleCategories.map((category) => ({
     id: category._id,

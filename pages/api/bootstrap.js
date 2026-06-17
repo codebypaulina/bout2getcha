@@ -1,110 +1,200 @@
 import mongoose from "mongoose";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]";
 import dbConnect from "@/db/connect";
 import SeedLog from "@/db/models/SeedLog";
 import Category from "@/db/models/Category";
 import Transaction from "@/db/models/Transaction";
+import { getAuthenticatedDbUserId } from "@/utils/apiAuth";
+
+const DEF_CATEGORIES = [
+  { name: "Salary", type: "Income", color: "#9abae5" },
+  { name: "Freelance", type: "Income", color: "#ffa8db" },
+  { name: "Housing", type: "Expense", color: "#fffafa" },
+  { name: "Insurance", type: "Expense", color: "#64e826" },
+  { name: "Savings", type: "Expense", color: "#b970e1" },
+  { name: "Groceries", type: "Expense", color: "#ff941a" },
+  { name: "Transportation", type: "Expense", color: "#52aeff" },
+  { name: "Subscriptions", type: "Expense", color: "#fff700" },
+  { name: "Fun", type: "Expense", color: "#f74586" },
+  { name: "Eating Out", type: "Expense", color: "#fb5b5e" },
+  { name: "Miscellaneous", type: "Expense", color: "#c9c9cf" },
+];
+
+const DEF_TRANSACTIONS = [
+  { category: "Salary", description: "Company XY", amount: 2500, day: 1 },
+  { category: "Freelance", description: "Client XY", amount: 750, day: 13 },
+  { category: "Freelance", description: "Client AB", amount: 345, day: 25 },
+  { category: "Housing", description: "Rent", amount: 985, day: 1 },
+  { category: "Housing", description: "Utilities", amount: 252.47, day: 5 },
+  { category: "Housing", description: "Electricity", amount: 39.16, day: 5 },
+  { category: "Housing", description: "Internet", amount: 27.93, day: 15 },
+  {
+    category: "Insurance",
+    description: "Home Contents",
+    amount: 11.56,
+    day: 8,
+  },
+  { category: "Insurance", description: "Liability", amount: 6.13, day: 14 },
+  { category: "Insurance", description: "Disability", amount: 56.48, day: 15 },
+  {
+    category: "Insurance",
+    description: "Supplemental Health",
+    amount: 19.15,
+    day: 15,
+  },
+  {
+    category: "Insurance",
+    description: "Legal Protection",
+    amount: 21.75,
+    day: 24,
+  },
+  { category: "Savings", description: "Trade Republic", amount: 250, day: 5 },
+  { category: "Savings", description: "C24", amount: 150, day: 5 },
+  { category: "Groceries", description: "dm", amount: 48.63, day: 6 },
+  { category: "Groceries", description: "REWE", amount: 71.82, day: 6 },
+  { category: "Groceries", description: "Lidl", amount: 53.98, day: 24 },
+  {
+    category: "Transportation",
+    description: "E-Scooter",
+    amount: 7.19,
+    day: 3,
+  },
+  {
+    category: "Transportation",
+    description: "Public Transit Pass",
+    amount: 63,
+    day: 15,
+  },
+  {
+    category: "Transportation",
+    description: "ICE (B → Cgn)",
+    amount: 42.98,
+    day: 21,
+  },
+  { category: "Subscriptions", description: "Netflix", amount: 13.99, day: 4 },
+  { category: "Subscriptions", description: "ChatGPT", amount: 23, day: 11 },
+  {
+    category: "Subscriptions",
+    description: "Urban Sports",
+    amount: 75,
+    day: 15,
+  },
+  {
+    category: "Subscriptions",
+    description: "Amazon Prime",
+    amount: 7.4,
+    day: 19,
+  },
+  {
+    category: "Subscriptions",
+    description: "Mobile Plan",
+    amount: 34.99,
+    day: 26,
+  },
+  { category: "Fun", description: "Museum", amount: 11, day: 7 },
+  { category: "Fun", description: "Paintball", amount: 56.81, day: 12 },
+  { category: "Fun", description: "Cinema", amount: 42.76, day: 20 },
+  { category: "Fun", description: "Concert", amount: 149.98, day: 23 },
+  { category: "Eating Out", description: "Burger King", amount: 14.38, day: 9 },
+  {
+    category: "Eating Out",
+    description: "60 sec to napoli",
+    amount: 34.54,
+    day: 17,
+  },
+  {
+    category: "Eating Out",
+    description: "L'Osteria",
+    amount: 29.71,
+    day: 23,
+  },
+
+  {
+    category: "Miscellaneous",
+    description: "B-Day Gift Mom",
+    amount: 68.13,
+    day: 12,
+  },
+  {
+    category: "Miscellaneous",
+    description: "Speeding Ticket",
+    amount: 25,
+    day: 27,
+  },
+];
+
+// um transactions auf Monat + Jahr vom 1. Login zu datieren
+function createSeedDate(day) {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), day);
+}
 
 export default async function handler(request, response) {
-  // *** [ auth guard ]
-  const session = await getServerSession(request, response, authOptions);
-  if (!session) {
-    return response.status(401).json({ error: "Not authenticated" });
-  }
-
-  // *** [ user ]
-  const userId = session.user.userId; // aus NextAuth-session (string)
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return response.status(400).json({ error: "Invalid user id" }); // defensive check (kein crash bei ungültiger ID)
-  }
-  const userObjectId = mongoose.Types.ObjectId.createFromHexString(userId); // aktueller user als ObjectId (für MongoDB-Queries)
-
-  await dbConnect(); // DB
-
-  // *** [ POST ] ******************************************************
+  // *** [ method guard ]
   if (request.method !== "POST") {
-    return response.status(405).json({ message: "Method not allowed" });
+    return response.status(405).json({ error: "Method not allowed" });
   }
 
+  // *** [ auth + user ]
+  const dbUserId = await getAuthenticatedDbUserId(request, response);
+  if (!dbUserId) return;
+
+  // *** [ db setup ]
+  await dbConnect(); // MongoDB-Verbindung (nur wenn POST)
+  const dbSession = await mongoose.startSession(); // MongoDB-Session (für Transaction)
+  const dbSessionTransaction = { session: dbSession }; // um dbSession weiterzugegeben
+
+  // *** [ bootstrap ]
   try {
-    // [ check ]: bereits log für user?
-    const existing = await SeedLog.findOne({ userId: userObjectId });
-    if (existing) {
-      return response.status(200).json({ alreadySeeded: true });
-    }
+    // [ MongoDB-Transaction ]: Rahmen innerhalb dbSession ***********************
+    // -> was dbSessionTransaction bekommt (create + insertMany), gehört zur lfd Transaction (SeedLog + categories + transactions)
+    // -> wenn irgendwo Fehler, wird nichts davon gespeichert
+    await dbSession.withTransaction(async () => {
+      // [ seed-log ]: zuerst erstellen, weil SeedLog.userId = unique (kein doppelter seed bei parallelen requests)
+      await SeedLog.create(
+        [{ userId: dbUserId, version: 1 }],
+        dbSessionTransaction
+      );
 
-    // [ seed-data ]
-    // [1. categories]
-    const categoriesSeed = [
-      { name: "Salary", type: "Income", color: "#92d9ca" },
-      { name: "Freelance", type: "Income", color: "#ffa8db" },
-      { name: "Rent", type: "Expense", color: "#fe8b9c" },
-      { name: "Groceries", type: "Expense", color: "#a4bde5" },
-      { name: "Fun", type: "Expense", color: "#58c696" },
-      { name: "Miscellaneous", type: "Expense", color: "#dbec9c" },
-    ].map((category) => ({ ...category, userId: userObjectId }));
+      // [ seed-data ]: categories *******************
+      const categoriesSeed = DEF_CATEGORIES.map((category) => ({
+        ...category,
+        userId: dbUserId,
+      })); // mit user-id
 
-    const createdCategories = await Category.insertMany(categoriesSeed);
+      const createdCategories = await Category.insertMany(
+        categoriesSeed,
+        dbSessionTransaction
+      ); // in db speichern
 
-    const categoryByName = new Map(
-      createdCategories.map((category) => [category.name, category._id])
-    );
+      const categoryByName = new Map(
+        createdCategories.map((category) => [category.name, category._id])
+      ); // name mit db-id verbinden
 
-    // [2. transactions]
-    const transactionsSeed = [
-      {
-        category: "Salary",
-        description: "Employer Ltd.",
-        amount: 3500,
-        date: "2026-03-02",
-      },
-      {
-        category: "Freelance",
-        description: "Employer AG",
-        amount: 1400,
-        date: "2026-03-16",
-      },
-      {
-        category: "Rent",
-        description: "GAG Immo AG",
-        amount: 1200,
-        date: "2026-03-01",
-      },
-      {
-        category: "Groceries",
-        description: "REWE",
-        amount: 50,
-        date: "2026-03-06",
-      },
-      {
-        category: "Fun",
-        description: "Cinema",
-        amount: 40,
-        date: "2026-03-07",
-      },
-    ].map((transaction) => ({
-      userId: userObjectId,
-      category: categoryByName.get(transaction.category),
-      description: transaction.description,
-      amount: transaction.amount,
-      date: new Date(transaction.date),
-    }));
+      // [ seed-data ]: transactions *****************
+      const transactionsSeed = DEF_TRANSACTIONS.map((transaction) => ({
+        userId: dbUserId,
+        category: categoryByName.get(transaction.category),
+        description: transaction.description,
+        amount: transaction.amount,
+        date: createSeedDate(transaction.day),
+      }));
 
-    // defensive: falls eine category nicht gefunden
-    if (transactionsSeed.some((transaction) => !transaction.category)) {
-      return response
-        .status(500)
-        .json({ message: "Seed failed: category mapping missing" });
-    }
+      if (transactionsSeed.some((transaction) => !transaction.category)) {
+        throw new Error("Seed failed: category mapping missing");
+      } // abbrechen, wenn category nicht existiert
 
-    await Transaction.insertMany(transactionsSeed);
-
-    // [ seed log ]: um nicht nochmal zu seeden
-    await SeedLog.create({ userId: userObjectId, version: 1 });
+      await Transaction.insertMany(transactionsSeed, dbSessionTransaction); // in db speichern
+    });
+    // ***************************************************************************
 
     return response.status(201).json({ alreadySeeded: false });
   } catch (error) {
-    return response.status(500).json({ message: "Bootstrap failed" });
+    if (error.code === 11000) {
+      return response.status(200).json({ alreadySeeded: true });
+    } // duplicate key error: SeedLog.userId existiert bereits
+
+    return response.status(500).json({ error: "Bootstrap failed" });
+  } finally {
+    await dbSession.endSession();
   }
 }

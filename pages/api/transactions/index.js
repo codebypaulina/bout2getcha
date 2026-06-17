@@ -1,35 +1,28 @@
 import mongoose from "mongoose";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
 import dbConnect from "@/db/connect";
 import Transaction from "@/db/models/Transaction";
 import Category from "@/db/models/Category";
+import { getAuthenticatedDbUserId } from "@/utils/apiAuth";
 
 export default async function handler(request, response) {
-  // *** [ auth guard ]
-  const session = await getServerSession(request, response, authOptions);
-  if (!session) {
-    return response.status(401).json({ error: "Not authenticated" });
+  // *** [ method guard ]
+  if (!["GET", "POST"].includes(request.method)) {
+    return response.status(405).json({ error: "Method not allowed" });
   }
 
-  // *** [ user / ownership ]
-  const userId = session.user.userId; // aus NextAuth-session (string)
+  // *** [ auth + user ]
+  const dbUserId = await getAuthenticatedDbUserId(request, response);
+  if (!dbUserId) return;
 
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return response.status(400).json({ error: "Invalid user id" }); // defensive check (kein crash bei ungültiger ID)
-  }
-
-  const userObjectId = mongoose.Types.ObjectId.createFromHexString(userId); // aktueller user als ObjectId (für MongoDB-Queries)
-
-  // *** [ DB ]
+  // *** [ db ]
   await dbConnect();
 
   // *** [ GET ] **********************************************************
   if (request.method === "GET") {
     try {
       const transactions = await Transaction.find({
-        userId: userObjectId, // nur transactions des eingeloggten users
-      }).populate("category"); // für details der entspr. category
+        userId: dbUserId, // ownership-check
+      }).populate("category"); // transactions mit category-object
 
       return response.status(200).json(transactions);
     } catch (error) {
@@ -42,34 +35,41 @@ export default async function handler(request, response) {
   // *** [ POST ] *********************************************************
   if (request.method === "POST") {
     try {
-      const categoryId = request.body.category;
-      if (!categoryId) {
-        return response.status(400).json({ error: "Category is required" });
-      }
+      const { category: categoryId, description, amount, date } = request.body; // nur diese übernehmen
 
-      // ownership-check (transaction darf nur in users category gespeichert werden)
-      const category = await Category.findOne({
-        _id: categoryId,
-        userId: userObjectId,
-      });
-      if (!category) {
+      // *** [ category ]
+      if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {
         return response.status(400).json({ error: "Invalid category" });
-      }
+      } // abbrechen, wenn id fehlt / ungültig
 
-      const newTransaction = new Transaction({
-        ...request.body,
-        userId: userObjectId,
-      }); // neue transaction erstellen
-      const savedTransaction = await newTransaction.save(); // in DB speichern
+      const categoryExists = await Category.exists({
+        _id: categoryId,
+        userId: dbUserId,
+      }); // ownership-check
+      if (!categoryExists) {
+        return response.status(400).json({ error: "Invalid category" });
+      } // abbrechen, wenn id nicht existiert / nicht von user
 
-      return response.status(201).json(savedTransaction);
+      // *** [ transaction ]
+      const createdTransaction = await Transaction.create({
+        userId: dbUserId,
+        category: categoryId,
+        description,
+        amount,
+        date,
+      }); // in db erstellen + speichern (mit category-id)
+
+      await createdTransaction.populate("category"); // category-id -> category-object
+
+      return response.status(201).json(createdTransaction); // zurückgeben (mit category-object)
     } catch (error) {
+      if (error.name === "ValidationError") {
+        return response.status(400).json({ error: "Invalid transaction data" });
+      } // ungültige Eingabe (description/amount/date)
+
       return response
         .status(500)
-        .json({ error: "Failed to create transaction" });
+        .json({ error: "Failed to create transaction" }); // alle anderen Fehler
     }
   }
-
-  // *** [ fallback ] *****************************************************
-  return response.status(405).json({ message: "Method not allowed" });
 }
