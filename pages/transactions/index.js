@@ -162,7 +162,7 @@ export default function TransactionsPage() {
 
   // amount zu total: 1x durch alle aktuell sichtbaren transactions
   filteredTransactions.forEach((transaction) => {
-    const categoryId = transaction.category._id.toString();
+    const categoryId = transaction.category._id;
     const categoryType = transaction.category.type;
 
     totalByCategoryId[categoryId] =
@@ -174,7 +174,7 @@ export default function TransactionsPage() {
 
   // *** [total zu category]: 1x durch alle categories
   const categoriesWithTotals = categories.map((category) => {
-    const categoryId = category._id.toString();
+    const categoryId = category._id;
     return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 }; // category + totalByCategoryId
   });
 

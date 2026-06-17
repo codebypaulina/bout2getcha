@@ -86,11 +86,11 @@ export default function HomePage() {
     }
   }, [userId, isChartOpen]);
 
-  // *** [ guards ] ************************************************************************
+  // *** [ GUARDS ] ************************************************************************
   if (errorCategories || errorTransactions) return <h3>Failed to load data</h3>;
   if (!categories || !transactions) return <h3>Loading ...</h3>;
 
-  // *** [ ABGELEITETE DATEN ] *************************************************************
+  // *** [ DERIVED DATA ] ******************************************************************
   // *** [ 1. transactions ]: nur aus aktuellem Monat **************************************
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -106,15 +106,20 @@ export default function HomePage() {
   });
 
   // *** [ 2. categories ] *****************************************************************
-  // *** [mit totals]
-  const categoriesWithTotals = categories.map((category) => {
-    const totalAmount = currentMonthTransactions
-      .filter((transaction) => {
-        return transaction.category._id === category._id;
-      })
-      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  // *** [aggregated totals]
+  const totalByCategoryId = {}; // total pro category
 
-    return { ...category, totalAmount };
+  // amount zu total: 1x durch alle current-month-transactions
+  currentMonthTransactions.forEach((transaction) => {
+    const categoryId = transaction.category._id;
+    totalByCategoryId[categoryId] =
+      (totalByCategoryId[categoryId] || 0) + transaction.amount;
+  });
+
+  // total zu category: 1x durch alle categories
+  const categoriesWithTotals = categories.map((category) => {
+    const categoryId = category._id;
+    return { ...category, totalAmount: totalByCategoryId[categoryId] || 0 };
   });
 
   // *** [filtern]: alle expense + nicht leer
@@ -136,7 +141,7 @@ export default function HomePage() {
     (category) => !hiddenCategories.includes(category._id)
   );
 
-  // *** [ 2. ID-Reihenfolge category-list ] ***********************************************
+  // *** [ 3. ID-Reihenfolge category-list ] ***********************************************
   // *** [snapshot]
   const navKey = `u:${userId}:catNav:/`; // sessionStorage-key
   const navIds = sortedCategories.map((category) => category._id); // ID-array
@@ -146,7 +151,7 @@ export default function HomePage() {
     sessionStorage.setItem(navKey, JSON.stringify(navIds));
   }
 
-  // *** [ 3. chart ] **********************************************************************
+  // *** [ 4. chart ] **********************************************************************
   // *** [chart-data]
   const chartData = visibleCategories.map((category) => ({
     id: category._id,
