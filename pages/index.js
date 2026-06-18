@@ -307,7 +307,7 @@ const TotalExpenseBox = styled.div`
   display: flex;
   flex-direction: column; // untereinander
   align-items: center; // horizontal zentriert
-  color: var(--secondary-text-color);
+  color: var(--color-text-secondary);
 
   .month {
     font-size: 0.8rem;
@@ -340,12 +340,12 @@ const EyeButton = styled.button`
   svg {
     width: 20px;
     height: 20px;
-    color: var(--secondary-text-color);
+    color: var(--color-text-secondary);
     filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1));
 
     &:hover {
       transform: scale(1.2);
-      color: var(--primary-text-color);
+      color: var(--color-text-primary);
     }
   }
 `;

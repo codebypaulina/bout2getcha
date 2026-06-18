@@ -43,7 +43,7 @@ export default function App({
 const DesktopShell = styled.div`
   height: 100dvh; // wie viewport
   width: 100%; // volle verfügbare Breite
-  background-color: var(--desktop-shell-background-color);
+  background-color: var(--color-background-shell);
 
   display: flex; // für Zentrierung von AppViewport
   justify-content: center; // horizontal

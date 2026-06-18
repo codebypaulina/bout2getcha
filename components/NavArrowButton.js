@@ -35,7 +35,7 @@ export const Button = styled.button`
   height: ${({ $buttonSize }) => $buttonSize}px;
   border: none;
   border-radius: 50%;
-  background-color: var(--button-background-color);
+  background-color: var(--color-button-bg);
   box-shadow: 0 0 10px rgba(0, 0, 0, 1);
   cursor: pointer;
 
@@ -45,7 +45,7 @@ export const Button = styled.button`
 
   svg {
     height: ${({ $iconSize }) => $iconSize}px;
-    stroke: var(--button-text-color);
+    stroke: var(--color-button-text);
   }
   .prev {
     margin-right: 2px;
@@ -58,7 +58,7 @@ export const Button = styled.button`
     transform: scale(1.07);
 
     svg {
-      stroke: var(--primary-text-color);
+      stroke: var(--color-text-primary);
     }
   }
 

@@ -85,7 +85,7 @@ const Card = styled.section`
   align-items: center; // horizontal zentriert
   gap: 0.85rem;
 
-  background-color: #232323;
+  background-color: var(--color-surface-elevated);
   border-radius: 30px; // wie FilterBar
   padding: 1.2rem 0 1rem 0;
   margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
@@ -99,8 +99,8 @@ const PieWrapper = styled.div`
 `;
 
 const TooltipBox = styled.div`
-  background-color: #232323;
-  color: var(--primary-text-color);
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text-primary);
   border-radius: 10px;
   padding: 3px 8px 8px 8px;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
@@ -128,6 +128,6 @@ const SummaryRow = styled.div`
   p.value {
     font-weight: bold;
     color: ${({ $isNegative }) =>
-      $isNegative ? "var(--expense-color)" : "inherit"};
+      $isNegative ? "var(--color-expense)" : "inherit"};
   }
 `;

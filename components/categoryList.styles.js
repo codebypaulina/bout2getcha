@@ -5,7 +5,7 @@ import styled from "styled-components";
 
 export const CategoryLink = styled(Link)`
   text-decoration: none;
-  background-color: var(--list-item-background);
+  background-color: var(--color-surface-list-item);
   border-radius: 30px;
   height: 2rem;
   width: 100%; // link füllt Platz in list-Breite
@@ -24,8 +24,8 @@ export const CategoryLink = styled(Link)`
     font-size: 1rem;
     color: ${({ $isHighlighted }) =>
       $isHighlighted
-        ? "var(--primary-text-color)"
-        : "var(--secondary-text-color)"};
+        ? "var(--color-text-primary)"
+        : "var(--color-text-secondary)"};
   }
 
   p.name {

@@ -501,7 +501,7 @@ const ContentHeader = styled.div`
     flex: 1; // nimmt restlichen Platz in header
     text-align: center;
     font-size: 1.5rem;
-    color: var(--secondary-text-color);
+    color: var(--color-text-secondary);
   }
 `;
 
@@ -517,17 +517,17 @@ const CloseButton = styled.button`
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
-    fill: var(--button-background-color);
+    fill: var(--color-button-bg);
   }
   svg path[class*="X"] {
-    fill: var(--button-text-color);
+    fill: var(--color-button-text);
   }
 
   &:hover {
     transform: scale(1.07);
 
     svg path[class*="X"] {
-      fill: var(--primary-text-color);
+      fill: var(--color-text-primary);
     }
   }
 `;
@@ -555,7 +555,7 @@ const NameButton = styled.button`
   background: transparent;
   border: 1px solid transparent; // wie NameInput (springt nicht)
   border-radius: 30px;
-  color: var(--secondary-text-color);
+  color: var(--color-text-secondary);
   font-size: 1.15rem;
   font-weight: bold;
   cursor: pointer;
@@ -567,16 +567,16 @@ const NameButton = styled.button`
 
   &:hover {
     transform: scale(1.03);
-    color: var(--primary-text-color);
+    color: var(--color-text-primary);
   }
 `;
 
 const NameInput = styled.input`
   width: 100%; // volle verfügbare Breite in grid
   background: transparent;
-  border: 1px solid var(--primary-text-color);
+  border: 1px solid var(--color-text-primary);
   border-radius: 30px;
-  color: var(--primary-text-color);
+  color: var(--color-text-primary);
   font-size: 1.15rem;
   font-weight: bold;
   text-align: center;
@@ -586,7 +586,7 @@ const NameInput = styled.input`
 
 const NameError = styled.p`
   margin-top: 0.25rem;
-  color: var(--expense-color);
+  color: var(--color-expense);
   font-size: 0.75rem;
 `;
 
@@ -611,7 +611,7 @@ const TrashButton = styled.button`
 
   svg {
     height: 20px;
-    fill: var(--delete-button-background-color);
+    fill: var(--color-danger-button-bg);
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
 
@@ -624,7 +624,7 @@ const ColorInput = styled.input`
   width: 25px;
   height: 25px;
   border-radius: 50%;
-  border: 1px solid var(--primary-text-color);
+  border: 1px solid var(--color-text-primary);
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
   background-color: ${(props) => props.value};
@@ -656,8 +656,8 @@ const TypeButton = styled.button`
 
   background-color: ${({ $categoryType }) =>
     $categoryType === "Income"
-      ? "var(--income-color)"
-      : "var(--expense-color)"};
+      ? "var(--color-income)"
+      : "var(--color-expense)"};
 
   &:hover {
     transform: scale(1.07);
@@ -680,17 +680,17 @@ const AddButton = styled.button`
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
-    fill: var(--button-background-color);
+    fill: var(--color-button-bg);
   }
   svg rect[class*="plus"] {
-    fill: var(--button-text-color);
+    fill: var(--color-button-text);
   }
 
   &:hover {
     transform: scale(1.07);
 
     svg rect[class*="plus"] {
-      fill: var(--primary-text-color);
+      fill: var(--color-text-primary);
     }
   }
 `;
@@ -729,7 +729,7 @@ const TransactionButton = styled.button`
   &:hover {
     p {
       transform: scale(1.03);
-      color: var(--primary-text-color);
+      color: var(--color-text-primary);
     }
 
     p.description {

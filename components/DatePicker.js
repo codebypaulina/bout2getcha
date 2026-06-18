@@ -82,7 +82,7 @@ export default function DatePicker({
 const Wrapper = styled.div`
   ${fixedCenteredStyles}; // über overlay + zentriert
 
-  background-color: var(--background-color);
+  background-color: var(--color-background-page);
   border-radius: 30px;
   padding: 1.75rem 1.25rem 1.85rem 1.25rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
@@ -94,7 +94,7 @@ const Wrapper = styled.div`
   // *** [ DayPicker ] ***********************************************
   .rdp-root {
     --rdp-nav-height: 24px; // Höhe <  > buttons
-    --rdp-range_middle-background-color: var(--button-active-color); // range
+    --rdp-range_middle-background-color: var(--color-button-active-bg); // range
   }
 
   // *** [ Position <  > buttons ] ***********************************
@@ -115,7 +115,7 @@ const Wrapper = styled.div`
 
   // *** [ label ]
   .rdp-month_caption {
-    color: var(--primary-text-color);
+    color: var(--color-text-primary);
     font-size: 1.3rem;
     width: 160px;
   }
@@ -124,7 +124,7 @@ const Wrapper = styled.div`
   .rdp-weekday {
     font-size: 1rem;
     font-weight: 600;
-    color: var(--primary-text-color);
+    color: var(--color-text-primary);
     padding: 1.5rem 0 0.5rem 0; // Abstand Monat + Zahlen
   }
 
@@ -138,7 +138,7 @@ const Wrapper = styled.div`
     width: 40px;
     height: 40px;
     border: none;
-    color: var(--primary-text-color);
+    color: var(--color-text-primary);
     font-size: 1rem;
 
     &:hover {
@@ -148,7 +148,7 @@ const Wrapper = styled.div`
 
   // *** [ heute ]
   .rdp-today .rdp-day_button {
-    border: 2px solid var(--secondary-text-color);
+    border: 2px solid var(--color-text-secondary);
   }
 
   // *** [ außerhalb Monat ]
@@ -158,19 +158,19 @@ const Wrapper = styled.div`
 
   // *** [ ausgewählte range ] ***************************************
   .rdp-selected .rdp-day_button {
-    color: var(--button-active-text-color);
+    color: var(--color-button-active-text);
   }
 
   // *** [ 1. & letzter Tag ]
   .rdp-range_start .rdp-day_button,
   .rdp-range_end .rdp-day_button {
-    background-color: var(--button-active-color);
+    background-color: var(--color-button-active-bg);
   }
 
   // *** [ heute ]
   .rdp-today.rdp-selected .rdp-day_button {
     border-radius: 50%; // sonst eckig
-    border: 2px solid var(--button-active-text-color);
+    border: 2px solid var(--color-button-active-text);
   }
 
   // *** [ außerhalb Monat ]
@@ -191,8 +191,8 @@ const Actions = styled.div`
     height: 35px;
     border: none;
     border-radius: 30px;
-    background-color: var(--button-background-color);
-    color: var(--button-text-color);
+    background-color: var(--color-button-bg);
+    color: var(--color-button-text);
     font-size: 1.15rem;
     font-weight: bold;
     cursor: pointer;
@@ -200,7 +200,7 @@ const Actions = styled.div`
 
     &:hover {
       transform: scale(1.05);
-      color: var(--primary-text-color);
+      color: var(--color-text-primary);
     }
   }
 `;

@@ -230,7 +230,7 @@ export default function CategoriesPage() {
 
   // *** [ 7. type-button ] ****************************************************************
   const typeButtonColor =
-    typeFilter === "Expense" ? "var(--expense-color)" : "var(--income-color)";
+    typeFilter === "Expense" ? "var(--color-expense)" : "var(--color-income)";
 
   // *** [ HELPERS ] ***********************************************************************
   function getChartPercentage(value) {

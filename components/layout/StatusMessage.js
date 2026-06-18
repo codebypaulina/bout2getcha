@@ -16,6 +16,6 @@ const Message = styled.p`
   font-weight: bold;
   color: ${({ $variant }) =>
     $variant === "error"
-      ? "var(--expense-color)"
-      : "var(--secondary-text-color)"};
+      ? "var(--color-expense)"
+      : "var(--color-text-secondary)"};
 `;
