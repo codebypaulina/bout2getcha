@@ -1,6 +1,6 @@
-import { createGlobalStyle } from "styled-components";
+import { createGlobalStyle, css } from "styled-components";
 
-export default createGlobalStyle`
+const globalStyles = css`
   :root {
     /* [COLORS]: backgrounds + surfaces */
     --color-background-shell: #333333; /* außerhalb App */
@@ -39,13 +39,17 @@ export default createGlobalStyle`
     --radius-page: 30px;
   }
 
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
   }
 
-  html, body, #__next {
+  html,
+  body,
+  #__next {
     height: 100%;
     width: 100%;
   }
@@ -58,7 +62,12 @@ export default createGlobalStyle`
     color: var(--color-text-secondary);
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     color: var(--color-text-primary);
   }
 
@@ -79,11 +88,18 @@ export default createGlobalStyle`
     font-size: 1.125rem;
   }
 
-  button, input, textarea, select {
+  button,
+  input,
+  textarea,
+  select {
     font: inherit;
   }
 
   ul {
     list-style: none;
   }
+`;
+
+export default createGlobalStyle`
+  ${globalStyles}
 `;
