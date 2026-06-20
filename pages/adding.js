@@ -51,7 +51,7 @@ const ContentContainer = styled.div`
 
   button {
     border: none;
-    border-radius: 20px;
+    border-radius: var(--radius-md);
     width: 108px;
     height: 40px;
     background-color: var(--color-button-bg);

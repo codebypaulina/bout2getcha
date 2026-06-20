@@ -83,7 +83,7 @@ const PageContent = styled.main`
   @media (min-width: ${DESKTOP_BREAKPOINT}) {
     position: relative; // für BottomNav
     z-index: 2; // über BottomNav-Füllfläche (overlay von FormEditTransaction + DatePicker über BottomNav)
-    border-radius: var(--radius-page); // runde Ecken
+    border-radius: var(--radius-page);
   }
 `;
 

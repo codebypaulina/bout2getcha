@@ -83,7 +83,7 @@ const Wrapper = styled.div`
   ${fixedCenteredStyles}; // über overlay + zentriert
 
   background-color: var(--color-background-page);
-  border-radius: 30px;
+  border-radius: var(--radius-lg);
   padding: 1.75rem 1.25rem 1.85rem 1.25rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
@@ -169,7 +169,7 @@ const Wrapper = styled.div`
 
   // *** [ heute ]
   .rdp-today.rdp-selected .rdp-day_button {
-    border-radius: 50%; // sonst eckig
+    border-radius: var(--radius-full); // sonst eckig
     border: 2px solid var(--color-button-active-text);
   }
 
@@ -190,7 +190,7 @@ const Actions = styled.div`
     width: 80px;
     height: 35px;
     border: none;
-    border-radius: 30px;
+    border-radius: var(--radius-md);
     background-color: var(--color-button-bg);
     color: var(--color-button-text);
     font-size: 1.15rem;

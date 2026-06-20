@@ -86,7 +86,7 @@ const Card = styled.section`
   gap: 0.85rem;
 
   background-color: var(--color-surface-elevated);
-  border-radius: 30px; // wie FilterBar
+  border-radius: var(--radius-lg);
   padding: 1.2rem 0 1rem 0;
   margin: 0 auto 1.5rem auto; // Abstand list + horizontal zentriert
   box-shadow: 0 0 15px rgba(0, 0, 0, 1);
@@ -101,7 +101,7 @@ const PieWrapper = styled.div`
 const TooltipBox = styled.div`
   background-color: var(--color-surface-elevated);
   color: var(--color-text-primary);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 3px 8px 8px 8px;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
 

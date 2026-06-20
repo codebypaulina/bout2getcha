@@ -459,7 +459,7 @@ export default function TransactionsPage() {
 
 const TransactionList = styled.ul`
   background-color: var(--color-surface-elevated); // wie FilterBar
-  border-radius: 20px;
+  border-radius: var(--radius-md);
   padding: 0.75rem; // Abstand Rand
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
 
@@ -541,7 +541,7 @@ const TransactionButton = styled.button`
 const ColorTag = styled.span`
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: ${({ $typeFilter, $categoryColor, $categoryType }) =>
     $typeFilter
       ? $categoryColor // type-filter: category-color

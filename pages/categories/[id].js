@@ -554,7 +554,7 @@ const NameButton = styled.button`
   width: 100%; // volle verfügbare Breite in grid
   background: transparent;
   border: 1px solid transparent; // wie NameInput (springt nicht)
-  border-radius: 30px;
+  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   font-size: 1.15rem;
   font-weight: bold;
@@ -575,7 +575,7 @@ const NameInput = styled.input`
   width: 100%; // volle verfügbare Breite in grid
   background: transparent;
   border: 1px solid var(--color-text-primary);
-  border-radius: 30px;
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   font-size: 1.15rem;
   font-weight: bold;
@@ -623,7 +623,7 @@ const TrashButton = styled.button`
 const ColorInput = styled.input`
   width: 25px;
   height: 25px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: 1px solid var(--color-text-primary);
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
@@ -649,7 +649,7 @@ const ColorInput = styled.input`
 const TypeButton = styled.button`
   width: 25px;
   height: 25px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);

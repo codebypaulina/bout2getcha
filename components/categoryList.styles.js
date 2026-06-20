@@ -6,7 +6,7 @@ import styled from "styled-components";
 export const CategoryLink = styled(Link)`
   text-decoration: none;
   background-color: var(--color-surface-list-item);
-  border-radius: 30px;
+  border-radius: var(--radius-md);
   height: 2rem;
   width: 100%; // link füllt Platz in list-Breite
   padding: 0 1rem; // Abstand Rand
@@ -44,7 +44,7 @@ export const CategoryLink = styled(Link)`
 export const ColorTag = styled.span`
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: ${({ $isHidden, $categoryColor }) =>
     $isHidden ? "#5a5a5a" : $categoryColor};
   transform: ${({ $isHighlighted }) =>

@@ -113,7 +113,7 @@ const FormContainer = styled.form`
 
   width: 250px;
   background-color: var(--color-background-page);
-  border-radius: 30px; // abgerundete Ecken
+  border-radius: var(--radius-lg);
   padding: 1.55rem 1.75rem 2rem 1.75rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
@@ -130,7 +130,7 @@ const FormContainer = styled.form`
   input {
     height: 1.75rem;
     border: 0.07rem solid var(--color-button-bg);
-    border-radius: 20px; // abgerundete Ecken
+    border-radius: var(--radius-md);
   }
 
   input[type="text"] {
@@ -158,7 +158,7 @@ const FormContainer = styled.form`
     width: 80px;
     height: 35px;
     border: none;
-    border-radius: 30px;
+    border-radius: var(--radius-md);
     background-color: var(--color-button-bg);
     color: var(--color-button-text);
     font-size: 1.15rem;
@@ -228,7 +228,7 @@ const NameTypeRow = styled.div`
 const ColorTag = styled.button`
   width: 25px;
   height: 25px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);

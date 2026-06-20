@@ -34,7 +34,7 @@ export const Button = styled.button`
   width: ${({ $buttonSize }) => $buttonSize}px;
   height: ${({ $buttonSize }) => $buttonSize}px;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--color-button-bg);
   box-shadow: 0 0 10px rgba(0, 0, 0, 1);
   cursor: pointer;

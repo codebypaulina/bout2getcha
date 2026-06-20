@@ -36,7 +36,11 @@ const globalStyles = css`
     --bottom-nav-height: 57px;
 
     /* [RADIUS] */
-    --radius-page: 30px;
+    --radius-sm: 10px; /* TooltipBox */
+    --radius-md: 20px; /* buttons, inputs, TransactionList, CategoryLink */
+    --radius-lg: 30px; /* Forms, Modals, Cards, FilterBar, DatePicker */
+    --radius-full: 9999px; /* ColorTag */
+    --radius-page: var(--radius-lg);
   }
 
   *,

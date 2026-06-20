@@ -69,7 +69,7 @@ const Modal = styled.div`
 
   width: min(92vw, 350px); // responsiv + max
   background-color: var(--color-danger-surface);
-  border-radius: 30px; // abgerundete Ecken
+  border-radius: var(--radius-lg);
   padding: 1.45rem 1.75rem 1.7rem 1.75rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
@@ -92,7 +92,7 @@ const Modal = styled.div`
     min-width: 80px;
     min-height: 35px;
     border: none;
-    border-radius: 30px;
+    border-radius: var(--radius-md);
     background-color: var(--color-danger-button-bg);
     color: var(--color-danger-button-text);
     font-size: 1.1rem;
