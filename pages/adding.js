@@ -51,11 +51,11 @@ const ContentContainer = styled.div`
 
   button {
     border: none;
-    border-radius: 20px;
+    border-radius: var(--radius-md);
     width: 108px;
     height: 40px;
-    background-color: var(--button-background-color);
-    color: var(--button-text-color);
+    background-color: var(--color-button-bg);
+    color: var(--color-button-text);
     font-size: 0.85rem;
     font-weight: bold;
     cursor: pointer;
@@ -63,7 +63,7 @@ const ContentContainer = styled.div`
 
     &:hover {
       transform: scale(1.03);
-      color: var(--primary-text-color);
+      color: var(--color-text-primary);
     }
   }
 `;

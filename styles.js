@@ -1,48 +1,59 @@
-import { createGlobalStyle } from "styled-components";
+import { createGlobalStyle, css } from "styled-components";
 
-export default createGlobalStyle`
+const globalStyles = css`
   :root {
-    /* [COLORS]: surfaces + text */
-    --background-color: #1a1a1a;
-    --desktop-shell-background-color: #333333; /* außerhalb App */
-    --list-item-background: #323232;
+    /* [COLORS]: backgrounds + surfaces */
+    --color-background-shell: #333333; /* außerhalb App */
+    --color-background-page: #1a1a1a;
+    --color-surface-list-item: #323232;
+    --color-surface-elevated: #232323;
 
-    --primary-text-color: #ffffff;
-    --secondary-text-color: #cccccc;
+    /* [COLORS]: text */
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #cccccc;
 
     /* [COLORS]: buttons */
-    --button-background-color: #333333;
-    --button-text-color: #cccccc;
-    --button-active-text-color: #333333;
-    --button-active-color: #e0e0e0;
-    --button-hover-color: #444444;
+    --color-button-bg: #333333;
+    --color-button-text: #cccccc;
+    --color-button-active-bg: #e0e0e0;
+    --color-button-active-text: #333333;
 
-    --delete-modal-background-color: #ac2525;
-    --delete-button-background-color: #fa6c6c;
-    --delete-button-text-color: #ffffffd5;
+    --color-danger-surface: #ac2525;
+    --color-danger-button-bg: #fa6c6c;
+    --color-danger-button-text: #ffffffd5;
 
     /* [COLORS]: semantic */
-    --income-color: #b4e5a2;
-    --expense-color: #ff9393;
+    --color-income: #b4e5a2;
+    --color-expense: #ff9393;
 
     /* [TYPOGRAPHY] */
-    --base-font-size: 16px;
+    --font-size-base: 16px;
     --font-family-base: system-ui, sans-serif;
 
     /* [LAYOUT] */
     --app-max-width: 450px; /* max App-Fläche auf Desktop */
-    --page-radius: 30px;
-    --topbar-height: 57px;
-    --bottomnav-height: 57px;
+    --top-bar-height: 57px;
+    --bottom-nav-height: 57px;
+
+    /* [RADIUS] */
+    --radius-sm: 10px; /* TooltipBox */
+    --radius-md: 20px; /* buttons, inputs, TransactionList, CategoryLink */
+    --radius-lg: 30px; /* Forms, Modals, Cards, FilterBar, DatePicker */
+    --radius-full: 9999px; /* ColorTag */
+    --radius-page: var(--radius-lg);
   }
 
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
   }
 
-  html, body, #__next {
+  html,
+  body,
+  #__next {
     height: 100%;
     width: 100%;
   }
@@ -51,16 +62,21 @@ export default createGlobalStyle`
     margin: 0;
     padding: 0;
     font-family: var(--font-family-base);
-    font-size: var(--base-font-size);
-    color: var(--secondary-text-color);
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    color: var(--primary-text-color);
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: var(--color-text-primary);
   }
 
   p {
-    color: var(--secondary-text-color);
+    color: var(--color-text-secondary);
     font-size: 0.875rem;
   }
 
@@ -76,11 +92,18 @@ export default createGlobalStyle`
     font-size: 1.125rem;
   }
 
-  button, input, textarea, select {
+  button,
+  input,
+  textarea,
+  select {
     font: inherit;
   }
 
   ul {
     list-style: none;
   }
+`;
+
+export default createGlobalStyle`
+  ${globalStyles}
 `;

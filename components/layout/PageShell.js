@@ -59,8 +59,8 @@ export default function PageShell({
 const PageLayout = styled.div`
   height: 100%; // wie AppViewport
   display: grid; //   TopBar | PageContent (scrollbar) | BottomNav
-  grid-template-rows: var(--topbar-height) minmax(0, 1fr) var(
-      --bottomnav-height
+  grid-template-rows: var(--top-bar-height) minmax(0, 1fr) var(
+      --bottom-nav-height
     );
 
   @media (min-width: ${DESKTOP_BREAKPOINT}) {
@@ -71,7 +71,7 @@ const PageLayout = styled.div`
 // [ innere App-Fläche ]: background dunkel, runde Ecken, scrollbar
 const PageContent = styled.main`
   min-height: 0; // für grid (damit scrollbar)
-  background-color: var(--background-color);
+  background-color: var(--color-background-page);
   padding: 20px 30px 30px 30px; // innerer Abstand (zw. TopBar + BottomNav + seitlich)
   overflow-y: auto; // vertikal scrollbar
   overflow-x: hidden; // horizontal nicht scrollbar
@@ -83,7 +83,7 @@ const PageContent = styled.main`
   @media (min-width: ${DESKTOP_BREAKPOINT}) {
     position: relative; // für BottomNav
     z-index: 2; // über BottomNav-Füllfläche (overlay von FormEditTransaction + DatePicker über BottomNav)
-    border-radius: var(--page-radius); // runde Ecken
+    border-radius: var(--radius-page);
   }
 `;
 

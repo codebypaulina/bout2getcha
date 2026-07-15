@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
-import Link from "next/link";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
 import StatusMessage from "@/components/layout/StatusMessage";
 import ChartCard from "@/components/ChartCard";
 import { FilterBar, ChartButton } from "@/components/filterBar.styles";
+import { CategoryLink, ColorTag } from "@/components/categoryList.styles";
 
 import EyeIcon from "@/public/icons/eye.svg";
 import EyeSlashIcon from "@/public/icons/eye-slash.svg";
@@ -307,7 +307,7 @@ const TotalExpenseBox = styled.div`
   display: flex;
   flex-direction: column; // untereinander
   align-items: center; // horizontal zentriert
-  color: var(--secondary-text-color);
+  color: var(--color-text-secondary);
 
   .month {
     font-size: 0.8rem;
@@ -328,44 +328,6 @@ const ListItem = styled.li`
   gap: 1rem; // Abstand link + eye
 `;
 
-const CategoryLink = styled(Link)`
-  text-decoration: none;
-  background-color: var(--list-item-background);
-  border-radius: 30px;
-  height: 2rem;
-  width: 100%; // link füllt Platz in list-Breite
-  padding: 0 1rem; // Abstand Rand
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
-  transform: ${({ $isHighlighted }) =>
-    $isHighlighted ? "scale(1.02)" : "none"};
-
-  display: grid; //      ColorTag | name | amount
-  grid-template-columns: 8px minmax(0, 1fr) max-content;
-  align-items: center; // vertikal
-  column-gap: 0.5rem; // Abstand items
-
-  p.name,
-  p.amount {
-    font-size: 1rem;
-    color: ${({ $isHighlighted }) =>
-      $isHighlighted
-        ? "var(--primary-text-color)"
-        : "var(--secondary-text-color)"};
-  }
-
-  p.name {
-    white-space: nowrap; // in 1 Zeile
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  p.amount {
-    margin-left: auto; // rechts
-    font-weight: bold;
-    white-space: nowrap;
-  }
-`;
-
 const EyeButton = styled.button`
   border: none;
   background: transparent;
@@ -378,22 +340,12 @@ const EyeButton = styled.button`
   svg {
     width: 20px;
     height: 20px;
-    color: var(--secondary-text-color);
+    color: var(--color-text-secondary);
     filter: drop-shadow(0 0 4px rgba(0, 0, 0, 1));
 
     &:hover {
       transform: scale(1.2);
-      color: var(--primary-text-color);
+      color: var(--color-text-primary);
     }
   }
-`;
-
-const ColorTag = styled.span`
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: ${({ $isHidden, $categoryColor }) =>
-    $isHidden ? "#5a5a5a" : $categoryColor};
-  transform: ${({ $isHighlighted }) =>
-    $isHighlighted ? "scale(1.2)" : "none"};
 `;

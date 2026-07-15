@@ -5,8 +5,8 @@ export default function TopBar({ title, showTitle }) {
 }
 
 const Wrapper = styled.header`
-  height: var(--topbar-height); // wie BottomNav
-  background-color: var(--button-background-color);
+  height: var(--top-bar-height); // wie BottomNav
+  background-color: var(--color-button-bg);
 
   display: flex; // für Zentrierung von Title
   align-items: center; // vertikal
@@ -14,7 +14,7 @@ const Wrapper = styled.header`
 `;
 
 const Title = styled.span`
-  color: var(--primary-text-color);
+  color: var(--color-text-primary);
   font-size: 1.85rem; // wie h1
   font-weight: bold;
   line-height: 1;

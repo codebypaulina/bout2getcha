@@ -112,8 +112,8 @@ const FormContainer = styled.form`
   ${fixedCenteredStyles}; // über overlay + zentriert
 
   width: 250px;
-  background-color: var(--background-color);
-  border-radius: 30px; // abgerundete Ecken
+  background-color: var(--color-background-page);
+  border-radius: var(--radius-lg);
   padding: 1.55rem 1.75rem 2rem 1.75rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
@@ -123,14 +123,14 @@ const FormContainer = styled.form`
   label {
     font-size: 1.15rem;
     font-weight: bold;
-    color: var(--primary-text-color);
+    color: var(--color-text-primary);
     margin: 0 0 0.55rem 0.25rem; // Abstand input
   }
 
   input {
     height: 1.75rem;
-    border: 0.07rem solid var(--button-hover-color);
-    border-radius: 20px; // abgerundete Ecken
+    border: 0.07rem solid var(--color-button-bg);
+    border-radius: var(--radius-md);
   }
 
   input[type="text"] {
@@ -158,9 +158,9 @@ const FormContainer = styled.form`
     width: 80px;
     height: 35px;
     border: none;
-    border-radius: 30px;
-    background-color: var(--button-background-color);
-    color: var(--button-text-color);
+    border-radius: var(--radius-md);
+    background-color: var(--color-button-bg);
+    color: var(--color-button-text);
     font-size: 1.15rem;
     font-weight: bold;
     cursor: pointer;
@@ -168,7 +168,7 @@ const FormContainer = styled.form`
 
     &:hover {
       transform: scale(1.05);
-      color: var(--primary-text-color);
+      color: var(--color-text-primary);
     }
   }
 `;
@@ -196,17 +196,17 @@ const CloseButton = styled.button`
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
-    fill: var(--button-background-color);
+    fill: var(--color-button-bg);
   }
   svg path[class*="X"] {
-    fill: var(--button-text-color);
+    fill: var(--color-button-text);
   }
 
   &:hover {
     transform: scale(1.07);
 
     svg path[class*="X"] {
-      fill: var(--primary-text-color);
+      fill: var(--color-text-primary);
     }
   }
 `;
@@ -221,22 +221,22 @@ const NameTypeRow = styled.div`
     width: 155px; // sonst viel zu kurz
 
     // Firefox: wenn Feld angeklickt, kein blauer Rahmen:
-    accent-color: var(--button-hover-color);
+    accent-color: var(--color-button-bg);
   }
 `;
 
 const ColorTag = styled.button`
   width: 25px;
   height: 25px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
   background-color: ${({ $categoryType }) =>
     $categoryType === "Expense"
-      ? "var(--expense-color)"
-      : "var(--income-color)"};
+      ? "var(--color-expense)"
+      : "var(--color-income)"};
 
   &:hover {
     transform: scale(1.07);

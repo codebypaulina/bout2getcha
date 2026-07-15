@@ -87,8 +87,8 @@ export default function BottomNav() {
 }
 
 const Wrapper = styled.nav`
-  height: var(--bottomnav-height); // wie TopBar
-  background-color: var(--button-background-color);
+  height: var(--bottom-nav-height); // wie TopBar
+  background-color: var(--color-button-bg);
 
   ul {
     display: flex; // items nebeneinander
@@ -102,10 +102,10 @@ const Wrapper = styled.nav`
     &::after {
       content: "";
       position: absolute;
-      top: calc(-1 * var(--page-radius));
-      width: var(--page-radius);
-      height: var(--page-radius);
-      background-color: var(--button-active-color);
+      top: calc(-1 * var(--radius-page));
+      width: var(--radius-page);
+      height: var(--radius-page);
+      background-color: var(--color-button-active-bg);
       display: none; // keine Füllfläche
     }
 
@@ -132,17 +132,15 @@ const NavItem = styled.li`
   padding: 1rem;
   flex: 1; // ausgefüllt, keine Lücken
   background-color: ${({ $isActive }) =>
-    $isActive
-      ? "var(--button-active-color)"
-      : "var(--button-background-color)"};
+    $isActive ? "var(--color-button-active-bg)" : "var(--color-button-bg)"};
 
   svg {
     width: 25px;
     height: 25px;
     fill: ${({ $isActive }) =>
       $isActive
-        ? "var(--button-active-text-color)"
-        : "var(--button-text-color)"};
+        ? "var(--color-button-active-text)"
+        : "var(--color-button-text)"};
   }
 
   &:hover svg {

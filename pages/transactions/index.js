@@ -213,13 +213,13 @@ export default function TransactionsPage() {
             id: "Expenses",
             label: "Expenses",
             value: totalExpense,
-            color: "var(--expense-color)",
+            color: "var(--color-expense)",
           },
           {
             id: "Remaining Income",
             label: "Remaining Income",
             value: totalIncome - totalExpense,
-            color: "var(--income-color)",
+            color: "var(--color-income)",
           },
         ];
 
@@ -324,10 +324,10 @@ export default function TransactionsPage() {
   // ***************************************************************************************
   const typeButtonColor =
     typeFilter === "Expense"
-      ? "var(--expense-color)"
+      ? "var(--color-expense)"
       : typeFilter === "Income"
-        ? "var(--income-color)"
-        : "var(--button-background-color)";
+        ? "var(--color-income)"
+        : "var(--color-button-bg)";
 
   // ***************************************************************************************
   // ***************************************************************************************
@@ -458,8 +458,8 @@ export default function TransactionsPage() {
 }
 
 const TransactionList = styled.ul`
-  background-color: #232323; // wie FilterBar
-  border-radius: 20px;
+  background-color: var(--color-surface-elevated); // wie FilterBar
+  border-radius: var(--radius-md);
   padding: 0.75rem; // Abstand Rand
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
 
@@ -485,8 +485,8 @@ const TransactionButton = styled.button`
     font-size: 0.755rem;
     color: ${({ $isHighlighted }) =>
       $isHighlighted
-        ? "var(--primary-text-color)"
-        : "var(--secondary-text-color)"};
+        ? "var(--color-text-primary)"
+        : "var(--color-text-secondary)"};
     transform: ${({ $isHighlighted }) =>
       $isHighlighted ? "scale(1.03)" : "none"};
   }
@@ -521,7 +521,7 @@ const TransactionButton = styled.button`
   &:hover {
     p {
       transform: scale(1.03);
-      color: var(--primary-text-color);
+      color: var(--color-text-primary);
     }
 
     p.description {
@@ -541,13 +541,13 @@ const TransactionButton = styled.button`
 const ColorTag = styled.span`
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: ${({ $typeFilter, $categoryColor, $categoryType }) =>
     $typeFilter
       ? $categoryColor // type-filter: category-color
       : $categoryType === "Income" // main view: type-color
-        ? "var(--income-color)"
-        : "var(--expense-color)"};
+        ? "var(--color-income)"
+        : "var(--color-expense)"};
   transform: ${({ $isHighlighted }) =>
     $isHighlighted ? "scale(1.2)" : "none"};
 `;

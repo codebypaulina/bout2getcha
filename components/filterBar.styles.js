@@ -2,8 +2,8 @@ import styled from "styled-components";
 
 export const FilterBar = styled.div`
   margin-bottom: 1.5rem;
-  background-color: #232323;
-  border-radius: 30px;
+  background-color: var(--color-surface-elevated);
+  border-radius: var(--radius-lg);
   height: 45px;
   padding: 0.7rem 1rem;
   box-shadow: 0 0 15px rgba(0, 0, 0, 1);
@@ -16,7 +16,7 @@ export const FilterBar = styled.div`
 export const ChartButton = styled.button`
   border: none;
   background: transparent;
-  color: var(--button-background-color);
+  color: var(--color-button-bg);
   line-height: 0;
   cursor: pointer;
 
@@ -31,7 +31,7 @@ export const ChartButton = styled.button`
   }
 
   &.active {
-    color: var(--button-active-color);
+    color: var(--color-button-active-bg);
   }
 
   &:disabled {
@@ -48,9 +48,9 @@ export const DateNav = styled.div`
 
 export const RangeButton = styled.button`
   border: none;
-  border-radius: 20px;
-  background-color: var(--button-background-color);
-  color: var(--button-text-color);
+  border-radius: var(--radius-md);
+  background-color: var(--color-button-bg);
+  color: var(--color-button-text);
   font-size: 0.7rem;
   font-weight: bold;
   padding: 5px 8px;
@@ -62,15 +62,15 @@ export const RangeButton = styled.button`
   }
 
   &.active {
-    background-color: var(--button-active-color);
-    color: var(--button-active-text-color);
+    background-color: var(--color-button-active-bg);
+    color: var(--color-button-active-text);
   }
 `;
 
 export const TypeButton = styled.button`
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
   box-shadow: 0 0 10px rgba(0, 0, 0, 1);

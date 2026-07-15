@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import useSWR from "swr";
-import Link from "next/link";
 import styled from "styled-components";
 
 import PageShell from "@/components/layout/PageShell";
@@ -16,6 +15,7 @@ import {
   RangeButton,
   TypeButton,
 } from "@/components/filterBar.styles";
+import { CategoryLink, ColorTag } from "@/components/categoryList.styles";
 import NavArrowButton from "@/components/NavArrowButton";
 import ChartIcon from "@/public/icons/chart.svg";
 
@@ -230,7 +230,7 @@ export default function CategoriesPage() {
 
   // *** [ 7. type-button ] ****************************************************************
   const typeButtonColor =
-    typeFilter === "Expense" ? "var(--expense-color)" : "var(--income-color)";
+    typeFilter === "Expense" ? "var(--color-expense)" : "var(--color-income)";
 
   // *** [ HELPERS ] ***********************************************************************
   function getChartPercentage(value) {
@@ -391,51 +391,4 @@ export default function CategoriesPage() {
 const ListItem = styled.li`
   margin-bottom: 0.5rem; // Abstand ListItems
   opacity: ${({ $isEmpty }) => ($isEmpty ? 0.2 : 1)}; // ausgegraut
-`;
-
-const CategoryLink = styled(Link)`
-  text-decoration: none;
-  background-color: var(--list-item-background);
-  border-radius: 30px;
-  height: 2rem;
-  width: 100%; // link füllt Platz in list-Breite
-  padding: 0 1rem; // Abstand Rand
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
-  transform: ${({ $isHighlighted }) =>
-    $isHighlighted ? "scale(1.02)" : "none"};
-
-  display: grid; //      ColorTag | name | amount
-  grid-template-columns: 8px minmax(0, 1fr) max-content;
-  align-items: center; // vertikal
-  column-gap: 0.5rem; // Abstand items
-
-  p.name,
-  p.amount {
-    font-size: 1rem;
-    color: ${({ $isHighlighted }) =>
-      $isHighlighted
-        ? "var(--primary-text-color)"
-        : "var(--secondary-text-color)"};
-  }
-
-  p.name {
-    white-space: nowrap; // in 1 Zeile
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  p.amount {
-    margin-left: auto; // rechts
-    font-weight: bold;
-    white-space: nowrap;
-  }
-`;
-
-const ColorTag = styled.span`
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: ${({ $categoryColor }) => $categoryColor};
-  transform: ${({ $isHighlighted }) =>
-    $isHighlighted ? "scale(1.2)" : "none"};
 `;

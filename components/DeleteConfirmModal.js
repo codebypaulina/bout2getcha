@@ -68,14 +68,14 @@ const Modal = styled.div`
   ${fixedCenteredStylesDelete}; // über overlay + zentriert
 
   width: min(92vw, 350px); // responsiv + max
-  background-color: var(--delete-modal-background-color);
-  border-radius: 30px; // abgerundete Ecken
+  background-color: var(--color-danger-surface);
+  border-radius: var(--radius-lg);
   padding: 1.45rem 1.75rem 1.7rem 1.75rem;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
 
   p {
     font-size: 1rem;
-    color: var(--primary-text-color);
+    color: var(--color-text-primary);
   }
 
   p.warning {
@@ -92,9 +92,9 @@ const Modal = styled.div`
     min-width: 80px;
     min-height: 35px;
     border: none;
-    border-radius: 30px;
-    background-color: var(--delete-button-background-color);
-    color: var(--delete-button-text-color);
+    border-radius: var(--radius-md);
+    background-color: var(--color-danger-button-bg);
+    color: var(--color-danger-button-text);
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
@@ -102,7 +102,7 @@ const Modal = styled.div`
 
     &:hover {
       transform: scale(1.05);
-      color: var(--primary-text-color);
+      color: var(--color-text-primary);
     }
   }
 `;
@@ -130,17 +130,17 @@ const CloseButton = styled.button`
     filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.9)); // ohne Ecken
   }
   svg path[class*="circle"] {
-    fill: var(--delete-button-background-color);
+    fill: var(--color-danger-button-bg);
   }
   svg path[class*="X"] {
-    fill: var(--delete-button-text-color);
+    fill: var(--color-danger-button-text);
   }
 
   &:hover {
     transform: scale(1.07);
 
     svg path[class*="X"] {
-      fill: var(--primary-text-color);
+      fill: var(--color-text-primary);
     }
   }
 `;
