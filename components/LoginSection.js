@@ -1,4 +1,5 @@
 import { useSession, signIn, signOut } from "next-auth/react";
+import Image from "next/image";
 import styled from "styled-components";
 
 export default function LoginSection({ callbackUrl = "/" }) {
@@ -14,12 +15,12 @@ export default function LoginSection({ callbackUrl = "/" }) {
           Signed in as <span className="user">{session.user.name}</span>.
         </Message>
 
-        <Button
+        <SignOutButton
           type="button"
           onClick={() => signOut({ callbackUrl: "/profile" })}
         >
           Sign out
-        </Button>
+        </SignOutButton>
       </Wrapper>
     );
   }
@@ -33,21 +34,21 @@ export default function LoginSection({ callbackUrl = "/" }) {
       </Message>
 
       <ButtonContainer>
-        <Button
+        <ProviderButton
           type="button"
           onClick={() => signIn("google", { callbackUrl })}
-          $provider
         >
+          <Image src="/icons/google.svg" alt="" width={24} height={24} />
           Google
-        </Button>
+        </ProviderButton>
 
-        <Button
+        <ProviderButton
           type="button"
           onClick={() => signIn("github", { callbackUrl })}
-          $provider
         >
+          <Image src="/icons/github.svg" alt="" width={24} height={24} />
           GitHub
-        </Button>
+        </ProviderButton>
       </ButtonContainer>
     </Wrapper>
   );
@@ -74,14 +75,9 @@ const Message = styled.p`
 `;
 
 const Button = styled.button`
-  min-width: ${({ $provider }) => ($provider ? "115px" : "108px")};
-  min-height: ${({ $provider }) => ($provider ? "50px" : "40px")};
   border: none;
-  border-radius: ${({ $provider }) =>
-    $provider ? "var(--radius-lg)" : "var(--radius-md)"};
   background-color: var(--color-button-bg);
   color: var(--color-button-text);
-  font-size: ${({ $provider }) => ($provider ? "1.25rem" : "0.85rem")};
   font-weight: bold;
   cursor: pointer;
   box-shadow: 0 0 20px rgba(0, 0, 0, 1);
@@ -92,8 +88,28 @@ const Button = styled.button`
   }
 `;
 
+const SignOutButton = styled(Button)`
+  min-width: 90px;
+  min-height: 40px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+`;
+
 const ButtonContainer = styled.div`
+  width: min(100%, 140px);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+`;
+
+const ProviderButton = styled(Button)`
+  width: 100%;
+  min-height: 50px;
+  border-radius: var(--radius-lg);
+  font-size: 1.2rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
 `;
