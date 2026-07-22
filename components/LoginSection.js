@@ -59,6 +59,7 @@ const Wrapper = styled.section`
   flex-direction: column;
   align-items: center;
   gap: 2rem;
+  margin-top: 1rem; // zusätzl. Abstand page title
 `;
 
 const Message = styled.p`

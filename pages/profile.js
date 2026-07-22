@@ -45,7 +45,7 @@ export default function ProfilePage() {
   }, [userId]);
 
   return (
-    <PageShell title={pageTitle}>
+    <PageShell title={pageTitle} centerContent={!session}>
       <LoginSection callbackUrl={callbackUrl} />
     </PageShell>
   );
