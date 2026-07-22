@@ -8,9 +8,9 @@ import { DESKTOP_BREAKPOINT } from "@/utils/constants";
 export default function PageShell({
   title,
   children,
-  showPageTitle = true, // für AddingPage
+  showPageTitle = true, // für CategoryDetailsPage
   showBottomNav = true, // für CategoryDetailsPage
-  centerContent = false, // für ProfilePage
+  centerContent = false, // für ProfilePage + AddPage
 }) {
   const pageTitleRef = useRef(null); // h1 in PageContent
   const pageContentRef = useRef(null); // PageContent
@@ -38,7 +38,7 @@ export default function PageShell({
       contentElement?.removeEventListener("scroll", updateTopBarTitle);
       window.removeEventListener("resize", updateTopBarTitle);
     };
-  }, [showPageTitle]);
+  }, [showPageTitle, title, centerContent]);
 
   return (
     <PageLayout>
@@ -73,7 +73,7 @@ const PageLayout = styled.div`
 const PageContent = styled.main`
   min-height: 0; // für grid (damit scrollbar)
 
-  // für ProfilePage, wenn ausgeloggt:
+  // für ProfilePage, wenn ausgeloggt + AddPage:
   display: ${({ $centerContent }) => ($centerContent ? "flex" : "block")};
   flex-direction: column;
   justify-content: center;
