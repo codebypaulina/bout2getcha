@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-export async function middleware(req) {
+export async function proxy(req) {
   const { pathname, search } = req.nextUrl; // [ aktuelle URL ]: Pfad + query
 
   // [ public paths ]: whitelist, muss ohne Login erreichbar sein
@@ -36,7 +36,7 @@ export async function middleware(req) {
   return NextResponse.next();
 }
 
-// middleware auf allen pages, außer: _next/static, _next/image, favicon
+// proxy auf allen pages, außer: _next/static, _next/image, favicon
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

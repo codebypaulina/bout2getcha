@@ -11,9 +11,9 @@ import FormEditTransaction from "@/components/FormEditTransaction";
 import FormAddTransaction from "@/components/FormAddTransaction";
 import DeleteConfirmModal from "@/components/DeleteConfirmModal";
 
-import CloseIcon from "/public/icons/close.svg";
-import TrashIcon from "/public/icons/trash.svg";
-import AddIcon from "/public/icons/addNEU.svg";
+import CloseIcon from "@/public/icons/close.svg";
+import TrashIcon from "@/public/icons/trash.svg";
+import AddIcon from "@/public/icons/addNEU.svg";
 
 import {
   getCategoryKey,
