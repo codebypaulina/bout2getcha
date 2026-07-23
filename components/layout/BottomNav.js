@@ -12,9 +12,9 @@ import { DESKTOP_BREAKPOINT } from "@/utils/constants";
 
 export default function BottomNav() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { status } = useSession();
 
-  if (!session) {
+  if (status !== "authenticated") {
     return <Wrapper />;
   } // wenn ausgeloggt, keine actions
 
