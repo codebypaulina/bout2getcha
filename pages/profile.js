@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { mutate } from "swr";
 
 import PageShell from "@/components/layout/PageShell";
+import StatusMessage from "@/components/layout/StatusMessage";
 import LoginSection from "@/components/LoginSection";
 
 import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
@@ -11,10 +12,8 @@ import { getCategoriesKey, getTransactionsKey } from "@/utils/swrKeys";
 export default function ProfilePage() {
   const router = useRouter();
 
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userId = session?.user?.userId;
-
-  const pageTitle = session ? "Profile" : "bout2getcha";
 
   // *** [ LOGIN REDIRECT ] ******************************************************
   const callbackUrl =
@@ -44,9 +43,23 @@ export default function ProfilePage() {
     runBootstrap();
   }, [userId]);
 
+  // *** [ SESSION LOADING ] *****************************************************
+  // während auth-Prüfung: loading state (kein flash)
+  if (status === "loading") {
+    return (
+      <PageShell title="" showPageTitle={false} centerContent>
+        <StatusMessage message="Loading ..." />
+      </PageShell>
+    );
+  }
+
+  // nach auth-Prüfung: profile view
+  const isAuthenticated = status === "authenticated";
+  const pageTitle = isAuthenticated ? "Profile" : "bout2getcha";
+
   return (
-    <PageShell title={pageTitle} centerContent={!session}>
-      <LoginSection callbackUrl={callbackUrl} />
+    <PageShell title={pageTitle} centerContent={!isAuthenticated}>
+      <LoginSection session={session} callbackUrl={callbackUrl} />
     </PageShell>
   );
 }
