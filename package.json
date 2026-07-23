@@ -10,7 +10,7 @@
     "test": "jest --watchAll"
   },
   "dependencies": {
-    "@auth/mongodb-adapter": "^3.6.0",
+    "@auth/mongodb-adapter": "^3.11.3",
     "@nivo/core": "^0.87.0",
     "@nivo/pie": "^0.87.0",
     "eslint": "8.44.0",
@@ -18,7 +18,7 @@
     "mongodb": "^6.9.0",
     "mongoose": "^8.7.0",
     "next": "^14.2.15",
-    "next-auth": "^4.24.8",
+    "next-auth": "^4.24.15",
     "react": "18.3.1",
     "react-day-picker": "^9.14.0",
     "react-dom": "18.3.1",
