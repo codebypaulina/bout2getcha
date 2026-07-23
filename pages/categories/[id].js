@@ -150,7 +150,7 @@ export default function CategoryDetailsPage() {
   // *** [ GUARDS ] ************************************************************************
   if (errorCategory || errorTransactions) {
     return (
-      <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+      <PageShell title="" showPageTitle={false} showBottomNav={false}>
         <StatusMessage variant="error" message="Failed to load data." />
       </PageShell>
     );
@@ -158,7 +158,7 @@ export default function CategoryDetailsPage() {
 
   if (!category || !transactions) {
     return (
-      <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+      <PageShell title="" showPageTitle={false} showBottomNav={false}>
         <StatusMessage message="Loading ..." />
       </PageShell>
     );
@@ -309,7 +309,7 @@ export default function CategoryDetailsPage() {
   // ***************************************************************************************
 
   return (
-    <PageShell title={""} showPageTitle={false} showBottomNav={false}>
+    <PageShell title="" showPageTitle={false} showBottomNav={false}>
       <ContentContainer>
         <ContentHeader>
           <h1>Category Details</h1>

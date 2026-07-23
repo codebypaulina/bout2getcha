@@ -8,8 +8,9 @@ import { DESKTOP_BREAKPOINT } from "@/utils/constants";
 export default function PageShell({
   title,
   children,
-  showPageTitle = true, // für AddingPage
+  showPageTitle = true, // für CategoryDetailsPage
   showBottomNav = true, // für CategoryDetailsPage
+  centerContent = false, // für ProfilePage + AddPage
 }) {
   const pageTitleRef = useRef(null); // h1 in PageContent
   const pageContentRef = useRef(null); // PageContent
@@ -37,13 +38,13 @@ export default function PageShell({
       contentElement?.removeEventListener("scroll", updateTopBarTitle);
       window.removeEventListener("resize", updateTopBarTitle);
     };
-  }, [showPageTitle]);
+  }, [showPageTitle, title, centerContent]);
 
   return (
     <PageLayout>
       <TopBar title={title} showTitle={showTopBarTitle} />
 
-      <PageContent ref={pageContentRef}>
+      <PageContent ref={pageContentRef} $centerContent={centerContent}>
         {showPageTitle ? (
           <PageTitle ref={pageTitleRef}>{title}</PageTitle>
         ) : null}
@@ -71,6 +72,12 @@ const PageLayout = styled.div`
 // [ innere App-Fläche ]: background dunkel, runde Ecken, scrollbar
 const PageContent = styled.main`
   min-height: 0; // für grid (damit scrollbar)
+
+  // für ProfilePage, wenn ausgeloggt + AddPage:
+  display: ${({ $centerContent }) => ($centerContent ? "flex" : "block")};
+  flex-direction: column;
+  justify-content: center;
+
   background-color: var(--color-background-page);
   padding: 20px 30px 30px 30px; // innerer Abstand (zw. TopBar + BottomNav + seitlich)
   overflow-y: auto; // vertikal scrollbar
