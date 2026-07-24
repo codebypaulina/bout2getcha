@@ -21,7 +21,7 @@
     "react-day-picker": "^9.14.0",
     "react-dom": "18.3.1",
     "styled-components": "^6.0.2",
-    "swr": "^2.2.5"
+    "swr": "2.4.2"
   },
   "devDependencies": {
     "@svgr/webpack": "^8.1.0",
